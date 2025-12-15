@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../core/di/injection_container.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/validators.dart';
 import '../../blocs/auth/auth_bloc.dart';
 import '../../blocs/auth/auth_event.dart';
 import '../../blocs/auth/auth_state.dart';
+import '../../blocs/vendor_form/vendor_form_bloc.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/custom_text_field.dart';
 import '../home/home_screen.dart';
@@ -99,7 +101,12 @@ class _LoginScreenState extends State<LoginScreen> {
             // Navigate immediately (no delay needed since we're in the listener)
             print('🚀 [BlocListener] Navigating to home screen...');
             Navigator.of(context).pushReplacement(
-              MaterialPageRoute(builder: (_) => const HomeScreen()),
+              MaterialPageRoute(
+                builder: (_) => BlocProvider<VendorFormBloc>(
+                  create: (_) => sl<VendorFormBloc>(),
+                  child: HomeScreen(user: state.user),
+                ),
+              ),
             );
           } else if (state is AuthFailure) {
             print('❌ [BlocListener] Login failed: ${state.error}');

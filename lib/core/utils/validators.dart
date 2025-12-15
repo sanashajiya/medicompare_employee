@@ -1,3 +1,5 @@
+import 'dart:io';
+
 class Validators {
   static String? validateRequired(String? value, String fieldName) {
     if (value == null || value.trim().isEmpty) {
@@ -5,7 +7,7 @@ class Validators {
     }
     return null;
   }
-  
+
   static String? validateUsername(String? value) {
     if (value == null || value.trim().isEmpty) {
       return 'Username is required';
@@ -15,7 +17,7 @@ class Validators {
     }
     return null;
   }
-  
+
   static String? validatePassword(String? value) {
     if (value == null || value.trim().isEmpty) {
       return 'Password is required';
@@ -25,8 +27,11 @@ class Validators {
     }
     return null;
   }
-  
-  static String? validateConfirmPassword(String? password, String? confirmPassword) {
+
+  static String? validateConfirmPassword(
+    String? password,
+    String? confirmPassword,
+  ) {
     if (confirmPassword == null || confirmPassword.trim().isEmpty) {
       return 'Confirm password is required';
     }
@@ -35,7 +40,7 @@ class Validators {
     }
     return null;
   }
-  
+
   static String? validateEmail(String? value) {
     if (value == null || value.trim().isEmpty) {
       return 'Email is required';
@@ -48,7 +53,7 @@ class Validators {
     }
     return null;
   }
-  
+
   static String? validateMobileNumber(String? value) {
     if (value == null || value.trim().isEmpty) {
       return 'Mobile number is required';
@@ -61,10 +66,10 @@ class Validators {
     }
     return null;
   }
-  
+
   static String? validateOptionalMobileNumber(String? value) {
     if (value == null || value.trim().isEmpty) {
-      return null; // Optional field
+      return null; // optional
     }
     if (value.length != 10) {
       return 'Mobile number must be 10 digits';
@@ -74,7 +79,7 @@ class Validators {
     }
     return null;
   }
-  
+
   static String? validateOtp(String? value, {int length = 6}) {
     if (value == null || value.trim().isEmpty) {
       return 'OTP is required';
@@ -87,22 +92,26 @@ class Validators {
     }
     return null;
   }
-  
+
   static String? validateAccountNumber(String? value) {
     if (value == null || value.trim().isEmpty) {
       return 'Account number is required';
     }
     if (value.length < 9 || value.length > 18) {
-      return 'Account number must be between 9-18 digits';
+      return 'Account number must be between 9–18 digits';
     }
     if (!RegExp(r'^[0-9]+$').hasMatch(value)) {
       return 'Account number must contain only digits';
     }
     return null;
   }
-  
-  static String? validateConfirmAccountNumber(String? accountNumber, String? confirmAccountNumber) {
-    if (confirmAccountNumber == null || confirmAccountNumber.trim().isEmpty) {
+
+  static String? validateConfirmAccountNumber(
+    String? accountNumber,
+    String? confirmAccountNumber,
+  ) {
+    if (confirmAccountNumber == null ||
+        confirmAccountNumber.trim().isEmpty) {
       return 'Confirm account number is required';
     }
     if (accountNumber != confirmAccountNumber) {
@@ -110,7 +119,7 @@ class Validators {
     }
     return null;
   }
-  
+
   static String? validateIfscCode(String? value) {
     if (value == null || value.trim().isEmpty) {
       return 'IFSC code is required';
@@ -121,14 +130,14 @@ class Validators {
     }
     return null;
   }
-  
-  static String? validateFileUpload(String? fileName, String fieldName) {
-    if (fileName == null || fileName.isEmpty) {
+
+  /// ✅ FIXED: accepts File? instead of String?
+  static String? validateFileUpload(File? file, String fieldName) {
+    if (file == null) {
       return '$fieldName is required';
     }
     return null;
   }
-  
+
   Validators._();
 }
-

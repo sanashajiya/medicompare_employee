@@ -1,21 +1,28 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:file_picker/file_picker.dart';
+import '../../../core/constants/api_endpoints.dart';
 import '../../../core/di/injection_container.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/validators.dart';
-import '../../../domain/entities/employee_entity.dart';
-import '../../blocs/employee_form/employee_form_bloc.dart';
-import '../../blocs/employee_form/employee_form_event.dart';
-import '../../blocs/employee_form/employee_form_state.dart';
+import '../../../data/datasources/remote/api_service.dart';
+import '../../../data/models/category_model.dart';
+import '../../../domain/entities/user_entity.dart';
+import '../../../domain/entities/vendor_entity.dart';
+import '../../blocs/vendor_form/vendor_form_bloc.dart';
+import '../../blocs/vendor_form/vendor_form_event.dart';
+import '../../blocs/vendor_form/vendor_form_state.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/custom_text_field.dart';
 import '../../widgets/file_upload_field.dart';
 import '../../widgets/multi_select_dropdown.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final UserEntity user;
+
+  const HomeScreen({super.key, required this.user});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -48,11 +55,16 @@ class _HomeScreenState extends State<HomeScreen> {
   // Multi-select Values
   List<String> _selectedBusinessCategories = [];
 
-  // File Names
-  String? _businessRegistrationFile;
-  String? _gstCertificateFile;
-  String? _panCardFile;
-  String? _professionalLicenseFile;
+  // File objects and names
+  File? _businessRegistrationFile;
+  File? _gstCertificateFile;
+  File? _panCardFile;
+  File? _professionalLicenseFile;
+
+  String? _businessRegistrationFileName;
+  String? _gstCertificateFileName;
+  String? _panCardFileName;
+  String? _professionalLicenseFileName;
 
   // Error States
   String? _firstNameError;
@@ -85,6 +97,12 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _acceptedTerms = false;
   String? _termsError;
 
+  // Category management
+  List<CategoryModel> _availableCategories = [];
+  Map<String, String> _categoryNameToId = {}; // name -> id mapping
+  bool _categoriesLoaded = false;
+  bool _categoriesLoading = false;
+
   final List<String> _businessCategories = [
     'Medicines',
     'Surgeries',
@@ -93,6 +111,73 @@ class _HomeScreenState extends State<HomeScreen> {
     'Nursing Care',
     'Ambulance Service',
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchCategories();
+  }
+
+  Future<void> _fetchCategories() async {
+    if (_categoriesLoading) return;
+    
+    setState(() => _categoriesLoading = true);
+    
+    try {
+      print('🔄 Fetching categories from: ${ApiEndpoints.getCategories}');
+      
+      final apiService = ApiService();
+      final categoriesData = await apiService.getCategories(
+        ApiEndpoints.getCategories,
+      );
+      
+      print('📦 Raw categories data received: ${categoriesData.length} items');
+      
+      final categories = categoriesData
+          .map((json) {
+            print('📄 Parsing category: ${json['name']} (${json['_id']})');
+            return CategoryModel.fromJson(json);
+          })
+          .toList();
+      
+      print('✅ Categories parsed successfully: ${categories.length} items');
+      
+      setState(() {
+        _availableCategories = categories;
+        _categoryNameToId = {
+          for (var cat in categories) cat.name: cat.id
+        };
+        _categoriesLoaded = true;
+        _categoriesLoading = false;
+      });
+      
+      print('✅ Categories loaded and UI updated: ${categories.length}');
+      for (var cat in categories) {
+        print('   - ${cat.name} (${cat.id})');
+      }
+      
+      // Verify dropdown will have items
+      print('📋 Dropdown items: ${_availableCategories.map((c) => c.name).toList()}');
+    } catch (e) {
+      print('❌ Error fetching categories: $e');
+      print('❌ Stack trace: ${StackTrace.current}');
+      
+      setState(() {
+        _categoriesLoaded = true;
+        _categoriesLoading = false;
+      });
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to load categories: $e'),
+            backgroundColor: AppColors.error,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+  }
 
   @override
   void dispose() {
@@ -285,17 +370,48 @@ class _HomeScreenState extends State<HomeScreen> {
     _validateForm();
 
     if (_isFormValid()) {
-      // Create employee entity with all data
-      final employee = EmployeeEntity(
-        name: '${_firstNameController.text} ${_lastNameController.text}',
-        employeeId: DateTime.now().millisecondsSinceEpoch.toString(),
-        department: _selectedBusinessCategories.join(', '),
+      // Create vendor entity with all data
+      final vendor = VendorEntity(
+        firstName: _firstNameController.text,
+        lastName: _lastNameController.text,
         email: _emailController.text,
-        mobileNumber: _phoneController.text,
-        isMobileVerified: true,
+        password: _passwordController.text,
+        mobile: _phoneController.text,
+        businessName: _businessNameController.text,
+        businessEmail: _businessEmailController.text,
+        altMobile: _altBusinessMobileController.text,
+        address: _businessAddressController.text,
+        categories: _selectedBusinessCategories,
+        bussinessmobile: _businessMobileController.text,
+        docNames: [
+          'PAN Card',
+          'GST Certificate',
+          'Business Registration',
+          'Professional License',
+        ],
+        docIds: ['PAN', 'GST', 'BR', 'PL'],
+        documentNumbers: [
+          '',
+          '',
+          '',
+          '',
+        ], // Add document number fields if needed
+        files: [
+          _panCardFile,
+          _gstCertificateFile,
+          _businessRegistrationFile,
+          _professionalLicenseFile,
+        ],
+        bankName: _bankNameController.text,
+        accountName: _accountHolderNameController.text,
+        accountNumber: _accountNumberController.text,
+        ifscCode: _ifscCodeController.text,
+        branchName: _bankBranchController.text,
       );
 
-      context.read<EmployeeFormBloc>().add(EmployeeFormSubmitted(employee));
+      context.read<VendorFormBloc>().add(
+        VendorFormSubmitted(vendor, widget.user.token),
+      );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -306,83 +422,119 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Future<void> _pickFile(String fieldName) async {
-    try {
-      // Pick a file from the device
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.any,
-        allowMultiple: false,
-        withData: false,
-        withReadStream: false,
-      );
+Future<void> _pickFile(String fieldName) async {
+  try {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: const [
+        'pdf',
+        'doc',
+        'docx',
+        'xls',
+        'xlsx',
+      ],
+      allowMultiple: false,
+      withData: false,
+      withReadStream: false,
+    );
 
-      if (result != null && result.files.isNotEmpty) {
-        final file = result.files.first;
-        if (file.name.isNotEmpty) {
-          setState(() {
-            switch (fieldName) {
-              case 'business_registration':
-                _businessRegistrationFile = file.name;
-                break;
-              case 'gst_certificate':
-                _gstCertificateFile = file.name;
-                break;
-              case 'pan_card':
-                _panCardFile = file.name;
-                break;
-              case 'professional_license':
-                _professionalLicenseFile = file.name;
-                break;
-            }
-          });
-          _validateForm();
+    if (result == null || result.files.isEmpty) return;
 
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('File selected: ${file.name}'),
-                backgroundColor: AppColors.success,
-                duration: const Duration(seconds: 2),
-              ),
-            );
-          }
-        }
-      }
-    } on PlatformException catch (e) {
+    final platformFile = result.files.first;
+
+    if (platformFile.path == null) return;
+
+    final file = File(platformFile.path!);
+
+    // Extra safety: validate extension
+    final extension = platformFile.extension?.toLowerCase();
+    const allowedExtensions = ['pdf', 'doc', 'docx', 'xls', 'xlsx'];
+
+    if (extension == null || !allowedExtensions.contains(extension)) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+          const SnackBar(
             content: Text(
-              'Failed to pick file: ${e.message ?? "Unknown error"}',
+              'Only PDF, Word, and Excel files are allowed',
             ),
             backgroundColor: AppColors.error,
           ),
         );
       }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: ${e.toString()}'),
-            backgroundColor: AppColors.error,
-          ),
-        );
+      return;
+    }
+
+    setState(() {
+      switch (fieldName) {
+        case 'business_registration':
+          _businessRegistrationFile = file;
+          _businessRegistrationFileName = platformFile.name;
+          break;
+
+        case 'gst_certificate':
+          _gstCertificateFile = file;
+          _gstCertificateFileName = platformFile.name;
+          break;
+
+        case 'pan_card':
+          _panCardFile = file;
+          _panCardFileName = platformFile.name;
+          break;
+
+        case 'professional_license':
+          _professionalLicenseFile = file;
+          _professionalLicenseFileName = platformFile.name;
+          break;
       }
+    });
+
+    _validateForm();
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('File selected: ${platformFile.name}'),
+          backgroundColor: AppColors.success,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  } on PlatformException catch (e) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Failed to pick file: ${e.message ?? "Unknown error"}',
+          ),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    }
+  } catch (e) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: AppColors.error,
+        ),
+      );
     }
   }
+}
+ 
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (_) => sl<EmployeeFormBloc>(),
+      create: (_) => sl<VendorFormBloc>(),
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Complete Your Vendor Profile'),
           automaticallyImplyLeading: false,
         ),
-        body: BlocListener<EmployeeFormBloc, EmployeeFormState>(
+        body: BlocListener<VendorFormBloc, VendorFormState>(
           listener: (context, state) {
-            if (state is EmployeeFormSuccess) {
+            if (state is VendorFormSuccess) {
               showDialog(
                 context: context,
                 barrierDismissible: false,
@@ -433,15 +585,13 @@ class _HomeScreenState extends State<HomeScreen> {
                           _acceptedTerms = false;
                           _showErrors = false;
                         });
-                        context.read<EmployeeFormBloc>().add(
-                          EmployeeFormReset(),
-                        );
+                        context.read<VendorFormBloc>().add(VendorFormReset());
                       },
                     ),
                   ],
                 ),
               );
-            } else if (state is EmployeeFormFailure) {
+            } else if (state is VendorFormFailure) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(state.error),
@@ -450,9 +600,9 @@ class _HomeScreenState extends State<HomeScreen> {
               );
             }
           },
-          child: BlocBuilder<EmployeeFormBloc, EmployeeFormState>(
+          child: BlocBuilder<VendorFormBloc, VendorFormState>(
             builder: (context, state) {
-              final isSubmitting = state is EmployeeFormSubmitting;
+              final isSubmitting = state is VendorFormSubmitting;
 
               return SingleChildScrollView(
                 padding: const EdgeInsets.all(8),
@@ -611,8 +761,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           selectedValues: _selectedBusinessCategories,
                           hint: 'Select your business categories',
                           errorText: _businessCategoryError,
-                          items: _businessCategories,
-                          enabled: !isSubmitting,
+                          items: _availableCategories.map((cat) => cat.name).toList(),
+                          enabled: !isSubmitting && _categoriesLoaded,
                           onChanged: (values) {
                             setState(
                               () => _selectedBusinessCategories = values,
@@ -736,7 +886,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       children: [
                         FileUploadField(
                           label: 'Business Registration Certificate',
-                          fileName: _businessRegistrationFile,
+                          fileName: _businessRegistrationFileName,
                           errorText: _businessRegistrationError,
                           required: true,
                           enabled: !isSubmitting,
@@ -745,7 +895,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         const SizedBox(height: 20),
                         FileUploadField(
                           label: 'GST Registration Certificate',
-                          fileName: _gstCertificateFile,
+                          fileName: _gstCertificateFileName,
                           errorText: _gstCertificateError,
                           required: true,
                           enabled: !isSubmitting,
@@ -754,7 +904,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         const SizedBox(height: 20),
                         FileUploadField(
                           label: 'PAN Card',
-                          fileName: _panCardFile,
+                          fileName: _panCardFileName,
                           errorText: _panCardError,
                           required: true,
                           enabled: !isSubmitting,
@@ -763,7 +913,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         const SizedBox(height: 20),
                         FileUploadField(
                           label: 'Professional License',
-                          fileName: _professionalLicenseFile,
+                          fileName: _professionalLicenseFileName,
                           errorText: _professionalLicenseError,
                           required: true,
                           enabled: !isSubmitting,

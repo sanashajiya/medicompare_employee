@@ -5,9 +5,12 @@ import '../../data/datasources/remote/api_service.dart';
 import '../../data/repositories/auth_repository_impl.dart';
 import '../../data/repositories/employee_repository_impl.dart';
 import '../../data/repositories/otp_repository_impl.dart';
+import '../../data/repositories/vendor_repository_impl.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../../domain/repositories/employee_repository.dart';
 import '../../domain/repositories/otp_repository.dart';
+import '../../domain/repositories/vendor_repository.dart';
+import '../../domain/usecases/create_vendor_usecase.dart';
 import '../../domain/usecases/login_usecase.dart';
 import '../../domain/usecases/send_otp_usecase.dart';
 import '../../domain/usecases/submit_employee_form_usecase.dart';
@@ -15,6 +18,7 @@ import '../../domain/usecases/verify_otp_usecase.dart';
 import '../../presentation/blocs/auth/auth_bloc.dart';
 import '../../presentation/blocs/employee_form/employee_form_bloc.dart';
 import '../../presentation/blocs/otp/otp_bloc.dart';
+import '../../presentation/blocs/vendor_form/vendor_form_bloc.dart';
 
 final sl = GetIt.instance;
 
@@ -31,12 +35,14 @@ Future<void> initializeDependencies() async {
   sl.registerLazySingleton<EmployeeRepository>(
     () => EmployeeRepositoryImpl(sl()),
   );
+  sl.registerLazySingleton<VendorRepository>(() => VendorRepositoryImpl(sl()));
 
   // Use cases
   sl.registerLazySingleton(() => LoginUseCase(sl()));
   sl.registerLazySingleton(() => SendOtpUseCase(sl()));
   sl.registerLazySingleton(() => VerifyOtpUseCase(sl()));
   sl.registerLazySingleton(() => SubmitEmployeeFormUseCase(sl()));
+  sl.registerLazySingleton(() => CreateVendorUseCase(sl()));
 
   // Blocs
   sl.registerFactory<AuthBloc>(
@@ -46,4 +52,5 @@ Future<void> initializeDependencies() async {
     () => OtpBloc(sendOtpUseCase: sl(), verifyOtpUseCase: sl()),
   );
   sl.registerFactory(() => EmployeeFormBloc(submitEmployeeFormUseCase: sl()));
+  sl.registerFactory(() => VendorFormBloc(createVendorUseCase: sl()));
 }
