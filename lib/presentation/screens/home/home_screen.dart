@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:file_picker/file_picker.dart';
 import '../../../core/di/injection_container.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/validators.dart';
@@ -159,10 +160,10 @@ class _HomeScreenState extends State<HomeScreen> {
               _altBusinessMobileController.text,
             )
           : null;
-        _businessCategoryError =
-            _showErrors && _selectedBusinessCategories.isEmpty
-                ? 'Please select at least one business category'
-                : null;
+      _businessCategoryError =
+          _showErrors && _selectedBusinessCategories.isEmpty
+          ? 'Please select at least one business category'
+          : null;
       _businessAddressError = _showErrors
           ? Validators.validateRequired(
               _businessAddressController.text,
@@ -296,26 +297,67 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  void _pickFile(String fieldName) {
-    // Simulate file picker (in real app, use file_picker package)
-    setState(() {
-      final fileName = 'document_${DateTime.now().millisecondsSinceEpoch}.pdf';
-      switch (fieldName) {
-        case 'business_registration':
-          _businessRegistrationFile = fileName;
-          break;
-        case 'gst_certificate':
-          _gstCertificateFile = fileName;
-          break;
-        case 'pan_card':
-          _panCardFile = fileName;
-          break;
-        case 'professional_license':
-          _professionalLicenseFile = fileName;
-          break;
+  Future<void> _pickFile(String fieldName) async {
+    try {
+      // Pick a file from the device
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.any,
+        allowMultiple: false,
+        withData: false,
+        withReadStream: false,
+      );
+
+      if (result != null && result.files.isNotEmpty) {
+        final file = result.files.first;
+        if (file.name.isNotEmpty) {
+          setState(() {
+            switch (fieldName) {
+              case 'business_registration':
+                _businessRegistrationFile = file.name;
+                break;
+              case 'gst_certificate':
+                _gstCertificateFile = file.name;
+                break;
+              case 'pan_card':
+                _panCardFile = file.name;
+                break;
+              case 'professional_license':
+                _professionalLicenseFile = file.name;
+                break;
+            }
+          });
+          _validateForm();
+          
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('File selected: ${file.name}'),
+                backgroundColor: AppColors.success,
+                duration: const Duration(seconds: 2),
+              ),
+            );
+          }
+        }
       }
-    });
-    _validateForm();
+    } on PlatformException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to pick file: ${e.message ?? "Unknown error"}'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: ${e.toString()}'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -560,7 +602,9 @@ class _HomeScreenState extends State<HomeScreen> {
                           items: _businessCategories,
                           enabled: !isSubmitting,
                           onChanged: (values) {
-                            setState(() => _selectedBusinessCategories = values);
+                            setState(
+                              () => _selectedBusinessCategories = values,
+                            );
                             _validateForm();
                           },
                         ),
