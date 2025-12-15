@@ -11,29 +11,59 @@ class AuthRepositoryImpl implements AuthRepository {
   
   @override
   Future<UserEntity> login({
-    required String username,
+    required String email,
     required String password,
   }) async {
     try {
       final response = await apiService.post(
         ApiEndpoints.login,
         {
-          'username': username,
+          'email': email,
           'password': password,
         },
       );
       
-      // For dummy API, simulate success response
-      return UserModel.fromJson(response);
+      print('🔍 Login API Response: $response');
+      print('🔍 Success field: ${response['success']}');
+      print('🔍 Data field: ${response['data']}');
+      
+      // Check if the login was successful
+      if (response['success'] == true) {
+        final user = UserModel.fromJson(response);
+        print('✅ User parsed successfully: ${user.email}');
+        return user;
+      } else {
+        final errorMessage = response['message'] ?? 'Login failed';
+        print('❌ Login failed: $errorMessage');
+        throw Exception(errorMessage);
+      }
+    } on Exception catch (e) {
+      final errorString = e.toString();
+      
+      // Handle specific error cases
+      if (errorString.contains('SocketException') || 
+          errorString.contains('Failed host lookup')) {
+        throw Exception('Unable to connect to server. Please check your internet connection.');
+      } else if (errorString.contains('TimeoutException')) {
+        throw Exception('Connection timed out. Please try again.');
+      } else if (errorString.contains('FormatException')) {
+        throw Exception('Invalid server response. Please try again later.');
+      } else if (errorString.contains('API Error: 401')) {
+        throw Exception('Invalid email or password.');
+      } else if (errorString.contains('API Error: 404')) {
+        throw Exception('Login service not found. Please contact support.');
+      } else if (errorString.contains('API Error: 500') || 
+                 errorString.contains('API Error: 502') ||
+                 errorString.contains('API Error: 503')) {
+        throw Exception('Server error. Please try again later.');
+      } else if (errorString.startsWith('Exception: ')) {
+        // Already formatted exception, just rethrow
+        rethrow;
+      } else {
+        throw Exception('Login failed. Please try again.');
+      }
     } catch (e) {
-      // For demo purposes, simulate a successful login with dummy data
-      // In production, this should throw the actual error
-      await Future.delayed(const Duration(seconds: 1));
-      return const UserModel(
-        id: '123',
-        username: 'demo_user',
-        token: 'dummy_token_123',
-      );
+      throw Exception('An unexpected error occurred: ${e.toString()}');
     }
   }
 }

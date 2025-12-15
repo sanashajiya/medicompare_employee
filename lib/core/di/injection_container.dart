@@ -21,35 +21,29 @@ final sl = GetIt.instance;
 Future<void> initializeDependencies() async {
   // External
   sl.registerLazySingleton(() => http.Client());
-  
+
   // Data sources
   sl.registerLazySingleton(() => ApiService(client: sl()));
-  
+
   // Repositories
-  sl.registerLazySingleton<AuthRepository>(
-    () => AuthRepositoryImpl(sl()),
-  );
-  sl.registerLazySingleton<OtpRepository>(
-    () => OtpRepositoryImpl(sl()),
-  );
+  sl.registerLazySingleton<AuthRepository>(() => AuthRepositoryImpl(sl()));
+  sl.registerLazySingleton<OtpRepository>(() => OtpRepositoryImpl(sl()));
   sl.registerLazySingleton<EmployeeRepository>(
     () => EmployeeRepositoryImpl(sl()),
   );
-  
+
   // Use cases
   sl.registerLazySingleton(() => LoginUseCase(sl()));
   sl.registerLazySingleton(() => SendOtpUseCase(sl()));
   sl.registerLazySingleton(() => VerifyOtpUseCase(sl()));
   sl.registerLazySingleton(() => SubmitEmployeeFormUseCase(sl()));
-  
-  // Blocs
-  sl.registerFactory(() => AuthBloc(loginUseCase: sl()));
-  sl.registerFactory(() => OtpBloc(
-    sendOtpUseCase: sl(),
-    verifyOtpUseCase: sl(),
-  ));
-  sl.registerFactory(() => EmployeeFormBloc(
-    submitEmployeeFormUseCase: sl(),
-  ));
-}
 
+  // Blocs
+  sl.registerFactory<AuthBloc>(
+    () => AuthBloc(loginUseCase: sl<LoginUseCase>()),
+  );
+  sl.registerFactory(
+    () => OtpBloc(sendOtpUseCase: sl(), verifyOtpUseCase: sl()),
+  );
+  sl.registerFactory(() => EmployeeFormBloc(submitEmployeeFormUseCase: sl()));
+}

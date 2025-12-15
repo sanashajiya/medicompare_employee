@@ -1,8 +1,8 @@
 class ApiEndpoints {
-  static const String baseUrl = 'https://api.example.com'; // Replace with actual API URL
+  static const String baseUrl = 'http://192.168.0.161:9001/api/v1';
   
   // Authentication endpoints
-  static const String login = '$baseUrl/auth/login';
+  static const String login = '$baseUrl/employeevendor/auth/login';
   
   // OTP endpoints
   static const String sendOtp = '$baseUrl/otp/send';
