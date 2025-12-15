@@ -82,6 +82,8 @@ class _HomeScreenState extends State<HomeScreen> {
   String? _professionalLicenseError;
 
   bool _showErrors = false;
+  bool _acceptedTerms = false;
+  String? _termsError;
 
   final List<String> _businessCategories = [
     'Medicines',
@@ -222,6 +224,11 @@ class _HomeScreenState extends State<HomeScreen> {
               'Professional License',
             )
           : null;
+
+      // Terms and Conditions Validation
+      _termsError = _showErrors && !_acceptedTerms
+          ? 'You must accept the Terms and Conditions'
+          : null;
     });
   }
 
@@ -248,6 +255,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _gstCertificateError == null &&
         _panCardError == null &&
         _professionalLicenseError == null &&
+        _termsError == null &&
         _firstNameController.text.isNotEmpty &&
         _lastNameController.text.isNotEmpty &&
         _emailController.text.isNotEmpty &&
@@ -268,7 +276,8 @@ class _HomeScreenState extends State<HomeScreen> {
         _businessRegistrationFile != null &&
         _gstCertificateFile != null &&
         _panCardFile != null &&
-        _professionalLicenseFile != null;
+        _professionalLicenseFile != null &&
+        _acceptedTerms;
   }
 
   void _onSubmit() {
@@ -327,7 +336,7 @@ class _HomeScreenState extends State<HomeScreen> {
             }
           });
           _validateForm();
-          
+
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -343,7 +352,9 @@ class _HomeScreenState extends State<HomeScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to pick file: ${e.message ?? "Unknown error"}'),
+            content: Text(
+              'Failed to pick file: ${e.message ?? "Unknown error"}',
+            ),
             backgroundColor: AppColors.error,
           ),
         );
@@ -419,6 +430,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           _gstCertificateFile = null;
                           _panCardFile = null;
                           _professionalLicenseFile = null;
+                          _acceptedTerms = false;
                           _showErrors = false;
                         });
                         context.read<EmployeeFormBloc>().add(
@@ -760,7 +772,95 @@ class _HomeScreenState extends State<HomeScreen> {
                       ],
                     ),
 
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 24),
+
+                    // Terms and Conditions Checkbox
+                    Card(
+                      elevation: 2,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Checkbox(
+                                  value: _acceptedTerms,
+                                  onChanged: isSubmitting
+                                      ? null
+                                      : (value) {
+                                          setState(() {
+                                            _acceptedTerms = value ?? false;
+                                          });
+                                          _validateForm();
+                                        },
+                                  activeColor: AppColors.primary,
+                                ),
+                                Expanded(
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(top: 12),
+                                    child: RichText(
+                                      text: TextSpan(
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodyMedium
+                                            ?.copyWith(
+                                              color: AppColors.textPrimary,
+                                            ),
+                                        children: [
+                                          const TextSpan(
+                                            text: 'I agree to the ',
+                                          ),
+                                          TextSpan(
+                                            text: 'Terms and Conditions',
+                                            style: const TextStyle(
+                                              color: AppColors.primary,
+                                              decoration:
+                                                  TextDecoration.underline,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                          const TextSpan(text: ' and '),
+                                          TextSpan(
+                                            text: 'Privacy Policy',
+                                            style: const TextStyle(
+                                              color: AppColors.primary,
+                                              decoration:
+                                                  TextDecoration.underline,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            if (_termsError != null)
+                              Padding(
+                                padding: const EdgeInsets.only(
+                                  left: 48,
+                                  top: 4,
+                                ),
+                                child: Text(
+                                  _termsError!,
+                                  style: const TextStyle(
+                                    color: AppColors.error,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 24),
 
                     // Submit Button
                     CustomButton(
