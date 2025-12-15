@@ -9,9 +9,9 @@ import '../../blocs/employee_form/employee_form_bloc.dart';
 import '../../blocs/employee_form/employee_form_event.dart';
 import '../../blocs/employee_form/employee_form_state.dart';
 import '../../widgets/custom_button.dart';
-import '../../widgets/custom_dropdown.dart';
 import '../../widgets/custom_text_field.dart';
 import '../../widgets/file_upload_field.dart';
+import '../../widgets/multi_select_dropdown.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -44,8 +44,8 @@ class _HomeScreenState extends State<HomeScreen> {
   final _bankNameController = TextEditingController();
   final _bankBranchController = TextEditingController();
 
-  // Dropdown Values
-  String? _selectedBusinessCategory;
+  // Multi-select Values
+  List<String> _selectedBusinessCategories = [];
 
   // File Names
   String? _businessRegistrationFile;
@@ -83,14 +83,12 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _showErrors = false;
 
   final List<String> _businessCategories = [
-    'Pharmaceuticals',
-    'Medical Devices',
-    'Healthcare Services',
+    'Medicines',
+    'Surgeries',
+    'Lab Tests',
     'Diagnostics',
-    'Hospital Equipment',
-    'Medical Supplies',
-    'Healthcare IT',
-    'Other',
+    'Nursing Care',
+    'Ambulance Service',
   ];
 
   @override
@@ -161,9 +159,10 @@ class _HomeScreenState extends State<HomeScreen> {
               _altBusinessMobileController.text,
             )
           : null;
-      _businessCategoryError = _showErrors && _selectedBusinessCategory == null
-          ? 'Please select a business category'
-          : null;
+        _businessCategoryError =
+            _showErrors && _selectedBusinessCategories.isEmpty
+                ? 'Please select at least one business category'
+                : null;
       _businessAddressError = _showErrors
           ? Validators.validateRequired(
               _businessAddressController.text,
@@ -257,7 +256,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _businessNameController.text.isNotEmpty &&
         _businessEmailController.text.isNotEmpty &&
         _businessMobileController.text.isNotEmpty &&
-        _selectedBusinessCategory != null &&
+        _selectedBusinessCategories.isNotEmpty &&
         _businessAddressController.text.isNotEmpty &&
         _accountNumberController.text.isNotEmpty &&
         _confirmAccountNumberController.text.isNotEmpty &&
@@ -280,7 +279,7 @@ class _HomeScreenState extends State<HomeScreen> {
       final employee = EmployeeEntity(
         name: '${_firstNameController.text} ${_lastNameController.text}',
         employeeId: DateTime.now().millisecondsSinceEpoch.toString(),
-        department: _selectedBusinessCategory ?? '',
+        department: _selectedBusinessCategories.join(', '),
         email: _emailController.text,
         mobileNumber: _phoneController.text,
         isMobileVerified: true,
@@ -373,7 +372,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           _ifscCodeController.clear();
                           _bankNameController.clear();
                           _bankBranchController.clear();
-                          _selectedBusinessCategory = null;
+                          _selectedBusinessCategories = [];
                           _businessRegistrationFile = null;
                           _gstCertificateFile = null;
                           _panCardFile = null;
@@ -553,15 +552,15 @@ class _HomeScreenState extends State<HomeScreen> {
                           ],
                         ),
                         const SizedBox(height: 20),
-                        CustomDropdown(
+                        MultiSelectDropdown(
                           label: 'Business Categories *',
-                          value: _selectedBusinessCategory,
+                          selectedValues: _selectedBusinessCategories,
                           hint: 'Select your business categories',
                           errorText: _businessCategoryError,
                           items: _businessCategories,
                           enabled: !isSubmitting,
-                          onChanged: (value) {
-                            setState(() => _selectedBusinessCategory = value);
+                          onChanged: (values) {
+                            setState(() => _selectedBusinessCategories = values);
                             _validateForm();
                           },
                         ),
