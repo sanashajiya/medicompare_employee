@@ -54,29 +54,37 @@ class Validators {
     return null;
   }
 
+  static final RegExp _mobileRegex = RegExp(r'^[6-9]\d{9}$');
   static String? validateMobileNumber(String? value) {
     if (value == null || value.trim().isEmpty) {
       return 'Mobile number is required';
     }
-    if (value.length != 10) {
-      return 'Mobile number must be 10 digits';
+
+    if (!_mobileRegex.hasMatch(value)) {
+      return 'Enter a valid 10-digit mobile number starting with 6–9';
     }
-    if (!RegExp(r'^[0-9]+$').hasMatch(value)) {
-      return 'Mobile number must contain only digits';
+
+    // Extra safety check
+    if (value == '0000000000') {
+      return 'Enter a valid 10-digit mobile number';
     }
+
     return null;
   }
 
   static String? validateOptionalMobileNumber(String? value) {
     if (value == null || value.trim().isEmpty) {
-      return null; // optional
+      return null; // optional field
     }
-    if (value.length != 10) {
-      return 'Mobile number must be 10 digits';
+
+    if (!_mobileRegex.hasMatch(value)) {
+      return 'Enter a valid 10-digit mobile number starting with 6–9';
     }
-    if (!RegExp(r'^[0-9]+$').hasMatch(value)) {
-      return 'Mobile number must contain only digits';
+
+    if (value == '0000000000') {
+      return 'Enter a valid 10-digit mobile number';
     }
+
     return null;
   }
 
@@ -93,16 +101,53 @@ class Validators {
     return null;
   }
 
+  static String? validateAlphaOnly(
+    String? value,
+    String fieldName, {
+    int minLength = 2,
+  }) {
+    if (value == null || value.trim().isEmpty) {
+      return '$fieldName is required';
+    }
+
+    final trimmedValue = value.trim();
+
+    // Only alphabets and spaces
+    final alphaRegex = RegExp(r'^[A-Za-z ]+$');
+
+    if (!alphaRegex.hasMatch(trimmedValue)) {
+      return '$fieldName should contain only alphabets';
+    }
+
+    if (trimmedValue.length < minLength) {
+      return '$fieldName must be at least $minLength characters';
+    }
+
+    return null;
+  }
+
   static String? validateAccountNumber(String? value) {
     if (value == null || value.trim().isEmpty) {
       return 'Account number is required';
     }
-    if (value.length < 9 || value.length > 18) {
-      return 'Account number must be between 9–18 digits';
-    }
-    if (!RegExp(r'^[0-9]+$').hasMatch(value)) {
+
+    final trimmedValue = value.trim();
+
+    // Digits only
+    if (!RegExp(r'^[0-9]+$').hasMatch(trimmedValue)) {
       return 'Account number must contain only digits';
     }
+
+    // Length check (India-safe)
+    if (trimmedValue.length < 9 || trimmedValue.length > 18) {
+      return 'Account number must be between 9–18 digits';
+    }
+
+    // Reject all same digits (000000000, 111111111, etc.)
+    if (RegExp(r'^(\d)\1+$').hasMatch(trimmedValue)) {
+      return 'Enter a valid account number';
+    }
+
     return null;
   }
 
@@ -110,8 +155,7 @@ class Validators {
     String? accountNumber,
     String? confirmAccountNumber,
   ) {
-    if (confirmAccountNumber == null ||
-        confirmAccountNumber.trim().isEmpty) {
+    if (confirmAccountNumber == null || confirmAccountNumber.trim().isEmpty) {
       return 'Confirm account number is required';
     }
     if (accountNumber != confirmAccountNumber) {

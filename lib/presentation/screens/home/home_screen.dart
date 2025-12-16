@@ -110,53 +110,51 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _fetchCategories() async {
     if (_categoriesLoading) return;
-    
+
     setState(() => _categoriesLoading = true);
-    
+
     try {
       print('🔄 Fetching categories from: ${ApiEndpoints.getCategories}');
-      
+
       final apiService = ApiService();
       final categoriesData = await apiService.getCategories(
         ApiEndpoints.getCategories,
       );
-      
+
       print('📦 Raw categories data received: ${categoriesData.length} items');
-      
-      final categories = categoriesData
-          .map((json) {
-            print('📄 Parsing category: ${json['name']} (${json['_id']})');
-            return CategoryModel.fromJson(json);
-          })
-          .toList();
-      
+
+      final categories = categoriesData.map((json) {
+        print('📄 Parsing category: ${json['name']} (${json['_id']})');
+        return CategoryModel.fromJson(json);
+      }).toList();
+
       print('✅ Categories parsed successfully: ${categories.length} items');
-      
+
       setState(() {
         _availableCategories = categories;
-        _categoryNameToId = {
-          for (var cat in categories) cat.name: cat.id
-        };
+        _categoryNameToId = {for (var cat in categories) cat.name: cat.id};
         _categoriesLoaded = true;
         _categoriesLoading = false;
       });
-      
+
       print('✅ Categories loaded and UI updated: ${categories.length}');
       for (var cat in categories) {
         print('   - ${cat.name} (${cat.id})');
       }
-      
+
       // Verify dropdown will have items
-      print('📋 Dropdown items: ${_availableCategories.map((c) => c.name).toList()}');
+      print(
+        '📋 Dropdown items: ${_availableCategories.map((c) => c.name).toList()}',
+      );
     } catch (e) {
       print('❌ Error fetching categories: $e');
       print('❌ Stack trace: ${StackTrace.current}');
-      
+
       setState(() {
         _categoriesLoaded = true;
         _categoriesLoading = false;
       });
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -259,7 +257,7 @@ class _HomeScreenState extends State<HomeScreen> {
             )
           : null;
       _accountHolderNameError = _showErrors
-          ? Validators.validateRequired(
+          ? Validators.validateAlphaOnly(
               _accountHolderNameController.text,
               'Account Holder Name',
             )
@@ -268,10 +266,10 @@ class _HomeScreenState extends State<HomeScreen> {
           ? Validators.validateIfscCode(_ifscCodeController.text)
           : null;
       _bankNameError = _showErrors
-          ? Validators.validateRequired(_bankNameController.text, 'Bank Name')
+          ? Validators.validateAlphaOnly(_bankNameController.text, 'Bank Name')
           : null;
       _bankBranchError = _showErrors
-          ? Validators.validateRequired(
+          ? Validators.validateAlphaOnly(
               _bankBranchController.text,
               'Bank Branch',
             )
@@ -412,106 +410,97 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-Future<void> _pickFile(String fieldName) async {
-  try {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: const [
-        'pdf',
-        'doc',
-        'docx',
-        'xls',
-        'xlsx',
-      ],
-      allowMultiple: false,
-      withData: false,
-      withReadStream: false,
-    );
+  Future<void> _pickFile(String fieldName) async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: const ['pdf', 'doc', 'docx', 'xls', 'xlsx'],
+        allowMultiple: false,
+        withData: false,
+        withReadStream: false,
+      );
 
-    if (result == null || result.files.isEmpty) return;
+      if (result == null || result.files.isEmpty) return;
 
-    final platformFile = result.files.first;
+      final platformFile = result.files.first;
 
-    if (platformFile.path == null) return;
+      if (platformFile.path == null) return;
 
-    final file = File(platformFile.path!);
+      final file = File(platformFile.path!);
 
-    // Extra safety: validate extension
-    final extension = platformFile.extension?.toLowerCase();
-    const allowedExtensions = ['pdf', 'doc', 'docx', 'xls', 'xlsx'];
+      // Extra safety: validate extension
+      final extension = platformFile.extension?.toLowerCase();
+      const allowedExtensions = ['pdf', 'doc', 'docx', 'xls', 'xlsx'];
 
-    if (extension == null || !allowedExtensions.contains(extension)) {
+      if (extension == null || !allowedExtensions.contains(extension)) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Only PDF, Word, and Excel files are allowed'),
+              backgroundColor: AppColors.error,
+            ),
+          );
+        }
+        return;
+      }
+
+      setState(() {
+        switch (fieldName) {
+          case 'business_registration':
+            _businessRegistrationFile = file;
+            _businessRegistrationFileName = platformFile.name;
+            break;
+
+          case 'gst_certificate':
+            _gstCertificateFile = file;
+            _gstCertificateFileName = platformFile.name;
+            break;
+
+          case 'pan_card':
+            _panCardFile = file;
+            _panCardFileName = platformFile.name;
+            break;
+
+          case 'professional_license':
+            _professionalLicenseFile = file;
+            _professionalLicenseFileName = platformFile.name;
+            break;
+        }
+      });
+
+      _validateForm();
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
+            content: Text('File selected: ${platformFile.name}'),
+            backgroundColor: AppColors.success,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } on PlatformException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
             content: Text(
-              'Only PDF, Word, and Excel files are allowed',
+              'Failed to pick file: ${e.message ?? "Unknown error"}',
             ),
             backgroundColor: AppColors.error,
           ),
         );
       }
-      return;
-    }
-
-    setState(() {
-      switch (fieldName) {
-        case 'business_registration':
-          _businessRegistrationFile = file;
-          _businessRegistrationFileName = platformFile.name;
-          break;
-
-        case 'gst_certificate':
-          _gstCertificateFile = file;
-          _gstCertificateFileName = platformFile.name;
-          break;
-
-        case 'pan_card':
-          _panCardFile = file;
-          _panCardFileName = platformFile.name;
-          break;
-
-        case 'professional_license':
-          _professionalLicenseFile = file;
-          _professionalLicenseFileName = platformFile.name;
-          break;
-      }
-    });
-
-    _validateForm();
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('File selected: ${platformFile.name}'),
-          backgroundColor: AppColors.success,
-          duration: const Duration(seconds: 2),
-        ),
-      );
-    }
-  } on PlatformException catch (e) {
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Failed to pick file: ${e.message ?? "Unknown error"}',
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: AppColors.error,
           ),
-          backgroundColor: AppColors.error,
-        ),
-      );
-    }
-  } catch (e) {
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: $e'),
-          backgroundColor: AppColors.error,
-        ),
-      );
+        );
+      }
     }
   }
-}
- 
 
   @override
   Widget build(BuildContext context) {
@@ -617,7 +606,9 @@ Future<void> _pickFile(String fieldName) async {
                               _acceptedTerms = false;
                               _showErrors = false;
                             });
-                            context.read<VendorFormBloc>().add(VendorFormReset());
+                            context.read<VendorFormBloc>().add(
+                              VendorFormReset(),
+                            );
                           },
                         ),
                       ),
@@ -638,7 +629,7 @@ Future<void> _pickFile(String fieldName) async {
         child: BlocBuilder<VendorFormBloc, VendorFormState>(
           builder: (context, state) {
             final isSubmitting = state is VendorFormSubmitting;
-    
+
             return SingleChildScrollView(
               padding: const EdgeInsets.all(8),
               child: Column(
@@ -721,9 +712,9 @@ Future<void> _pickFile(String fieldName) async {
                       ),
                     ],
                   ),
-    
+
                   const SizedBox(height: 24),
-    
+
                   // Business Details Section
                   _buildSectionCard(
                     context,
@@ -796,12 +787,12 @@ Future<void> _pickFile(String fieldName) async {
                         selectedValues: _selectedBusinessCategories,
                         hint: 'Select your business categories',
                         errorText: _businessCategoryError,
-                        items: _availableCategories.map((cat) => cat.name).toList(),
+                        items: _availableCategories
+                            .map((cat) => cat.name)
+                            .toList(),
                         enabled: !isSubmitting && _categoriesLoaded,
                         onChanged: (values) {
-                          setState(
-                            () => _selectedBusinessCategories = values,
-                          );
+                          setState(() => _selectedBusinessCategories = values);
                           _validateForm();
                         },
                       ),
@@ -817,9 +808,9 @@ Future<void> _pickFile(String fieldName) async {
                       ),
                     ],
                   ),
-    
+
                   const SizedBox(height: 24),
-    
+
                   // Banking Information Section
                   _buildSectionCard(
                     context,
@@ -858,6 +849,11 @@ Future<void> _pickFile(String fieldName) async {
                         hint: 'e.g., John Doe',
                         errorText: _accountHolderNameError,
                         enabled: !isSubmitting,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(
+                            RegExp(r'[A-Za-z ]'),
+                          ),
+                        ],
                         onChanged: (_) => _validateForm(),
                       ),
                       const SizedBox(height: 20),
@@ -871,10 +867,7 @@ Future<void> _pickFile(String fieldName) async {
                           FilteringTextInputFormatter.allow(
                             RegExp(r'[A-Z0-9]'),
                           ),
-                          TextInputFormatter.withFunction((
-                            oldValue,
-                            newValue,
-                          ) {
+                          TextInputFormatter.withFunction((oldValue, newValue) {
                             return newValue.copyWith(
                               text: newValue.text.toUpperCase(),
                             );
@@ -892,6 +885,11 @@ Future<void> _pickFile(String fieldName) async {
                               hint: 'e.g., State Bank of India',
                               errorText: _bankNameError,
                               enabled: !isSubmitting,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.allow(
+                                  RegExp(r'[A-Za-z ]'),
+                                ),
+                              ],
                               onChanged: (_) => _validateForm(),
                             ),
                           ),
@@ -903,6 +901,11 @@ Future<void> _pickFile(String fieldName) async {
                               hint: 'e.g., Delhi',
                               errorText: _bankBranchError,
                               enabled: !isSubmitting,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.allow(
+                                  RegExp(r'[A-Za-z ]'),
+                                ),
+                              ],
                               onChanged: (_) => _validateForm(),
                             ),
                           ),
@@ -910,9 +913,9 @@ Future<void> _pickFile(String fieldName) async {
                       ),
                     ],
                   ),
-    
+
                   const SizedBox(height: 24),
-    
+
                   // Documents & Certifications Section
                   _buildSectionCard(
                     context,
@@ -956,9 +959,9 @@ Future<void> _pickFile(String fieldName) async {
                       ),
                     ],
                   ),
-    
+
                   const SizedBox(height: 24),
-    
+
                   // Terms and Conditions Checkbox
                   Card(
                     elevation: 2,
@@ -997,9 +1000,7 @@ Future<void> _pickFile(String fieldName) async {
                                             color: AppColors.textPrimary,
                                           ),
                                       children: [
-                                        const TextSpan(
-                                          text: 'I agree to the ',
-                                        ),
+                                        const TextSpan(text: 'I agree to the '),
                                         TextSpan(
                                           text: 'Terms and Conditions',
                                           style: const TextStyle(
@@ -1028,10 +1029,7 @@ Future<void> _pickFile(String fieldName) async {
                           ),
                           if (_termsError != null)
                             Padding(
-                              padding: const EdgeInsets.only(
-                                left: 48,
-                                top: 4,
-                              ),
+                              padding: const EdgeInsets.only(left: 48, top: 4),
                               child: Text(
                                 _termsError!,
                                 style: const TextStyle(
@@ -1044,9 +1042,9 @@ Future<void> _pickFile(String fieldName) async {
                       ),
                     ),
                   ),
-    
+
                   const SizedBox(height: 24),
-    
+
                   // Submit Button
                   CustomButton(
                     text: 'Submit Vendor Profile',
@@ -1055,7 +1053,7 @@ Future<void> _pickFile(String fieldName) async {
                     width: double.infinity,
                     icon: Icons.send,
                   ),
-    
+
                   const SizedBox(height: 24),
                 ],
               ),
