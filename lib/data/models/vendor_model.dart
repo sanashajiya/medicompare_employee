@@ -40,18 +40,16 @@ class VendorModel extends VendorEntity {
       businessEmail: json['businessEmail'] ?? '',
       altMobile: json['alt_mobile'] ?? '',
       address: json['address'] ?? '',
-      categories: json['categories'] != null 
-          ? List<String>.from(json['categories']) 
+      categories: json['categories'] != null
+          ? List<String>.from(json['categories'])
           : [],
       bussinessmobile: json['bussinessmobile'] ?? '',
-      docNames: json['doc_name'] != null 
-          ? List<String>.from(json['doc_name']) 
+      docNames: json['doc_name'] != null
+          ? List<String>.from(json['doc_name'])
           : [],
-      docIds: json['doc_id'] != null 
-          ? List<String>.from(json['doc_id']) 
-          : [],
-      documentNumbers: json['documentNumber'] != null 
-          ? List<String>.from(json['documentNumber']) 
+      docIds: json['doc_id'] != null ? List<String>.from(json['doc_id']) : [],
+      documentNumbers: json['documentNumber'] != null
+          ? List<String>.from(json['documentNumber'])
           : [],
       files: [],
       bankName: json['bankName'] ?? '',
@@ -143,7 +141,7 @@ class VendorModel extends VendorEntity {
         // Determine MIME type based on file extension
         final extension = file.path.split('.').last.toLowerCase();
         String contentType = 'application/octet-stream';
-        
+
         switch (extension) {
           case 'pdf':
             contentType = 'application/pdf';
@@ -152,17 +150,21 @@ class VendorModel extends VendorEntity {
             contentType = 'application/msword';
             break;
           case 'docx':
-            contentType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+            contentType =
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
             break;
           case 'xls':
             contentType = 'application/vnd.ms-excel';
             break;
           case 'xlsx':
-            contentType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+            contentType =
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
             break;
         }
 
-        print('📄 File: ${file.path}, Extension: .$extension, Content-Type: $contentType');
+        print(
+          '📄 File: ${file.path}, Extension: .$extension, Content-Type: $contentType',
+        );
 
         final multipartFile = await http.MultipartFile.fromPath(
           'file',
@@ -176,4 +178,3 @@ class VendorModel extends VendorEntity {
     return multipartFiles;
   }
 }
-

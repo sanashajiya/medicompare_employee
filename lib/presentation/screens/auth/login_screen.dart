@@ -72,7 +72,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // ⚠️ REMOVED BlocProvider - using the one from main.dart instead
     return Scaffold(
       body: BlocListener<AuthBloc, AuthState>(
         // 🎯 BlocListener for side effects (navigation, snackbars)
@@ -191,6 +190,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       label: 'Password',
                       hint: 'Enter your password',
                       errorText: _passwordError,
+                      isPassword: true,
                       obscureText: true,
                       enabled: !isLoading,
                       onChanged: (_) => _validateForm(),
