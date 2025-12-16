@@ -6,9 +6,9 @@ import '../models/employee_model.dart';
 
 class EmployeeRepositoryImpl implements EmployeeRepository {
   final ApiService apiService;
-  
+
   EmployeeRepositoryImpl(this.apiService);
-  
+
   @override
   Future<EmployeeEntity> submitEmployeeForm(EmployeeEntity employee) async {
     try {
@@ -17,13 +17,14 @@ class EmployeeRepositoryImpl implements EmployeeRepository {
         ApiEndpoints.submitEmployeeForm,
         employeeModel.toJson(),
       );
-      
+
       return EmployeeModel.fromJson(response);
     } catch (e) {
       // For demo purposes, simulate successful form submission
       await Future.delayed(const Duration(seconds: 1));
-      return employee.copyWith(id: 'emp_${DateTime.now().millisecondsSinceEpoch}');
+      return employee.copyWith(
+        id: 'emp_${DateTime.now().millisecondsSinceEpoch}',
+      );
     }
   }
 }
-

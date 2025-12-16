@@ -10,7 +10,7 @@ class EmployeeModel extends EmployeeEntity {
     required super.mobileNumber,
     super.isMobileVerified,
   });
-  
+
   factory EmployeeModel.fromJson(Map<String, dynamic> json) {
     return EmployeeModel(
       id: json['id'],
@@ -19,10 +19,11 @@ class EmployeeModel extends EmployeeEntity {
       department: json['department'] ?? '',
       email: json['email'] ?? '',
       mobileNumber: json['mobileNumber'] ?? json['mobile_number'] ?? '',
-      isMobileVerified: json['isMobileVerified'] ?? json['is_mobile_verified'] ?? false,
+      isMobileVerified:
+          json['isMobileVerified'] ?? json['is_mobile_verified'] ?? false,
     );
   }
-  
+
   Map<String, dynamic> toJson() {
     return {
       if (id != null) 'id': id,
@@ -34,7 +35,7 @@ class EmployeeModel extends EmployeeEntity {
       'isMobileVerified': isMobileVerified,
     };
   }
-  
+
   factory EmployeeModel.fromEntity(EmployeeEntity entity) {
     return EmployeeModel(
       id: entity.id,
@@ -47,4 +48,3 @@ class EmployeeModel extends EmployeeEntity {
     );
   }
 }
-

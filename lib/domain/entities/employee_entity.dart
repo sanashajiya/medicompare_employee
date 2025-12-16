@@ -8,7 +8,7 @@ class EmployeeEntity extends Equatable {
   final String email;
   final String mobileNumber;
   final bool isMobileVerified;
-  
+
   const EmployeeEntity({
     this.id,
     required this.name,
@@ -18,7 +18,7 @@ class EmployeeEntity extends Equatable {
     required this.mobileNumber,
     this.isMobileVerified = false,
   });
-  
+
   EmployeeEntity copyWith({
     String? id,
     String? name,
@@ -38,7 +38,7 @@ class EmployeeEntity extends Equatable {
       isMobileVerified: isMobileVerified ?? this.isMobileVerified,
     );
   }
-  
+
   @override
   List<Object?> get props => [
     id,
@@ -50,4 +50,3 @@ class EmployeeEntity extends Equatable {
     isMobileVerified,
   ];
 }
-

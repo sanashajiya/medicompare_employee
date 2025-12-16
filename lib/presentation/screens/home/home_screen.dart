@@ -1,8 +1,10 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:path_provider/path_provider.dart';
 import '../../../core/constants/api_endpoints.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/validators.dart';
@@ -19,7 +21,6 @@ import '../../widgets/file_upload_field.dart';
 import '../../widgets/multi_select_dropdown.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:signature/signature.dart';
-import 'dart:typed_data';
 
 class HomeScreen extends StatefulWidget {
   final UserEntity user;
@@ -103,6 +104,12 @@ class _HomeScreenState extends State<HomeScreen> {
   String? _gstCertificateError;
   String? _panCardError;
   String? _professionalLicenseError;
+
+  // Document Number Controllers
+  final _panCardNumberController = TextEditingController();
+  final _gstCertificateNumberController = TextEditingController();
+  final _businessRegistrationNumberController = TextEditingController();
+  final _professionalLicenseNumberController = TextEditingController();
 
   bool _showErrors = false;
   bool _acceptedTerms = false;
@@ -209,6 +216,10 @@ class _HomeScreenState extends State<HomeScreen> {
     _bankNameController.dispose();
     _bankBranchController.dispose();
     _signatureController.dispose();
+    _panCardNumberController.dispose();
+    _gstCertificateNumberController.dispose();
+    _businessRegistrationNumberController.dispose();
+    _professionalLicenseNumberController.dispose();
 
     super.dispose();
   }
@@ -471,11 +482,17 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  void _onSubmit() {
+  Future<void> _onSubmit() async {
     setState(() => _showErrors = true);
     _validateForm();
 
     if (_isFormValid()) {
+      // Convert category names to IDs
+      final categoryIds = _selectedBusinessCategories
+          .map((name) => _categoryNameToId[name] ?? name)
+          .where((id) => id.isNotEmpty)
+          .toList();
+
       // Create vendor entity with all data
       final vendor = VendorEntity(
         firstName: _firstNameController.text,
@@ -487,7 +504,7 @@ class _HomeScreenState extends State<HomeScreen> {
         businessEmail: _businessEmailController.text,
         altMobile: _altBusinessMobileController.text,
         address: _businessAddressController.text,
-        categories: _selectedBusinessCategories,
+        categories: categoryIds,
         bussinessmobile: _businessMobileController.text,
         docNames: [
           'PAN Card',
@@ -495,19 +512,35 @@ class _HomeScreenState extends State<HomeScreen> {
           'Business Registration',
           'Professional License',
         ],
-        docIds: ['PAN', 'GST', 'BR', 'PL'],
+        docIds: [
+          _panCardNumberController.text.isNotEmpty
+              ? _panCardNumberController.text
+              : 'PAN',
+          _gstCertificateNumberController.text.isNotEmpty
+              ? _gstCertificateNumberController.text
+              : 'GST',
+          _businessRegistrationNumberController.text.isNotEmpty
+              ? _businessRegistrationNumberController.text
+              : 'BR',
+          _professionalLicenseNumberController.text.isNotEmpty
+              ? _professionalLicenseNumberController.text
+              : 'PL',
+        ],
         documentNumbers: [
-          '',
-          '',
-          '',
-          '',
-        ], // Add document number fields if needed
+          _panCardNumberController.text,
+          _gstCertificateNumberController.text,
+          _businessRegistrationNumberController.text,
+          _professionalLicenseNumberController.text,
+        ],
         files: [
           _panCardFile,
           _gstCertificateFile,
           _businessRegistrationFile,
           _professionalLicenseFile,
         ],
+        frontimages: [],
+        backimages: [],
+        signature: [],
         bankName: _bankNameController.text,
         accountName: _accountHolderNameController.text,
         accountNumber: _accountNumberController.text,
@@ -515,8 +548,72 @@ class _HomeScreenState extends State<HomeScreen> {
         branchName: _bankBranchController.text,
       );
 
-      context.read<VendorFormBloc>().add(
-        VendorFormSubmitted(vendor, widget.user.token),
+      // Get the BLoC reference before any async operations
+      final bloc = context.read<VendorFormBloc>();
+
+      print(
+        '\n═══════════════════════════════════════════════════════════════',
+      );
+      print('🎯 FORM SUBMISSION STARTED');
+      print('═══════════════════════════════════════════════════════════════');
+      print('Frontend Images Selected: ${_frontendImages.length}');
+      for (var i = 0; i < _frontendImages.length; i++) {
+        print('  [$i] ${_frontendImages[i].path}');
+      }
+      print('Backend Images Selected: ${_backendImages.length}');
+      for (var i = 0; i < _backendImages.length; i++) {
+        print('  [$i] ${_backendImages[i].path}');
+      }
+      print(
+        'Signature Bytes: ${_signatureBytes != null ? '${_signatureBytes!.length} bytes' : 'NULL'}',
+      );
+
+      // Convert signature bytes to File object if signature was collected
+      List<File> signatureFiles = [];
+      if (_signatureBytes != null) {
+        try {
+          // Use application documents directory instead of temp
+          final appDir = await getApplicationDocumentsDirectory();
+          final signatureDir = Directory('${appDir.path}/signature');
+          if (!await signatureDir.exists()) {
+            await signatureDir.create(recursive: true);
+          }
+
+          final timestamp = DateTime.now().millisecondsSinceEpoch;
+          final signatureFile = File(
+            '${signatureDir.path}/signature_$timestamp.png',
+          );
+          await signatureFile.writeAsBytes(_signatureBytes!);
+
+          print('\n✍️  Signature File Created:');
+          print('   Path: ${signatureFile.path}');
+          print('   Size: ${_signatureBytes!.length} bytes');
+          print('   Exists: ${await signatureFile.exists()}');
+
+          signatureFiles.add(signatureFile);
+        } catch (e) {
+          print('❌ Error creating signature file: $e');
+        }
+      } else {
+        print('⚠️  No signature bytes collected');
+      }
+
+      print('\n📤 Dispatching BLoC event with:');
+      print('   Front Images: ${_frontendImages.length}');
+      print('   Back Images: ${_backendImages.length}');
+      print('   signature: ${signatureFiles.length}');
+      print(
+        '═══════════════════════════════════════════════════════════════\n',
+      );
+
+      bloc.add(
+        VendorFormSubmitted(
+          vendor,
+          widget.user.token,
+          frontimages: _frontendImages,
+          backimages: _backendImages,
+          signature: signatureFiles,
+        ),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -626,68 +723,67 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Widget _buildSignatureSection() {
-  return _buildSectionCard(
-    context,
-    title: 'Digital Signature',
-    icon: Icons.draw_outlined,
-    children: [
-      Container(
-        height: 120,
-        decoration: BoxDecoration(
-          border: Border.all(color: AppColors.border),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Signature(
-          controller: _signatureController,
-          backgroundColor: Colors.grey[100]!,
-        ),
-      ),
-      const SizedBox(height: 12),
-      Row(
-        children: [
-          Expanded(
-            child: OutlinedButton.icon(
-              onPressed: () {
-                _signatureController.clear();
-                setState(() {
-                  _signatureBytes = null;
-                });
-              },
-              icon: const Icon(Icons.refresh),
-              label: const Text('Clear'),
-            ),
+  Widget _buildsignatureection() {
+    return _buildSectionCard(
+      context,
+      title: 'Digital Signature',
+      icon: Icons.draw_outlined,
+      children: [
+        Container(
+          height: 120,
+          decoration: BoxDecoration(
+            border: Border.all(color: AppColors.border),
+            borderRadius: BorderRadius.circular(12),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: ElevatedButton.icon(
-              onPressed: () async {
-                if (_signatureController.isNotEmpty) {
-                  final bytes = await _signatureController.toPngBytes();
+          child: Signature(
+            controller: _signatureController,
+            backgroundColor: Colors.grey[100]!,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  _signatureController.clear();
                   setState(() {
-                    _signatureBytes = bytes;
-                    _signatureError = null;
+                    _signatureBytes = null;
                   });
-                }
-              },
-              icon: const Icon(Icons.check),
-              label: const Text('Save'),
+                },
+                icon: const Icon(Icons.refresh),
+                label: const Text('Clear'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: () async {
+                  if (_signatureController.isNotEmpty) {
+                    final bytes = await _signatureController.toPngBytes();
+                    setState(() {
+                      _signatureBytes = bytes;
+                      _signatureError = null;
+                    });
+                  }
+                },
+                icon: const Icon(Icons.check),
+                label: const Text('Save'),
+              ),
+            ),
+          ],
+        ),
+        if (_signatureError != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              _signatureError!,
+              style: const TextStyle(color: AppColors.error, fontSize: 12),
             ),
           ),
-        ],
-      ),
-      if (_signatureError != null)
-        Padding(
-          padding: const EdgeInsets.only(top: 8),
-          child: Text(
-            _signatureError!,
-            style: const TextStyle(color: AppColors.error, fontSize: 12),
-          ),
-        ),
-    ],
-  );
-}
-
+      ],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -790,6 +886,10 @@ class _HomeScreenState extends State<HomeScreen> {
                               _gstCertificateFileName = null;
                               _panCardFileName = null;
                               _professionalLicenseFileName = null;
+                              _panCardNumberController.clear();
+                              _gstCertificateNumberController.clear();
+                              _businessRegistrationNumberController.clear();
+                              _professionalLicenseNumberController.clear();
                               _acceptedTerms = false;
                               _showErrors = false;
                             });
@@ -1117,6 +1217,14 @@ class _HomeScreenState extends State<HomeScreen> {
                         enabled: !isSubmitting,
                         onTap: () => _pickFile('business_registration'),
                       ),
+                      const SizedBox(height: 12),
+                      CustomTextField(
+                        controller: _businessRegistrationNumberController,
+                        label: 'Business Registration Number',
+                        hint: 'Enter registration number',
+                        enabled: !isSubmitting,
+                        onChanged: (_) => _validateForm(),
+                      ),
                       const SizedBox(height: 20),
                       FileUploadField(
                         label: 'GST Registration Certificate',
@@ -1125,6 +1233,14 @@ class _HomeScreenState extends State<HomeScreen> {
                         required: true,
                         enabled: !isSubmitting,
                         onTap: () => _pickFile('gst_certificate'),
+                      ),
+                      const SizedBox(height: 12),
+                      CustomTextField(
+                        controller: _gstCertificateNumberController,
+                        label: 'GST Certificate Number',
+                        hint: 'Enter GST number',
+                        enabled: !isSubmitting,
+                        onChanged: (_) => _validateForm(),
                       ),
                       const SizedBox(height: 20),
                       FileUploadField(
@@ -1135,6 +1251,24 @@ class _HomeScreenState extends State<HomeScreen> {
                         enabled: !isSubmitting,
                         onTap: () => _pickFile('pan_card'),
                       ),
+                      const SizedBox(height: 12),
+                      CustomTextField(
+                        controller: _panCardNumberController,
+                        label: 'PAN Card Number',
+                        hint: 'Enter PAN number (e.g., ABCDE1234F)',
+                        enabled: !isSubmitting,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(
+                            RegExp(r'[A-Z0-9]'),
+                          ),
+                          TextInputFormatter.withFunction((oldValue, newValue) {
+                            return newValue.copyWith(
+                              text: newValue.text.toUpperCase(),
+                            );
+                          }),
+                        ],
+                        onChanged: (_) => _validateForm(),
+                      ),
                       const SizedBox(height: 20),
                       FileUploadField(
                         label: 'Professional License',
@@ -1143,6 +1277,14 @@ class _HomeScreenState extends State<HomeScreen> {
                         required: true,
                         enabled: !isSubmitting,
                         onTap: () => _pickFile('professional_license'),
+                      ),
+                      const SizedBox(height: 12),
+                      CustomTextField(
+                        controller: _professionalLicenseNumberController,
+                        label: 'Professional License Number',
+                        hint: 'Enter license number',
+                        enabled: !isSubmitting,
+                        onChanged: (_) => _validateForm(),
                       ),
                     ],
                   ),
@@ -1336,7 +1478,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
                   const SizedBox(height: 24),
 
-                  _buildSignatureSection(),
+                  _buildsignatureection(),
 
                   const SizedBox(height: 24),
 
@@ -1524,8 +1666,6 @@ Widget _buildImagePreviewGrid(List<File> images, Function(int) onRemoveImage) {
   );
 }
 
-
-
 Widget _buildImageThumbnail(File imageFile, int index, VoidCallback onRemove) {
   return Stack(
     clipBehavior: Clip.none,
@@ -1587,4 +1727,3 @@ Widget _buildImageThumbnail(File imageFile, int index, VoidCallback onRemove) {
     ],
   );
 }
-

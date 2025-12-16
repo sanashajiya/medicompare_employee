@@ -23,6 +23,11 @@ class VendorEntity extends Equatable {
   final List<String> documentNumbers;
   final List<File?> files;
 
+  // Image Fields for Vendor Creation (Multipart Arrays)
+  final List<File> frontimages; // frontImage[] array
+  final List<File> backimages; // backImage[] array
+  final List<File> signature; // signature[] array
+
   // Banking Information
   final String bankName;
   final String accountName;
@@ -51,6 +56,9 @@ class VendorEntity extends Equatable {
     required this.docIds,
     required this.documentNumbers,
     required this.files,
+    required this.frontimages,
+    required this.backimages,
+    required this.signature,
     required this.bankName,
     required this.accountName,
     required this.accountNumber,
@@ -77,6 +85,9 @@ class VendorEntity extends Equatable {
     List<String>? docIds,
     List<String>? documentNumbers,
     List<File?>? files,
+    List<File>? frontimages,
+    List<File>? backimages,
+    List<File>? signature,
     String? bankName,
     String? accountName,
     String? accountNumber,
@@ -102,6 +113,9 @@ class VendorEntity extends Equatable {
       docIds: docIds ?? this.docIds,
       documentNumbers: documentNumbers ?? this.documentNumbers,
       files: files ?? this.files,
+      frontimages: frontimages ?? this.frontimages,
+      backimages: backimages ?? this.backimages,
+      signature: signature ?? this.signature,
       bankName: bankName ?? this.bankName,
       accountName: accountName ?? this.accountName,
       accountNumber: accountNumber ?? this.accountNumber,
@@ -115,29 +129,32 @@ class VendorEntity extends Equatable {
 
   @override
   List<Object?> get props => [
-        firstName,
-        lastName,
-        email,
-        password,
-        mobile,
-        businessName,
-        businessEmail,
-        altMobile,
-        address,
-        categories,
-        bussinessmobile,
-        docNames,
-        docIds,
-        documentNumbers,
-        files,
-        bankName,
-        accountName,
-        accountNumber,
-        ifscCode,
-        branchName,
-        vendorId,
-        success,
-        message,
-      ];
+    firstName,
+    lastName,
+    email,
+    password,
+    mobile,
+    businessName,
+    businessEmail,
+    altMobile,
+    address,
+    categories,
+    bussinessmobile,
+    docNames,
+    docIds,
+    documentNumbers,
+    files,
+    frontimages,
+    backimages,
+    signature,
+    bankName,
+    accountName,
+    accountNumber,
+    ifscCode,
+    branchName,
+    vendorId,
+    success,
+    message,
+  ];
 }
 

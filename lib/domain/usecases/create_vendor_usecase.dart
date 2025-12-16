@@ -6,8 +6,12 @@ class CreateVendorUseCase {
 
   CreateVendorUseCase(this.repository);
 
-  Future<VendorEntity> call(VendorEntity vendor, String token) async {
-    return await repository.createVendor(vendor, token);
+  Future<VendorEntity> call(
+    VendorEntity vendor,
+    String token,
+  ) {
+    return repository.createVendor(vendor, token);
   }
 }
+
 

@@ -6,9 +6,8 @@ import 'vendor_form_state.dart';
 class VendorFormBloc extends Bloc<VendorFormEvent, VendorFormState> {
   final CreateVendorUseCase createVendorUseCase;
 
-  VendorFormBloc({
-    required this.createVendorUseCase,
-  }) : super(VendorFormInitial()) {
+  VendorFormBloc({required this.createVendorUseCase})
+    : super(VendorFormInitial()) {
     on<VendorFormSubmitted>(_onVendorFormSubmitted);
     on<VendorFormReset>(_onVendorFormReset);
   }
@@ -20,8 +19,21 @@ class VendorFormBloc extends Bloc<VendorFormEvent, VendorFormState> {
     emit(VendorFormSubmitting());
 
     try {
-      final vendor = await createVendorUseCase(event.vendor, event.token);
-      emit(VendorFormSuccess(vendor, vendor.message ?? 'Vendor created successfully'));
+      // ✅ Merge images + signature into entity
+      final vendorWithMedia = event.vendor.copyWith(
+        frontimages: event.frontimages,
+        backimages: event.backimages,
+        signature: event.signature,
+      );
+
+      final vendor = await createVendorUseCase(vendorWithMedia, event.token);
+
+      emit(
+        VendorFormSuccess(
+          vendor,
+          vendor.message ?? 'Vendor created successfully',
+        ),
+      );
     } catch (e) {
       emit(VendorFormFailure(e.toString()));
     }
@@ -34,4 +46,3 @@ class VendorFormBloc extends Bloc<VendorFormEvent, VendorFormState> {
     emit(VendorFormInitial());
   }
 }
-
