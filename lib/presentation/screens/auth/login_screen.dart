@@ -142,10 +142,10 @@ class _LoginScreenState extends State<LoginScreen> {
                         color: AppColors.primary.withOpacity(0.1),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(
-                        Icons.medical_services,
-                        size: 60,
-                        color: AppColors.primary,
+                       padding: const EdgeInsets.all(16),
+                      child: ClipOval(
+                        child: Image.asset('assets/images/app_logo.png',fit: BoxFit.contain,),
+              
                       ),
                     ),
 
