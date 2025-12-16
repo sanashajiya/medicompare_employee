@@ -411,96 +411,103 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _pickFile(String fieldName) async {
-    try {
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: const ['pdf', 'doc', 'docx', 'xls', 'xlsx'],
-        allowMultiple: false,
-        withData: false,
-        withReadStream: false,
-      );
+  try {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: const ['pdf', 'doc', 'docx', 'xls', 'xlsx'],
+      allowMultiple: false,
+    );
 
-      if (result == null || result.files.isEmpty) return;
+    if (result == null || result.files.isEmpty) return;
 
-      final platformFile = result.files.first;
+    final platformFile = result.files.first;
+    if (platformFile.path == null) return;
 
-      if (platformFile.path == null) return;
+    final file = File(platformFile.path!);
 
-      final file = File(platformFile.path!);
+    // 🔹 Allowed extensions check
+    final extension = platformFile.extension?.toLowerCase();
+    const allowedExtensions = ['pdf', 'doc', 'docx', 'xls', 'xlsx'];
 
-      // Extra safety: validate extension
-      final extension = platformFile.extension?.toLowerCase();
-      const allowedExtensions = ['pdf', 'doc', 'docx', 'xls', 'xlsx'];
+    if (extension == null || !allowedExtensions.contains(extension)) {
+      return;
+    }
 
-      if (extension == null || !allowedExtensions.contains(extension)) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Only PDF, Word, and Excel files are allowed'),
-              backgroundColor: AppColors.error,
-            ),
-          );
-        }
-        return;
-      }
+    // FILE SIZE VALIDATION (5 MB)
+    const int maxFileSizeMB = 5;
+    const int maxFileSizeBytes = maxFileSizeMB * 1024 * 1024;
 
+    if (file.lengthSync() > maxFileSizeBytes) {
       setState(() {
         switch (fieldName) {
           case 'business_registration':
-            _businessRegistrationFile = file;
-            _businessRegistrationFileName = platformFile.name;
+            _businessRegistrationFile = null;
+            _businessRegistrationFileName = null;
+            _businessRegistrationError =
+                'Business Registration Certificate must be less than $maxFileSizeMB MB';
             break;
 
           case 'gst_certificate':
-            _gstCertificateFile = file;
-            _gstCertificateFileName = platformFile.name;
+            _gstCertificateFile = null;
+            _gstCertificateFileName = null;
+            _gstCertificateError =
+                'GST Registration Certificate must be less than $maxFileSizeMB MB';
             break;
 
           case 'pan_card':
-            _panCardFile = file;
-            _panCardFileName = platformFile.name;
+            _panCardFile = null;
+            _panCardFileName = null;
+            _panCardError =
+                'PAN Card must be less than $maxFileSizeMB MB';
             break;
 
           case 'professional_license':
-            _professionalLicenseFile = file;
-            _professionalLicenseFileName = platformFile.name;
+            _professionalLicenseFile = null;
+            _professionalLicenseFileName = null;
+            _professionalLicenseError =
+                'Professional License must be less than $maxFileSizeMB MB';
             break;
         }
       });
-
-      _validateForm();
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('File selected: ${platformFile.name}'),
-            backgroundColor: AppColors.success,
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
-    } on PlatformException catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Failed to pick file: ${e.message ?? "Unknown error"}',
-            ),
-            backgroundColor: AppColors.error,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: AppColors.error,
-          ),
-        );
-      }
+      return; // ⛔ stop here
     }
+
+    // ✅ VALID FILE — SAVE IT
+    setState(() {
+      switch (fieldName) {
+        case 'business_registration':
+          _businessRegistrationFile = file;
+          _businessRegistrationFileName = platformFile.name;
+          _businessRegistrationError = null;
+          break;
+
+        case 'gst_certificate':
+          _gstCertificateFile = file;
+          _gstCertificateFileName = platformFile.name;
+          _gstCertificateError = null;
+          break;
+
+        case 'pan_card':
+          _panCardFile = file;
+          _panCardFileName = platformFile.name;
+          _panCardError = null;
+          break;
+
+        case 'professional_license':
+          _professionalLicenseFile = file;
+          _professionalLicenseFileName = platformFile.name;
+          _professionalLicenseError = null;
+          break;
+      }
+    });
+
+    _validateForm();
+  } on PlatformException catch (_) {
+    // silently fail (no snackbar spam)
+  } catch (_) {
+    // silently fail
   }
+}
 
   @override
   Widget build(BuildContext context) {

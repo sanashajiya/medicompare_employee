@@ -175,13 +175,27 @@ class Validators {
     return null;
   }
 
-  /// ✅ FIXED: accepts File? instead of String?
-  static String? validateFileUpload(File? file, String fieldName) {
-    if (file == null) {
-      return '$fieldName is required';
-    }
-    return null;
+
+  /// Validates file presence + max size
+static String? validateFileUpload(
+  File? file,
+  String fieldName, {
+  int maxSizeMB = 5,
+}) {
+  if (file == null) {
+    return '$fieldName is required';
   }
+
+  final maxBytes = maxSizeMB * 1024 * 1024;
+  final fileSize = file.lengthSync();
+
+  if (fileSize > maxBytes) {
+    return '$fieldName must be less than $maxSizeMB MB';
+  }
+
+  return null;
+}
+
 
   Validators._();
 }
