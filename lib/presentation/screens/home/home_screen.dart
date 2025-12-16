@@ -17,6 +17,7 @@ import '../../widgets/custom_button.dart';
 import '../../widgets/custom_text_field.dart';
 import '../../widgets/file_upload_field.dart';
 import '../../widgets/multi_select_dropdown.dart';
+import 'package:image_picker/image_picker.dart';
 
 class HomeScreen extends StatefulWidget {
   final UserEntity user;
@@ -98,9 +99,17 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // Category management
   List<CategoryModel> _availableCategories = [];
+  List<File> _frontendImages = [];
+  List<File> _backendImages = [];
+
+  String? _frontendImagesError;
+  String? _backendImagesError;
+
   Map<String, String> _categoryNameToId = {}; // name -> id mapping
   bool _categoriesLoaded = false;
   bool _categoriesLoading = false;
+
+  final ImagePicker _imagePicker = ImagePicker();
 
   @override
   void initState() {
@@ -215,6 +224,13 @@ class _HomeScreenState extends State<HomeScreen> {
               _passwordController.text,
               _confirmPasswordController.text,
             )
+          : null;
+      _frontendImagesError = _showErrors && _frontendImages.isEmpty
+          ? 'Please upload at least one frontend image'
+          : null;
+
+      _backendImagesError = _showErrors && _backendImages.isEmpty
+          ? 'Please upload at least one backend image'
           : null;
 
       // Business Details Validation
@@ -350,7 +366,92 @@ class _HomeScreenState extends State<HomeScreen> {
         _gstCertificateFile != null &&
         _panCardFile != null &&
         _professionalLicenseFile != null &&
+        _frontendImages.isNotEmpty &&
+        _backendImages.isNotEmpty &&
         _acceptedTerms;
+  }
+
+  Future<void> _pickImages({required bool isFrontend}) async {
+  try {
+    final List<XFile> pickedImages =
+        await _imagePicker.pickMultiImage(
+      imageQuality: 85, // compress slightly
+    );
+
+    if (pickedImages.isEmpty) return;
+
+    const int maxImages = 30;
+    const int maxSizeMB = 3;
+    const int maxSizeBytes = maxSizeMB * 1024 * 1024;
+
+    final List<File> currentImages =
+        isFrontend ? _frontendImages : _backendImages;
+
+    List<File> validImages = [];
+
+    for (final xFile in pickedImages) {
+      final file = File(xFile.path);
+
+      if (file.lengthSync() > maxSizeBytes) {
+        setState(() {
+          if (isFrontend) {
+            _frontendImagesError =
+                'Each image must be less than $maxSizeMB MB';
+          } else {
+            _backendImagesError =
+                'Each image must be less than $maxSizeMB MB';
+          }
+        });
+        return;
+      }
+
+      if (currentImages.length + validImages.length >= maxImages) {
+        setState(() {
+          if (isFrontend) {
+            _frontendImagesError =
+                'Maximum $maxImages images allowed';
+          } else {
+            _backendImagesError =
+                'Maximum $maxImages images allowed';
+          }
+        });
+        return;
+      }
+
+      validImages.add(file);
+    }
+
+    setState(() {
+      if (isFrontend) {
+        _frontendImages.addAll(validImages);
+        _frontendImagesError = null;
+      } else {
+        _backendImages.addAll(validImages);
+        _backendImagesError = null;
+      }
+    });
+  } catch (e) {
+    debugPrint('Image pick error: $e');
+  }
+}
+  void _removeImage(bool isFrontend, int index) {
+    setState(() {
+      if (isFrontend) {
+        if (index >= 0 && index < _frontendImages.length) {
+          _frontendImages.removeAt(index);
+          if (_frontendImages.isEmpty) {
+            _frontendImagesError = null;
+          }
+        }
+      } else {
+        if (index >= 0 && index < _backendImages.length) {
+          _backendImages.removeAt(index);
+          if (_backendImages.isEmpty) {
+            _backendImagesError = null;
+          }
+        }
+      }
+    });
   }
 
   void _onSubmit() {
@@ -411,103 +512,102 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _pickFile(String fieldName) async {
-  try {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: const ['pdf', 'doc', 'docx', 'xls', 'xlsx'],
-      allowMultiple: false,
-    );
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: const ['pdf', 'doc', 'docx', 'xls', 'xlsx'],
+        allowMultiple: false,
+      );
 
-    if (result == null || result.files.isEmpty) return;
+      if (result == null || result.files.isEmpty) return;
 
-    final platformFile = result.files.first;
-    if (platformFile.path == null) return;
+      final platformFile = result.files.first;
+      if (platformFile.path == null) return;
 
-    final file = File(platformFile.path!);
+      final file = File(platformFile.path!);
 
-    // 🔹 Allowed extensions check
-    final extension = platformFile.extension?.toLowerCase();
-    const allowedExtensions = ['pdf', 'doc', 'docx', 'xls', 'xlsx'];
+      // 🔹 Allowed extensions check
+      final extension = platformFile.extension?.toLowerCase();
+      const allowedExtensions = ['pdf', 'doc', 'docx', 'xls', 'xlsx'];
 
-    if (extension == null || !allowedExtensions.contains(extension)) {
-      return;
-    }
+      if (extension == null || !allowedExtensions.contains(extension)) {
+        return;
+      }
 
-    // FILE SIZE VALIDATION (5 MB)
-    const int maxFileSizeMB = 5;
-    const int maxFileSizeBytes = maxFileSizeMB * 1024 * 1024;
+      // FILE SIZE VALIDATION (5 MB)
+      const int maxFileSizeMB = 5;
+      const int maxFileSizeBytes = maxFileSizeMB * 1024 * 1024;
 
-    if (file.lengthSync() > maxFileSizeBytes) {
+      if (file.lengthSync() > maxFileSizeBytes) {
+        setState(() {
+          switch (fieldName) {
+            case 'business_registration':
+              _businessRegistrationFile = null;
+              _businessRegistrationFileName = null;
+              _businessRegistrationError =
+                  'Business Registration Certificate must be less than $maxFileSizeMB MB';
+              break;
+
+            case 'gst_certificate':
+              _gstCertificateFile = null;
+              _gstCertificateFileName = null;
+              _gstCertificateError =
+                  'GST Registration Certificate must be less than $maxFileSizeMB MB';
+              break;
+
+            case 'pan_card':
+              _panCardFile = null;
+              _panCardFileName = null;
+              _panCardError = 'PAN Card must be less than $maxFileSizeMB MB';
+              break;
+
+            case 'professional_license':
+              _professionalLicenseFile = null;
+              _professionalLicenseFileName = null;
+              _professionalLicenseError =
+                  'Professional License must be less than $maxFileSizeMB MB';
+              break;
+          }
+        });
+        return; // ⛔ stop here
+      }
+
+      // ✅ VALID FILE — SAVE IT
       setState(() {
         switch (fieldName) {
           case 'business_registration':
-            _businessRegistrationFile = null;
-            _businessRegistrationFileName = null;
-            _businessRegistrationError =
-                'Business Registration Certificate must be less than $maxFileSizeMB MB';
+            _businessRegistrationFile = file;
+            _businessRegistrationFileName = platformFile.name;
+            _businessRegistrationError = null;
             break;
 
           case 'gst_certificate':
-            _gstCertificateFile = null;
-            _gstCertificateFileName = null;
-            _gstCertificateError =
-                'GST Registration Certificate must be less than $maxFileSizeMB MB';
+            _gstCertificateFile = file;
+            _gstCertificateFileName = platformFile.name;
+            _gstCertificateError = null;
             break;
 
           case 'pan_card':
-            _panCardFile = null;
-            _panCardFileName = null;
-            _panCardError =
-                'PAN Card must be less than $maxFileSizeMB MB';
+            _panCardFile = file;
+            _panCardFileName = platformFile.name;
+            _panCardError = null;
             break;
 
           case 'professional_license':
-            _professionalLicenseFile = null;
-            _professionalLicenseFileName = null;
-            _professionalLicenseError =
-                'Professional License must be less than $maxFileSizeMB MB';
+            _professionalLicenseFile = file;
+            _professionalLicenseFileName = platformFile.name;
+            _professionalLicenseError = null;
             break;
         }
       });
-      return; // ⛔ stop here
+
+      _validateForm();
+    } on PlatformException catch (_) {
+      // silently fail (no snackbar spam)
+    } catch (_) {
+      // silently fail
     }
-
-    // ✅ VALID FILE — SAVE IT
-    setState(() {
-      switch (fieldName) {
-        case 'business_registration':
-          _businessRegistrationFile = file;
-          _businessRegistrationFileName = platformFile.name;
-          _businessRegistrationError = null;
-          break;
-
-        case 'gst_certificate':
-          _gstCertificateFile = file;
-          _gstCertificateFileName = platformFile.name;
-          _gstCertificateError = null;
-          break;
-
-        case 'pan_card':
-          _panCardFile = file;
-          _panCardFileName = platformFile.name;
-          _panCardError = null;
-          break;
-
-        case 'professional_license':
-          _professionalLicenseFile = file;
-          _professionalLicenseFileName = platformFile.name;
-          _professionalLicenseError = null;
-          break;
-      }
-    });
-
-    _validateForm();
-  } on PlatformException catch (_) {
-    // silently fail (no snackbar spam)
-  } catch (_) {
-    // silently fail
   }
-}
 
   @override
   Widget build(BuildContext context) {
@@ -969,6 +1069,191 @@ class _HomeScreenState extends State<HomeScreen> {
 
                   const SizedBox(height: 24),
 
+                  _buildSectionCard(
+                    context,
+                    title: 'Photos',
+                    icon: Icons.photo_library_outlined,
+                    children: [
+                      // Frontend Images Section
+                      Container(
+                        decoration: BoxDecoration(
+                          border: Border(
+                            left: BorderSide(
+                              color: AppColors.primary,
+                              width: 4,
+                            ),
+                          ),
+                          color: AppColors.primary.withOpacity(0.05),
+                          borderRadius: const BorderRadius.horizontal(
+                            right: Radius.circular(8),
+                          ),
+                        ),
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.browser_updated_rounded,
+                                  color: AppColors.primary,
+                                  size: 24,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Frontend Images',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .titleMedium
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.bold,
+                                              color: AppColors.primary,
+                                            ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      Text(
+                                        'UI/UX screenshots and designs',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
+                                              color: AppColors.textSecondary,
+                                            ),
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            CustomButton(
+                              text: 'Select Frontend Images',
+                              icon: Icons.add_photo_alternate_rounded,
+                              onPressed: () => _pickImages(isFrontend: true),
+                              width: double.infinity,
+                            ),
+                            if (_frontendImagesError != null)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 8),
+                                child: Text(
+                                  _frontendImagesError!,
+                                  style: const TextStyle(
+                                    color: AppColors.error,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            if (_frontendImages.isNotEmpty) ...[
+                              const SizedBox(height: 16),
+                              _buildImagePreviewGrid(
+                                _frontendImages,
+                                (index) => _removeImage(true, index),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      // Backend Images Section
+                      Container(
+                        decoration: BoxDecoration(
+                          border: Border(
+                            left: BorderSide(
+                              color: AppColors.secondary,
+                              width: 4,
+                            ),
+                          ),
+                          color: AppColors.secondary.withOpacity(0.05),
+                          borderRadius: const BorderRadius.horizontal(
+                            right: Radius.circular(8),
+                          ),
+                        ),
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.storage_rounded,
+                                  color: AppColors.secondary,
+                                  size: 24,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Backend Images',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .titleMedium
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.bold,
+                                              color: AppColors.secondary,
+                                            ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      Text(
+                                        'Infrastructure and architecture',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
+                                              color: AppColors.textSecondary,
+                                            ),
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            CustomButton(
+                              text: 'Select Backend Images',
+                              icon: Icons.add_photo_alternate_rounded,
+                              onPressed: () => _pickImages(isFrontend: false),
+                              width: double.infinity,
+                            ),
+                            if (_backendImagesError != null)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 8),
+                                child: Text(
+                                  _backendImagesError!,
+                                  style: const TextStyle(
+                                    color: AppColors.error,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            if (_backendImages.isNotEmpty) ...[
+                              const SizedBox(height: 16),
+                              _buildImagePreviewGrid(
+                                _backendImages,
+                                (index) => _removeImage(false, index),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 24),
+
                   // Terms and Conditions Checkbox
                   Card(
                     elevation: 2,
@@ -1116,4 +1401,110 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+}
+
+Widget _buildImagePreviewGrid(
+  List<File> images,
+  Function(int) onRemoveImage,
+) {
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        '${images.length} image(s) selected',
+        style: const TextStyle(
+          fontSize: 12,
+          color: AppColors.textSecondary,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+      const SizedBox(height: 12),
+      SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: List.generate(
+            images.length,
+            (index) => Padding(
+              padding: EdgeInsets.only(right: index < images.length - 1 ? 12 : 0),
+              child: _buildImageThumbnail(
+                images[index],
+                index,
+                () => onRemoveImage(index),
+              ),
+            ),
+          ),
+        ),
+      ),
+    ],
+  );
+}
+
+Widget _buildImageThumbnail(
+  File imageFile,
+  int index,
+  VoidCallback onRemove,
+) {
+  return Stack(
+    clipBehavior: Clip.none,
+    children: [
+      // Image Container
+      Container(
+        width: 100,
+        height: 100,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Image.file(
+            imageFile,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) {
+              return Container(
+                color: AppColors.border,
+                child: const Icon(
+                  Icons.image_not_supported_outlined,
+                  color: AppColors.textSecondary,
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+      // Remove Button
+      Positioned(
+        top: -6,
+        right: -6,
+        child: GestureDetector(
+          onTap: onRemove,
+          child: Container(
+            decoration: BoxDecoration(
+              color: AppColors.error,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.error.withOpacity(0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            padding: const EdgeInsets.all(6),
+            child: const Icon(
+              Icons.close,
+              color: Colors.white,
+              size: 16,
+            ),
+          ),
+        ),
+      ),
+    ],
+  );
 }
