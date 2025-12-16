@@ -1,6 +1,8 @@
 import 'package:get_it/get_it.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../data/datasources/local/auth_local_storage.dart';
 import '../../data/datasources/remote/api_service.dart';
 import '../../data/repositories/auth_repository_impl.dart';
 import '../../data/repositories/employee_repository_impl.dart';
@@ -26,8 +28,13 @@ Future<void> initializeDependencies() async {
   // External
   sl.registerLazySingleton(() => http.Client());
 
+  // SharedPreferences
+  final sharedPreferences = await SharedPreferences.getInstance();
+  sl.registerLazySingleton(() => sharedPreferences);
+
   // Data sources
   sl.registerLazySingleton(() => ApiService(client: sl()));
+  sl.registerLazySingleton(() => AuthLocalStorage(sl()));
 
   // Repositories
   sl.registerLazySingleton<AuthRepository>(() => AuthRepositoryImpl(sl()));

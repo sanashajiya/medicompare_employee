@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../core/di/injection_container.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/validators.dart';
+import '../../../data/datasources/local/auth_local_storage.dart';
 import '../../blocs/auth/auth_bloc.dart';
 import '../../blocs/auth/auth_event.dart';
 import '../../blocs/auth/auth_state.dart';
@@ -88,6 +89,19 @@ class _LoginScreenState extends State<LoginScreen> {
               '✅ [BlocListener] Token: ${state.user.token.substring(0, 20)}...',
             );
 
+            // Save login status and user data to SharedPreferences
+            final authStorage = sl<AuthLocalStorage>();
+            authStorage
+                .saveLoginStatus(state.user)
+                .then((_) {
+                  print(
+                    '💾 [BlocListener] Login status saved to SharedPreferences',
+                  );
+                })
+                .catchError((error) {
+                  print('❌ [BlocListener] Failed to save login status: $error');
+                });
+
             // Show success message
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -142,10 +156,12 @@ class _LoginScreenState extends State<LoginScreen> {
                         color: AppColors.primary.withOpacity(0.1),
                         shape: BoxShape.circle,
                       ),
-                       padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.all(16),
                       child: ClipOval(
-                        child: Image.asset('assets/images/app_logo.png',fit: BoxFit.contain,),
-              
+                        child: Image.asset(
+                          'assets/images/app_logo.png',
+                          fit: BoxFit.contain,
+                        ),
                       ),
                     ),
 
