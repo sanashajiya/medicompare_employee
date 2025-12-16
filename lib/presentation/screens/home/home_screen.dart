@@ -18,6 +18,8 @@ import '../../widgets/custom_text_field.dart';
 import '../../widgets/file_upload_field.dart';
 import '../../widgets/multi_select_dropdown.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:signature/signature.dart';
+import 'dart:typed_data';
 
 class HomeScreen extends StatefulWidget {
   final UserEntity user;
@@ -65,6 +67,15 @@ class _HomeScreenState extends State<HomeScreen> {
   String? _gstCertificateFileName;
   String? _panCardFileName;
   String? _professionalLicenseFileName;
+
+  // Signature
+  final SignatureController _signatureController = SignatureController(
+    penStrokeWidth: 3,
+    penColor: Colors.black,
+  );
+
+  Uint8List? _signatureBytes;
+  String? _signatureError;
 
   // Error States
   String? _firstNameError;
@@ -197,6 +208,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _ifscCodeController.dispose();
     _bankNameController.dispose();
     _bankBranchController.dispose();
+    _signatureController.dispose();
 
     super.dispose();
   }
@@ -314,6 +326,11 @@ class _HomeScreenState extends State<HomeScreen> {
             )
           : null;
 
+      // Signature validation
+      _signatureError = _showErrors && _signatureBytes == null
+          ? 'Please provide your digital signature'
+          : null;
+
       // Terms and Conditions Validation
       _termsError = _showErrors && !_acceptedTerms
           ? 'You must accept the Terms and Conditions'
@@ -368,72 +385,72 @@ class _HomeScreenState extends State<HomeScreen> {
         _professionalLicenseFile != null &&
         _frontendImages.isNotEmpty &&
         _backendImages.isNotEmpty &&
+        _signatureBytes != null &&
         _acceptedTerms;
   }
 
   Future<void> _pickImages({required bool isFrontend}) async {
-  try {
-    final List<XFile> pickedImages =
-        await _imagePicker.pickMultiImage(
-      imageQuality: 85, // compress slightly
-    );
+    try {
+      final List<XFile> pickedImages = await _imagePicker.pickMultiImage(
+        imageQuality: 85, // compress slightly
+      );
 
-    if (pickedImages.isEmpty) return;
+      if (pickedImages.isEmpty) return;
 
-    const int maxImages = 30;
-    const int maxSizeMB = 3;
-    const int maxSizeBytes = maxSizeMB * 1024 * 1024;
+      const int maxImages = 30;
+      const int maxSizeMB = 3;
+      const int maxSizeBytes = maxSizeMB * 1024 * 1024;
 
-    final List<File> currentImages =
-        isFrontend ? _frontendImages : _backendImages;
+      final List<File> currentImages = isFrontend
+          ? _frontendImages
+          : _backendImages;
 
-    List<File> validImages = [];
+      List<File> validImages = [];
 
-    for (final xFile in pickedImages) {
-      final file = File(xFile.path);
+      for (final xFile in pickedImages) {
+        final file = File(xFile.path);
 
-      if (file.lengthSync() > maxSizeBytes) {
-        setState(() {
-          if (isFrontend) {
-            _frontendImagesError =
-                'Each image must be less than $maxSizeMB MB';
-          } else {
-            _backendImagesError =
-                'Each image must be less than $maxSizeMB MB';
-          }
-        });
-        return;
+        if (file.lengthSync() > maxSizeBytes) {
+          setState(() {
+            if (isFrontend) {
+              _frontendImagesError =
+                  'Each image must be less than $maxSizeMB MB';
+            } else {
+              _backendImagesError =
+                  'Each image must be less than $maxSizeMB MB';
+            }
+          });
+          return;
+        }
+
+        if (currentImages.length + validImages.length >= maxImages) {
+          setState(() {
+            if (isFrontend) {
+              _frontendImagesError = 'Maximum $maxImages images allowed';
+            } else {
+              _backendImagesError = 'Maximum $maxImages images allowed';
+            }
+          });
+          return;
+        }
+
+        validImages.add(file);
       }
 
-      if (currentImages.length + validImages.length >= maxImages) {
-        setState(() {
-          if (isFrontend) {
-            _frontendImagesError =
-                'Maximum $maxImages images allowed';
-          } else {
-            _backendImagesError =
-                'Maximum $maxImages images allowed';
-          }
-        });
-        return;
-      }
-
-      validImages.add(file);
+      setState(() {
+        if (isFrontend) {
+          _frontendImages.addAll(validImages);
+          _frontendImagesError = null;
+        } else {
+          _backendImages.addAll(validImages);
+          _backendImagesError = null;
+        }
+      });
+    } catch (e) {
+      debugPrint('Image pick error: $e');
     }
-
-    setState(() {
-      if (isFrontend) {
-        _frontendImages.addAll(validImages);
-        _frontendImagesError = null;
-      } else {
-        _backendImages.addAll(validImages);
-        _backendImagesError = null;
-      }
-    });
-  } catch (e) {
-    debugPrint('Image pick error: $e');
   }
-}
+
   void _removeImage(bool isFrontend, int index) {
     setState(() {
       if (isFrontend) {
@@ -608,6 +625,69 @@ class _HomeScreenState extends State<HomeScreen> {
       // silently fail
     }
   }
+
+  Widget _buildSignatureSection() {
+  return _buildSectionCard(
+    context,
+    title: 'Digital Signature',
+    icon: Icons.draw_outlined,
+    children: [
+      Container(
+        height: 120,
+        decoration: BoxDecoration(
+          border: Border.all(color: AppColors.border),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Signature(
+          controller: _signatureController,
+          backgroundColor: Colors.grey[100]!,
+        ),
+      ),
+      const SizedBox(height: 12),
+      Row(
+        children: [
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: () {
+                _signatureController.clear();
+                setState(() {
+                  _signatureBytes = null;
+                });
+              },
+              icon: const Icon(Icons.refresh),
+              label: const Text('Clear'),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: ElevatedButton.icon(
+              onPressed: () async {
+                if (_signatureController.isNotEmpty) {
+                  final bytes = await _signatureController.toPngBytes();
+                  setState(() {
+                    _signatureBytes = bytes;
+                    _signatureError = null;
+                  });
+                }
+              },
+              icon: const Icon(Icons.check),
+              label: const Text('Save'),
+            ),
+          ),
+        ],
+      ),
+      if (_signatureError != null)
+        Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Text(
+            _signatureError!,
+            style: const TextStyle(color: AppColors.error, fontSize: 12),
+          ),
+        ),
+    ],
+  );
+}
+
 
   @override
   Widget build(BuildContext context) {
@@ -1102,7 +1182,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         'Frontend Images',
@@ -1191,7 +1272,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         'Backend Images',
@@ -1251,6 +1333,10 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ],
                   ),
+
+                  const SizedBox(height: 24),
+
+                  _buildSignatureSection(),
 
                   const SizedBox(height: 24),
 
@@ -1403,10 +1489,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-Widget _buildImagePreviewGrid(
-  List<File> images,
-  Function(int) onRemoveImage,
-) {
+Widget _buildImagePreviewGrid(List<File> images, Function(int) onRemoveImage) {
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
@@ -1425,7 +1508,9 @@ Widget _buildImagePreviewGrid(
           children: List.generate(
             images.length,
             (index) => Padding(
-              padding: EdgeInsets.only(right: index < images.length - 1 ? 12 : 0),
+              padding: EdgeInsets.only(
+                right: index < images.length - 1 ? 12 : 0,
+              ),
               child: _buildImageThumbnail(
                 images[index],
                 index,
@@ -1439,11 +1524,9 @@ Widget _buildImagePreviewGrid(
   );
 }
 
-Widget _buildImageThumbnail(
-  File imageFile,
-  int index,
-  VoidCallback onRemove,
-) {
+
+
+Widget _buildImageThumbnail(File imageFile, int index, VoidCallback onRemove) {
   return Stack(
     clipBehavior: Clip.none,
     children: [
@@ -1497,14 +1580,11 @@ Widget _buildImageThumbnail(
               ],
             ),
             padding: const EdgeInsets.all(6),
-            child: const Icon(
-              Icons.close,
-              color: Colors.white,
-              size: 16,
-            ),
+            child: const Icon(Icons.close, color: Colors.white, size: 16),
           ),
         ),
       ),
     ],
   );
 }
+
