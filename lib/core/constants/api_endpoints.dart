@@ -1,5 +1,5 @@
 class ApiEndpoints {
-  static const String baseUrl = 'http://192.168.0.161:9001/api/v1';
+  static const String baseUrl = 'https://api.medicompares.digitalraiz.co.in/api/v1';
 
   // Authentication endpoints
   static const String login = '$baseUrl/employeevendor/auth/login';
