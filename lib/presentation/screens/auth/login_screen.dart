@@ -7,10 +7,10 @@ import '../../../data/datasources/local/auth_local_storage.dart';
 import '../../blocs/auth/auth_bloc.dart';
 import '../../blocs/auth/auth_event.dart';
 import '../../blocs/auth/auth_state.dart';
-import '../../blocs/vendor_form/vendor_form_bloc.dart';
+import '../../blocs/dashboard/dashboard_bloc.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/custom_text_field.dart';
-import '../home/home_screen.dart';
+import '../dashboard/dashboard_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -115,12 +115,12 @@ class _LoginScreenState extends State<LoginScreen> {
             );
 
             // Navigate immediately (no delay needed since we're in the listener)
-            print('🚀 [BlocListener] Navigating to home screen...');
+            print('🚀 [BlocListener] Navigating to dashboard screen...');
             Navigator.of(context).pushReplacement(
               MaterialPageRoute(
-                builder: (_) => BlocProvider<VendorFormBloc>(
-                  create: (_) => sl<VendorFormBloc>(),
-                  child: HomeScreen(user: state.user),
+                builder: (_) => BlocProvider<DashboardBloc>(
+                  create: (_) => sl<DashboardBloc>(),
+                  child: DashboardScreen(user: state.user),
                 ),
               ),
             );

@@ -6,9 +6,9 @@ import 'package:medicompare_employee/presentation/blocs/auth/auth_bloc.dart';
 import 'core/di/injection_container.dart';
 import 'core/theme/app_theme.dart';
 import 'data/datasources/local/auth_local_storage.dart';
-import 'presentation/blocs/vendor_form/vendor_form_bloc.dart';
+import 'presentation/blocs/dashboard/dashboard_bloc.dart';
 import 'presentation/screens/auth/login_screen.dart';
-import 'presentation/screens/home/home_screen.dart';
+import 'presentation/screens/dashboard/dashboard_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -54,10 +54,10 @@ class AppInitializer extends StatelessWidget {
     final savedUser = authStorage.getSavedUser();
 
     if (isLoggedIn && savedUser != null) {
-      print('✅ User is logged in, navigating to HomeScreen');
-      return BlocProvider<VendorFormBloc>(
-        create: (_) => sl<VendorFormBloc>(),
-        child: HomeScreen(user: savedUser),
+      print('✅ User is logged in, navigating to DashboardScreen');
+      return BlocProvider<DashboardBloc>(
+        create: (_) => sl<DashboardBloc>(),
+        child: DashboardScreen(user: savedUser),
       );
     } else {
       print('🔐 User is not logged in, showing LoginScreen');

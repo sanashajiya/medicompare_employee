@@ -15,6 +15,7 @@ import '../../domain/usecases/login_usecase.dart';
 import '../../domain/usecases/send_otp_usecase.dart';
 import '../../domain/usecases/verify_otp_usecase.dart';
 import '../../presentation/blocs/auth/auth_bloc.dart';
+import '../../presentation/blocs/dashboard/dashboard_bloc.dart';
 import '../../presentation/blocs/otp/otp_bloc.dart';
 import '../../presentation/blocs/vendor_form/vendor_form_bloc.dart';
 
@@ -51,4 +52,7 @@ Future<void> initializeDependencies() async {
     () => OtpBloc(sendOtpUseCase: sl(), verifyOtpUseCase: sl()),
   );
   sl.registerFactory(() => VendorFormBloc(createVendorUseCase: sl()));
+  sl.registerFactory(
+    () => DashboardBloc(authLocalStorage: sl<AuthLocalStorage>()),
+  );
 }
