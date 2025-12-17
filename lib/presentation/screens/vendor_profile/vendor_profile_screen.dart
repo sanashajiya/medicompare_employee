@@ -102,8 +102,7 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
   String? _additionalDocumentFileName;
 
   // Images
-  List<File> _frontendImages = [];
-  List<File> _backendImages = [];
+  List<File> _frontStoreImages = [];
 
   // Terms
   bool _acceptedTerms = false;
@@ -308,8 +307,8 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
       VendorFormSubmitted(
         vendor,
         widget.user.token,
-        frontimages: _frontendImages,
-        backimages: _backendImages,
+        frontimages: _frontStoreImages,
+        backimages: [],
         signature: signatureFiles,
       ),
     );
@@ -354,8 +353,7 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
       _panCardFileName = null;
       _professionalLicenseFileName = null;
       _additionalDocumentFileName = null;
-      _frontendImages = [];
-      _backendImages = [];
+      _frontStoreImages = [];
       _signatureController.clear();
       _signatureBytes = null;
       _acceptedTerms = false;
@@ -452,13 +450,10 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
         );
       case 4:
         return PhotosSection(
-          frontendImages: _frontendImages,
-          backendImages: _backendImages,
+          frontStoreImages: _frontStoreImages,
           enabled: enabled,
-          onFrontendImagesChanged: (images) =>
-              setState(() => _frontendImages = images),
-          onBackendImagesChanged: (images) =>
-              setState(() => _backendImages = images),
+          onFrontStoreImagesChanged: (images) =>
+              setState(() => _frontStoreImages = images),
           onValidationChanged: (isValid) {
             context.read<VendorStepperBloc>().add(
               VendorStepperSectionValidated(4, isValid),
