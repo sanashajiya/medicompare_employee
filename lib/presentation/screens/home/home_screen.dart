@@ -6,8 +6,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import '../../../core/constants/api_endpoints.dart';
+import '../../../core/di/injection_container.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/validators.dart';
+import '../../../data/datasources/local/auth_local_storage.dart';
 import '../../../data/datasources/remote/api_service.dart';
 import '../../../data/models/category_model.dart';
 import '../../../domain/entities/user_entity.dart';
@@ -19,6 +21,7 @@ import '../../widgets/custom_button.dart';
 import '../../widgets/custom_text_field.dart';
 import '../../widgets/file_upload_field.dart';
 import '../../widgets/multi_select_dropdown.dart';
+import '../auth/login_screen.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:signature/signature.dart';
 
@@ -133,6 +136,42 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _fetchCategories();
+  }
+
+  Future<void> _handleLogout() async {
+    // Show confirmation dialog
+    final shouldLogout = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Logout'),
+        content: const Text('Are you sure you want to logout?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
+            child: const Text('Logout'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldLogout == true) {
+      // Clear login status from SharedPreferences
+      final authStorage = sl<AuthLocalStorage>();
+      await authStorage.clearLoginStatus();
+
+      // Navigate to login screen and remove all previous routes
+      if (mounted) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
+          (route) => false,
+        );
+      }
+    }
   }
 
   Future<void> _fetchCategories() async {
@@ -787,798 +826,824 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final systemBottomPadding = MediaQuery.of(context).viewPadding.bottom;
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       appBar: AppBar(
         title: const Text('Complete Your Vendor Profile'),
         automaticallyImplyLeading: false,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            tooltip: 'Logout',
+            onPressed: _handleLogout,
+          ),
+        ],
       ),
-      body: BlocListener<VendorFormBloc, VendorFormState>(
-        listener: (context, state) {
-          if (state is VendorFormSuccess) {
-            showDialog(
-              context: context,
-              barrierDismissible: false,
-              builder: (context) => Dialog(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                elevation: 8,
-                child: Container(
-                  decoration: BoxDecoration(
+      body: SafeArea(
+        bottom: false,
+        child: BlocListener<VendorFormBloc, VendorFormState>(
+          listener: (context, state) {
+            if (state is VendorFormSuccess) {
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (context) => Dialog(
+                  shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
-                    color: Colors.white,
                   ),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 32,
+                  elevation: 8,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      color: Colors.white,
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 22,
+                      vertical: 28,
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Success Icon with background
+                        Container(
+                          width: 80,
+                          height: 80,
+                          decoration: BoxDecoration(
+                            color: AppColors.success.withOpacity(0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.check_circle,
+                            color: AppColors.success,
+                            size: 48,
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        // Success Title
+                        const Text(
+                          'Success!',
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        // Success Message
+                        const Text(
+                          'Vendor created successfully',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.black54,
+                            height: 1.5,
+                          ),
+                        ),
+                        const SizedBox(height: 32),
+                        // OK Button
+                        SizedBox(
+                          width: double.infinity,
+                          child: CustomButton(
+                            text: 'OK',
+                            onPressed: () {
+                              Navigator.of(context).pop();
+                              // Reset form
+                              setState(() {
+                                _firstNameController.clear();
+                                _lastNameController.clear();
+                                _emailController.clear();
+                                _phoneController.clear();
+                                _passwordController.clear();
+                                _confirmPasswordController.clear();
+                                _businessNameController.clear();
+                                _businessEmailController.clear();
+                                _businessMobileController.clear();
+                                _altBusinessMobileController.clear();
+                                _businessAddressController.clear();
+                                _accountNumberController.clear();
+                                _confirmAccountNumberController.clear();
+                                _accountHolderNameController.clear();
+                                _ifscCodeController.clear();
+                                _bankNameController.clear();
+                                _bankBranchController.clear();
+                                _selectedBusinessCategories = [];
+                                _businessRegistrationFile = null;
+                                _gstCertificateFile = null;
+                                _panCardFile = null;
+                                _professionalLicenseFile = null;
+                                _businessRegistrationFileName = null;
+                                _gstCertificateFileName = null;
+                                _panCardFileName = null;
+                                _professionalLicenseFileName = null;
+                                _panCardNumberController.clear();
+                                _gstCertificateNumberController.clear();
+                                _businessRegistrationNumberController.clear();
+                                _professionalLicenseNumberController.clear();
+                                _frontendImages.clear();
+                                _backendImages.clear();
+                                _frontendImagesError = null;
+                                _backendImagesError = null;
+                                _signatureController.clear();
+                                _signatureBytes = null;
+                                _signatureError = null;
+                                _acceptedTerms = false;
+                                _showErrors = false;
+                              });
+                              context.read<VendorFormBloc>().add(
+                                VendorFormReset(),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Success Icon with background
-                      Container(
-                        width: 80,
-                        height: 80,
-                        decoration: BoxDecoration(
-                          color: AppColors.success.withOpacity(0.1),
-                          shape: BoxShape.circle,
+                ),
+              );
+            } else if (state is VendorFormFailure) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(state.error),
+                  backgroundColor: AppColors.error,
+                ),
+              );
+            }
+          },
+          child: BlocBuilder<VendorFormBloc, VendorFormState>(
+            builder: (context, state) {
+              final isSubmitting = state is VendorFormSubmitting;
+
+              return SingleChildScrollView(
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
+                padding: EdgeInsets.fromLTRB(
+                  16,
+                  16,
+                  16,
+                  16 + systemBottomPadding + (bottomInset > 0 ? 16 : 0),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Personal Details Section
+                    _buildSectionCard(
+                      context,
+                      title: 'Personal Details',
+                      icon: Icons.person_outline,
+                      children: [
+                        responsiveRow(
+                          context: context,
+                          left: CustomTextField(
+                            controller: _firstNameController,
+                            label: 'First Name *',
+                            hint: 'Enter first name',
+                            errorText: _firstNameError,
+                            enabled: !isSubmitting,
+                            onChanged: (_) => _validateForm(),
+                          ),
+
+                          right: CustomTextField(
+                            controller: _lastNameController,
+                            label: 'Last Name *',
+                            hint: 'Enter last name',
+                            errorText: _lastNameError,
+                            enabled: !isSubmitting,
+                            onChanged: (_) => _validateForm(),
+                          ),
                         ),
-                        child: const Icon(
-                          Icons.check_circle,
-                          color: AppColors.success,
-                          size: 48,
+                        const SizedBox(height: 20),
+                        CustomTextField(
+                          controller: _emailController,
+                          label: 'Email Address *',
+                          hint: 'Enter email address',
+                          errorText: _emailError,
+                          keyboardType: TextInputType.emailAddress,
+                          enabled: !isSubmitting,
+                          onChanged: (_) => _validateForm(),
                         ),
-                      ),
-                      const SizedBox(height: 20),
-                      // Success Title
-                      const Text(
-                        'Success!',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black87,
+                        const SizedBox(height: 20),
+                        CustomTextField(
+                          controller: _phoneController,
+                          label: 'Phone Number *',
+                          hint: '10 digit mobile number',
+                          errorText: _phoneError,
+                          keyboardType: TextInputType.phone,
+                          maxLength: 10,
+                          enabled: !isSubmitting,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                          ],
+                          onChanged: (_) => _validateForm(),
                         ),
-                      ),
-                      const SizedBox(height: 12),
-                      // Success Message
-                      const Text(
-                        'Vendor created successfully',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.black54,
-                          height: 1.5,
+                        const SizedBox(height: 20),
+                        CustomTextField(
+                          controller: _passwordController,
+                          label: 'Password *',
+                          hint: 'Enter password',
+                          errorText: _passwordError,
+                          obscureText: true,
+                          enabled: !isSubmitting,
+                          onChanged: (_) => _validateForm(),
                         ),
-                      ),
-                      const SizedBox(height: 32),
-                      // OK Button
-                      SizedBox(
-                        width: double.infinity,
-                        child: CustomButton(
-                          text: 'OK',
-                          onPressed: () {
-                            Navigator.of(context).pop();
-                            // Reset form
-                            setState(() {
-                              _firstNameController.clear();
-                              _lastNameController.clear();
-                              _emailController.clear();
-                              _phoneController.clear();
-                              _passwordController.clear();
-                              _confirmPasswordController.clear();
-                              _businessNameController.clear();
-                              _businessEmailController.clear();
-                              _businessMobileController.clear();
-                              _altBusinessMobileController.clear();
-                              _businessAddressController.clear();
-                              _accountNumberController.clear();
-                              _confirmAccountNumberController.clear();
-                              _accountHolderNameController.clear();
-                              _ifscCodeController.clear();
-                              _bankNameController.clear();
-                              _bankBranchController.clear();
-                              _selectedBusinessCategories = [];
-                              _businessRegistrationFile = null;
-                              _gstCertificateFile = null;
-                              _panCardFile = null;
-                              _professionalLicenseFile = null;
-                              _businessRegistrationFileName = null;
-                              _gstCertificateFileName = null;
-                              _panCardFileName = null;
-                              _professionalLicenseFileName = null;
-                              _panCardNumberController.clear();
-                              _gstCertificateNumberController.clear();
-                              _businessRegistrationNumberController.clear();
-                              _professionalLicenseNumberController.clear();
-                              _acceptedTerms = false;
-                              _showErrors = false;
-                            });
-                            context.read<VendorFormBloc>().add(
-                              VendorFormReset(),
+                        const SizedBox(height: 20),
+                        CustomTextField(
+                          controller: _confirmPasswordController,
+                          label: 'Confirm Password *',
+                          hint: 'Re-enter password',
+                          errorText: _confirmPasswordError,
+                          obscureText: true,
+                          enabled: !isSubmitting,
+                          onChanged: (_) => _validateForm(),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    // Business Details Section
+                    _buildSectionCard(
+                      context,
+                      title: 'Business Details',
+                      icon: Icons.business_outlined,
+                      children: [
+                        CustomTextField(
+                          controller: _businessNameController,
+                          label: 'Business Name *',
+                          hint: 'e.g., Alpha Enterprises',
+                          errorText: _businessNameError,
+                          enabled: !isSubmitting,
+                          onChanged: (_) => _validateForm(),
+                        ),
+                        const SizedBox(height: 20),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: CustomTextField(
+                                controller: _businessEmailController,
+                                label: 'Business Email *',
+                                hint: 'e.g., vendor@company.com',
+                                errorText: _businessEmailError,
+                                keyboardType: TextInputType.emailAddress,
+                                enabled: !isSubmitting,
+                                onChanged: (_) => _validateForm(),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+                        responsiveRow(
+                          context: context,
+                          left: CustomTextField(
+                            controller: _businessMobileController,
+                            label: 'Business Mobile Number *',
+                            hint: '10 digits',
+                            errorText: _businessMobileError,
+                            keyboardType: TextInputType.phone,
+                            maxLength: 10,
+                            enabled: !isSubmitting,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                            ],
+                            onChanged: (_) => _validateForm(),
+                          ),
+
+                          right: CustomTextField(
+                            controller: _altBusinessMobileController,
+                            label: 'Alternate Mobile (Optional)',
+                            hint: '10 digits',
+                            errorText: _altBusinessMobileError,
+                            keyboardType: TextInputType.phone,
+                            maxLength: 10,
+                            enabled: !isSubmitting,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                            ],
+                            onChanged: (_) => _validateForm(),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        MultiSelectDropdown(
+                          label: 'Business Categories *',
+                          selectedValues: _selectedBusinessCategories,
+                          hint: 'Select your business categories',
+                          errorText: _businessCategoryError,
+                          items: _availableCategories
+                              .map((cat) => cat.name)
+                              .toList(),
+                          enabled: !isSubmitting && _categoriesLoaded,
+                          onChanged: (values) {
+                            setState(
+                              () => _selectedBusinessCategories = values,
                             );
+                            _validateForm();
                           },
                         ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          } else if (state is VendorFormFailure) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.error),
-                backgroundColor: AppColors.error,
-              ),
-            );
-          }
-        },
-        child: BlocBuilder<VendorFormBloc, VendorFormState>(
-          builder: (context, state) {
-            final isSubmitting = state is VendorFormSubmitting;
-
-            return SingleChildScrollView(
-              padding: const EdgeInsets.all(8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Personal Details Section
-                  _buildSectionCard(
-                    context,
-                    title: 'Personal Details',
-                    icon: Icons.person_outline,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: CustomTextField(
-                              controller: _firstNameController,
-                              label: 'First Name *',
-                              hint: 'Enter first name',
-                              errorText: _firstNameError,
-                              enabled: !isSubmitting,
-                              onChanged: (_) => _validateForm(),
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: CustomTextField(
-                              controller: _lastNameController,
-                              label: 'Last Name *',
-                              hint: 'Enter last name',
-                              errorText: _lastNameError,
-                              enabled: !isSubmitting,
-                              onChanged: (_) => _validateForm(),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-                      CustomTextField(
-                        controller: _emailController,
-                        label: 'Email Address *',
-                        hint: 'Enter email address',
-                        errorText: _emailError,
-                        keyboardType: TextInputType.emailAddress,
-                        enabled: !isSubmitting,
-                        onChanged: (_) => _validateForm(),
-                      ),
-                      const SizedBox(height: 20),
-                      CustomTextField(
-                        controller: _phoneController,
-                        label: 'Phone Number *',
-                        hint: '10 digit mobile number',
-                        errorText: _phoneError,
-                        keyboardType: TextInputType.phone,
-                        maxLength: 10,
-                        enabled: !isSubmitting,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                        ],
-                        onChanged: (_) => _validateForm(),
-                      ),
-                      const SizedBox(height: 20),
-                      CustomTextField(
-                        controller: _passwordController,
-                        label: 'Password *',
-                        hint: 'Enter password',
-                        errorText: _passwordError,
-                        obscureText: true,
-                        enabled: !isSubmitting,
-                        onChanged: (_) => _validateForm(),
-                      ),
-                      const SizedBox(height: 20),
-                      CustomTextField(
-                        controller: _confirmPasswordController,
-                        label: 'Confirm Password *',
-                        hint: 'Re-enter password',
-                        errorText: _confirmPasswordError,
-                        obscureText: true,
-                        enabled: !isSubmitting,
-                        onChanged: (_) => _validateForm(),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  // Business Details Section
-                  _buildSectionCard(
-                    context,
-                    title: 'Business Details',
-                    icon: Icons.business_outlined,
-                    children: [
-                      CustomTextField(
-                        controller: _businessNameController,
-                        label: 'Business Name *',
-                        hint: 'e.g., Alpha Enterprises',
-                        errorText: _businessNameError,
-                        enabled: !isSubmitting,
-                        onChanged: (_) => _validateForm(),
-                      ),
-                      const SizedBox(height: 20),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: CustomTextField(
-                              controller: _businessEmailController,
-                              label: 'Business Email *',
-                              hint: 'e.g., vendor@company.com',
-                              errorText: _businessEmailError,
-                              keyboardType: TextInputType.emailAddress,
-                              enabled: !isSubmitting,
-                              onChanged: (_) => _validateForm(),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: CustomTextField(
-                              controller: _businessMobileController,
-                              label: 'Business Mobile Number *',
-                              hint: '10 digits',
-                              errorText: _businessMobileError,
-                              keyboardType: TextInputType.phone,
-                              maxLength: 10,
-                              enabled: !isSubmitting,
-                              inputFormatters: [
-                                FilteringTextInputFormatter.digitsOnly,
-                              ],
-                              onChanged: (_) => _validateForm(),
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: CustomTextField(
-                              controller: _altBusinessMobileController,
-                              label: 'Alternate Mobile (Optional)',
-                              hint: '10 digits',
-                              errorText: _altBusinessMobileError,
-                              keyboardType: TextInputType.phone,
-                              maxLength: 10,
-                              enabled: !isSubmitting,
-                              inputFormatters: [
-                                FilteringTextInputFormatter.digitsOnly,
-                              ],
-                              onChanged: (_) => _validateForm(),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-                      MultiSelectDropdown(
-                        label: 'Business Categories *',
-                        selectedValues: _selectedBusinessCategories,
-                        hint: 'Select your business categories',
-                        errorText: _businessCategoryError,
-                        items: _availableCategories
-                            .map((cat) => cat.name)
-                            .toList(),
-                        enabled: !isSubmitting && _categoriesLoaded,
-                        onChanged: (values) {
-                          setState(() => _selectedBusinessCategories = values);
-                          _validateForm();
-                        },
-                      ),
-                      const SizedBox(height: 20),
-                      CustomTextField(
-                        controller: _businessAddressController,
-                        label: 'Business Address *',
-                        hint: 'e.g., 123, Main Block, City, Dist, Country',
-                        errorText: _businessAddressError,
-                        maxLines: 3,
-                        enabled: !isSubmitting,
-                        onChanged: (_) => _validateForm(),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  // Banking Information Section
-                  _buildSectionCard(
-                    context,
-                    title: 'Banking Information',
-                    icon: Icons.account_balance_outlined,
-                    children: [
-                      CustomTextField(
-                        controller: _accountNumberController,
-                        label: 'Account Number *',
-                        hint: 'e.g., 1234567890',
-                        errorText: _accountNumberError,
-                        keyboardType: TextInputType.number,
-                        enabled: !isSubmitting,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                        ],
-                        onChanged: (_) => _validateForm(),
-                      ),
-                      const SizedBox(height: 20),
-                      CustomTextField(
-                        controller: _confirmAccountNumberController,
-                        label: 'Confirm Account Number *',
-                        hint: 'Re-enter account number',
-                        errorText: _confirmAccountNumberError,
-                        keyboardType: TextInputType.number,
-                        enabled: !isSubmitting,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                        ],
-                        onChanged: (_) => _validateForm(),
-                      ),
-                      const SizedBox(height: 20),
-                      CustomTextField(
-                        controller: _accountHolderNameController,
-                        label: 'Account Holder Name *',
-                        hint: 'e.g., John Doe',
-                        errorText: _accountHolderNameError,
-                        enabled: !isSubmitting,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.allow(
-                            RegExp(r'[A-Za-z ]'),
-                          ),
-                        ],
-                        onChanged: (_) => _validateForm(),
-                      ),
-                      const SizedBox(height: 20),
-                      CustomTextField(
-                        controller: _ifscCodeController,
-                        label: 'IFSC Code *',
-                        hint: 'e.g., SBIN0001234',
-                        errorText: _ifscCodeError,
-                        enabled: !isSubmitting,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.allow(
-                            RegExp(r'[A-Z0-9]'),
-                          ),
-                          TextInputFormatter.withFunction((oldValue, newValue) {
-                            return newValue.copyWith(
-                              text: newValue.text.toUpperCase(),
-                            );
-                          }),
-                        ],
-                        onChanged: (_) => _validateForm(),
-                      ),
-                      const SizedBox(height: 20),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: CustomTextField(
-                              controller: _bankNameController,
-                              label: 'Bank Name *',
-                              hint: 'e.g., State Bank of India',
-                              errorText: _bankNameError,
-                              enabled: !isSubmitting,
-                              inputFormatters: [
-                                FilteringTextInputFormatter.allow(
-                                  RegExp(r'[A-Za-z ]'),
-                                ),
-                              ],
-                              onChanged: (_) => _validateForm(),
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: CustomTextField(
-                              controller: _bankBranchController,
-                              label: 'Bank Branch *',
-                              hint: 'e.g., Delhi',
-                              errorText: _bankBranchError,
-                              enabled: !isSubmitting,
-                              inputFormatters: [
-                                FilteringTextInputFormatter.allow(
-                                  RegExp(r'[A-Za-z ]'),
-                                ),
-                              ],
-                              onChanged: (_) => _validateForm(),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  // Documents & Certifications Section
-                  _buildSectionCard(
-                    context,
-                    title: 'Documents & Certifications',
-                    icon: Icons.description_outlined,
-                    children: [
-                      FileUploadField(
-                        label: 'Business Registration Certificate',
-                        fileName: _businessRegistrationFileName,
-                        errorText: _businessRegistrationError,
-                        required: true,
-                        enabled: !isSubmitting,
-                        onTap: () => _pickFile('business_registration'),
-                      ),
-                      const SizedBox(height: 12),
-                      CustomTextField(
-                        controller: _businessRegistrationNumberController,
-                        label: 'Business Registration Number',
-                        hint: 'Enter registration number',
-                        enabled: !isSubmitting,
-                        onChanged: (_) => _validateForm(),
-                      ),
-                      const SizedBox(height: 20),
-                      FileUploadField(
-                        label: 'GST Registration Certificate',
-                        fileName: _gstCertificateFileName,
-                        errorText: _gstCertificateError,
-                        required: true,
-                        enabled: !isSubmitting,
-                        onTap: () => _pickFile('gst_certificate'),
-                      ),
-                      const SizedBox(height: 12),
-                      CustomTextField(
-                        controller: _gstCertificateNumberController,
-                        label: 'GST Certificate Number',
-                        hint: 'Enter GST number',
-                        enabled: !isSubmitting,
-                        onChanged: (_) => _validateForm(),
-                      ),
-                      const SizedBox(height: 20),
-                      FileUploadField(
-                        label: 'PAN Card',
-                        fileName: _panCardFileName,
-                        errorText: _panCardError,
-                        required: true,
-                        enabled: !isSubmitting,
-                        onTap: () => _pickFile('pan_card'),
-                      ),
-                      const SizedBox(height: 12),
-                      CustomTextField(
-                        controller: _panCardNumberController,
-                        label: 'PAN Card Number',
-                        hint: 'Enter PAN number (e.g., ABCDE1234F)',
-                        enabled: !isSubmitting,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.allow(
-                            RegExp(r'[A-Z0-9]'),
-                          ),
-                          TextInputFormatter.withFunction((oldValue, newValue) {
-                            return newValue.copyWith(
-                              text: newValue.text.toUpperCase(),
-                            );
-                          }),
-                        ],
-                        onChanged: (_) => _validateForm(),
-                      ),
-                      const SizedBox(height: 20),
-                      FileUploadField(
-                        label: 'Professional License',
-                        fileName: _professionalLicenseFileName,
-                        errorText: _professionalLicenseError,
-                        required: true,
-                        enabled: !isSubmitting,
-                        onTap: () => _pickFile('professional_license'),
-                      ),
-                      const SizedBox(height: 12),
-                      CustomTextField(
-                        controller: _professionalLicenseNumberController,
-                        label: 'Professional License Number',
-                        hint: 'Enter license number',
-                        enabled: !isSubmitting,
-                        onChanged: (_) => _validateForm(),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  _buildSectionCard(
-                    context,
-                    title: 'Photos',
-                    icon: Icons.photo_library_outlined,
-                    children: [
-                      // Frontend Images Section
-                      Container(
-                        decoration: BoxDecoration(
-                          border: Border(
-                            left: BorderSide(
-                              color: AppColors.primary,
-                              width: 4,
-                            ),
-                          ),
-                          color: AppColors.primary.withOpacity(0.05),
-                          borderRadius: const BorderRadius.horizontal(
-                            right: Radius.circular(8),
-                          ),
+                        const SizedBox(height: 20),
+                        CustomTextField(
+                          controller: _businessAddressController,
+                          label: 'Business Address *',
+                          hint: 'e.g., 123, Main Block, City, Dist, Country',
+                          errorText: _businessAddressError,
+                          maxLines: 3,
+                          enabled: !isSubmitting,
+                          onChanged: (_) => _validateForm(),
                         ),
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.browser_updated_rounded,
-                                  color: AppColors.primary,
-                                  size: 24,
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'Frontend Images',
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .titleMedium
-                                            ?.copyWith(
-                                              fontWeight: FontWeight.bold,
-                                              color: AppColors.primary,
-                                            ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                      Text(
-                                        'UI/UX screenshots and designs',
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodySmall
-                                            ?.copyWith(
-                                              color: AppColors.textSecondary,
-                                            ),
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-                            CustomButton(
-                              text: 'Select Frontend Images',
-                              icon: Icons.add_photo_alternate_rounded,
-                              onPressed: () => _pickImages(isFrontend: true),
-                              width: double.infinity,
-                            ),
-                            if (_frontendImagesError != null)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 8),
-                                child: Text(
-                                  _frontendImagesError!,
-                                  style: const TextStyle(
-                                    color: AppColors.error,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ),
-                            if (_frontendImages.isNotEmpty) ...[
-                              const SizedBox(height: 16),
-                              _buildImagePreviewGrid(
-                                _frontendImages,
-                                (index) => _removeImage(true, index),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-
-                      const SizedBox(height: 20),
-
-                      // Backend Images Section
-                      Container(
-                        decoration: BoxDecoration(
-                          border: Border(
-                            left: BorderSide(
-                              color: AppColors.secondary,
-                              width: 4,
-                            ),
-                          ),
-                          color: AppColors.secondary.withOpacity(0.05),
-                          borderRadius: const BorderRadius.horizontal(
-                            right: Radius.circular(8),
-                          ),
-                        ),
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.storage_rounded,
-                                  color: AppColors.secondary,
-                                  size: 24,
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'Backend Images',
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .titleMedium
-                                            ?.copyWith(
-                                              fontWeight: FontWeight.bold,
-                                              color: AppColors.secondary,
-                                            ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                      Text(
-                                        'Infrastructure and architecture',
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodySmall
-                                            ?.copyWith(
-                                              color: AppColors.textSecondary,
-                                            ),
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-                            CustomButton(
-                              text: 'Select Backend Images',
-                              icon: Icons.add_photo_alternate_rounded,
-                              onPressed: () => _pickImages(isFrontend: false),
-                              width: double.infinity,
-                            ),
-                            if (_backendImagesError != null)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 8),
-                                child: Text(
-                                  _backendImagesError!,
-                                  style: const TextStyle(
-                                    color: AppColors.error,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ),
-                            if (_backendImages.isNotEmpty) ...[
-                              const SizedBox(height: 16),
-                              _buildImagePreviewGrid(
-                                _backendImages,
-                                (index) => _removeImage(false, index),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  _buildsignatureection(),
-
-                  const SizedBox(height: 24),
-
-                  // Terms and Conditions Checkbox
-                  Card(
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+                      ],
                     ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
+
+                    const SizedBox(height: 24),
+
+                    // Banking Information Section
+                    _buildSectionCard(
+                      context,
+                      title: 'Banking Information',
+                      icon: Icons.account_balance_outlined,
+                      children: [
+                        CustomTextField(
+                          controller: _accountNumberController,
+                          label: 'Account Number *',
+                          hint: 'e.g., 1234567890',
+                          errorText: _accountNumberError,
+                          keyboardType: TextInputType.number,
+                          enabled: !isSubmitting,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                          ],
+                          onChanged: (_) => _validateForm(),
+                        ),
+                        const SizedBox(height: 20),
+                        CustomTextField(
+                          controller: _confirmAccountNumberController,
+                          label: 'Confirm Account Number *',
+                          hint: 'Re-enter account number',
+                          errorText: _confirmAccountNumberError,
+                          keyboardType: TextInputType.number,
+                          enabled: !isSubmitting,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                          ],
+                          onChanged: (_) => _validateForm(),
+                        ),
+                        const SizedBox(height: 20),
+                        CustomTextField(
+                          controller: _accountHolderNameController,
+                          label: 'Account Holder Name *',
+                          hint: 'e.g., John Doe',
+                          errorText: _accountHolderNameError,
+                          enabled: !isSubmitting,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(
+                              RegExp(r'[A-Za-z ]'),
+                            ),
+                          ],
+                          onChanged: (_) => _validateForm(),
+                        ),
+                        const SizedBox(height: 20),
+                        CustomTextField(
+                          controller: _ifscCodeController,
+                          label: 'IFSC Code *',
+                          hint: 'e.g., SBIN0001234',
+                          errorText: _ifscCodeError,
+                          enabled: !isSubmitting,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(
+                              RegExp(r'[A-Z0-9]'),
+                            ),
+                            TextInputFormatter.withFunction((
+                              oldValue,
+                              newValue,
+                            ) {
+                              return newValue.copyWith(
+                                text: newValue.text.toUpperCase(),
+                              );
+                            }),
+                          ],
+                          onChanged: (_) => _validateForm(),
+                        ),
+                        const SizedBox(height: 20),
+                        responsiveRow(
+                          context: context,
+
+                          left: CustomTextField(
+                            controller: _bankNameController,
+                            label: 'Bank Name *',
+                            hint: 'e.g., State Bank of India',
+                            errorText: _bankNameError,
+                            enabled: !isSubmitting,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.allow(
+                                RegExp(r'[A-Za-z ]'),
+                              ),
+                            ],
+                            onChanged: (_) => _validateForm(),
+                          ),
+
+                          right: CustomTextField(
+                            controller: _bankBranchController,
+                            label: 'Bank Branch *',
+                            hint: 'e.g., Delhi',
+                            errorText: _bankBranchError,
+                            enabled: !isSubmitting,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.allow(
+                                RegExp(r'[A-Za-z ]'),
+                              ),
+                            ],
+                            onChanged: (_) => _validateForm(),
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    // Documents & Certifications Section
+                    _buildSectionCard(
+                      context,
+                      title: 'Documents & Certifications',
+                      icon: Icons.description_outlined,
+                      children: [
+                        FileUploadField(
+                          label: 'Business Registration Certificate',
+                          fileName: _businessRegistrationFileName,
+                          errorText: _businessRegistrationError,
+                          required: true,
+                          enabled: !isSubmitting,
+                          onTap: () => _pickFile('business_registration'),
+                        ),
+                        const SizedBox(height: 12),
+                        CustomTextField(
+                          controller: _businessRegistrationNumberController,
+                          label: 'Business Registration Number',
+                          hint: 'Enter registration number',
+                          enabled: !isSubmitting,
+                          onChanged: (_) => _validateForm(),
+                        ),
+                        const SizedBox(height: 20),
+                        FileUploadField(
+                          label: 'GST Registration Certificate',
+                          fileName: _gstCertificateFileName,
+                          errorText: _gstCertificateError,
+                          required: true,
+                          enabled: !isSubmitting,
+                          onTap: () => _pickFile('gst_certificate'),
+                        ),
+                        const SizedBox(height: 12),
+                        CustomTextField(
+                          controller: _gstCertificateNumberController,
+                          label: 'GST Certificate Number',
+                          hint: 'Enter GST number',
+                          enabled: !isSubmitting,
+                          onChanged: (_) => _validateForm(),
+                        ),
+                        const SizedBox(height: 20),
+                        FileUploadField(
+                          label: 'PAN Card',
+                          fileName: _panCardFileName,
+                          errorText: _panCardError,
+                          required: true,
+                          enabled: !isSubmitting,
+                          onTap: () => _pickFile('pan_card'),
+                        ),
+                        const SizedBox(height: 12),
+                        CustomTextField(
+                          controller: _panCardNumberController,
+                          label: 'PAN Card Number',
+                          hint: 'Enter PAN number (e.g., ABCDE1234F)',
+                          enabled: !isSubmitting,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(
+                              RegExp(r'[A-Z0-9]'),
+                            ),
+                            TextInputFormatter.withFunction((
+                              oldValue,
+                              newValue,
+                            ) {
+                              return newValue.copyWith(
+                                text: newValue.text.toUpperCase(),
+                              );
+                            }),
+                          ],
+                          onChanged: (_) => _validateForm(),
+                        ),
+                        const SizedBox(height: 20),
+                        FileUploadField(
+                          label: 'Professional License',
+                          fileName: _professionalLicenseFileName,
+                          errorText: _professionalLicenseError,
+                          required: true,
+                          enabled: !isSubmitting,
+                          onTap: () => _pickFile('professional_license'),
+                        ),
+                        const SizedBox(height: 12),
+                        CustomTextField(
+                          controller: _professionalLicenseNumberController,
+                          label: 'Professional License Number',
+                          hint: 'Enter license number',
+                          enabled: !isSubmitting,
+                          onChanged: (_) => _validateForm(),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    _buildSectionCard(
+                      context,
+                      title: 'Photos',
+                      icon: Icons.photo_library_outlined,
+                      children: [
+                        // Frontend Images Section
+                        Container(
+                          decoration: BoxDecoration(
+                            border: Border(
+                              left: BorderSide(
+                                color: AppColors.primary,
+                                width: 4,
+                              ),
+                            ),
+                            color: AppColors.primary.withOpacity(0.05),
+                            borderRadius: const BorderRadius.horizontal(
+                              right: Radius.circular(8),
+                            ),
+                          ),
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Checkbox(
-                                value: _acceptedTerms,
-                                onChanged: isSubmitting
-                                    ? null
-                                    : (value) {
-                                        setState(() {
-                                          _acceptedTerms = value ?? false;
-                                        });
-                                        _validateForm();
-                                      },
-                                activeColor: AppColors.primary,
-                              ),
-                              Expanded(
-                                child: Padding(
-                                  padding: const EdgeInsets.only(top: 12),
-                                  child: RichText(
-                                    text: TextSpan(
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodyMedium
-                                          ?.copyWith(
-                                            color: AppColors.textPrimary,
-                                          ),
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.browser_updated_rounded,
+                                    color: AppColors.primary,
+                                    size: 24,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
-                                        const TextSpan(text: 'I agree to the '),
-                                        TextSpan(
-                                          text: 'Terms and Conditions',
-                                          style: const TextStyle(
-                                            color: AppColors.primary,
-                                            decoration:
-                                                TextDecoration.underline,
-                                            fontWeight: FontWeight.w600,
-                                          ),
+                                        Text(
+                                          'Frontend Images',
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .titleMedium
+                                              ?.copyWith(
+                                                fontWeight: FontWeight.bold,
+                                                color: AppColors.primary,
+                                              ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
                                         ),
-                                        const TextSpan(text: ' and '),
-                                        TextSpan(
-                                          text: 'Privacy Policy',
-                                          style: const TextStyle(
-                                            color: AppColors.primary,
-                                            decoration:
-                                                TextDecoration.underline,
-                                            fontWeight: FontWeight.w600,
-                                          ),
+                                        Text(
+                                          'UI/UX screenshots and designs',
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodySmall
+                                              ?.copyWith(
+                                                color: AppColors.textSecondary,
+                                              ),
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
                                         ),
                                       ],
                                     ),
                                   ),
-                                ),
+                                ],
                               ),
+                              const SizedBox(height: 16),
+                              CustomButton(
+                                text: 'Select Frontend Images',
+                                icon: Icons.add_photo_alternate_rounded,
+                                onPressed: () => _pickImages(isFrontend: true),
+                                width: double.infinity,
+                              ),
+                              if (_frontendImagesError != null)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 8),
+                                  child: Text(
+                                    _frontendImagesError!,
+                                    style: const TextStyle(
+                                      color: AppColors.error,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ),
+                              if (_frontendImages.isNotEmpty) ...[
+                                const SizedBox(height: 16),
+                                _buildImagePreviewGrid(
+                                  _frontendImages,
+                                  (index) => _removeImage(true, index),
+                                ),
+                              ],
                             ],
                           ),
-                          if (_termsError != null)
-                            Padding(
-                              padding: const EdgeInsets.only(left: 48, top: 4),
-                              child: Text(
-                                _termsError!,
-                                style: const TextStyle(
-                                  color: AppColors.error,
-                                  fontSize: 12,
-                                ),
+                        ),
+
+                        const SizedBox(height: 20),
+
+                        // Backend Images Section
+                        Container(
+                          decoration: BoxDecoration(
+                            border: Border(
+                              left: BorderSide(
+                                color: AppColors.secondary,
+                                width: 4,
                               ),
                             ),
-                        ],
+                            color: AppColors.secondary.withOpacity(0.05),
+                            borderRadius: const BorderRadius.horizontal(
+                              right: Radius.circular(8),
+                            ),
+                          ),
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.storage_rounded,
+                                    color: AppColors.secondary,
+                                    size: 24,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Backend Images',
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .titleMedium
+                                              ?.copyWith(
+                                                fontWeight: FontWeight.bold,
+                                                color: AppColors.secondary,
+                                              ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        Text(
+                                          'Infrastructure and architecture',
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodySmall
+                                              ?.copyWith(
+                                                color: AppColors.textSecondary,
+                                              ),
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 16),
+                              CustomButton(
+                                text: 'Select Backend Images',
+                                icon: Icons.add_photo_alternate_rounded,
+                                onPressed: () => _pickImages(isFrontend: false),
+                                width: double.infinity,
+                              ),
+                              if (_backendImagesError != null)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 8),
+                                  child: Text(
+                                    _backendImagesError!,
+                                    style: const TextStyle(
+                                      color: AppColors.error,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ),
+                              if (_backendImages.isNotEmpty) ...[
+                                const SizedBox(height: 16),
+                                _buildImagePreviewGrid(
+                                  _backendImages,
+                                  (index) => _removeImage(false, index),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    _buildsignatureection(),
+
+                    const SizedBox(height: 24),
+
+                    // Terms and Conditions Checkbox
+                    Card(
+                      elevation: 2,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Checkbox(
+                                  value: _acceptedTerms,
+                                  onChanged: isSubmitting
+                                      ? null
+                                      : (value) {
+                                          setState(() {
+                                            _acceptedTerms = value ?? false;
+                                          });
+                                          _validateForm();
+                                        },
+                                  activeColor: AppColors.primary,
+                                ),
+                                Expanded(
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(top: 12),
+                                    child: RichText(
+                                      text: TextSpan(
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodyMedium
+                                            ?.copyWith(
+                                              color: AppColors.textPrimary,
+                                            ),
+                                        children: [
+                                          const TextSpan(
+                                            text: 'I agree to the ',
+                                          ),
+                                          TextSpan(
+                                            text: 'Terms and Conditions',
+                                            style: const TextStyle(
+                                              color: AppColors.primary,
+                                              decoration:
+                                                  TextDecoration.underline,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                          const TextSpan(text: ' and '),
+                                          TextSpan(
+                                            text: 'Privacy Policy',
+                                            style: const TextStyle(
+                                              color: AppColors.primary,
+                                              decoration:
+                                                  TextDecoration.underline,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            if (_termsError != null)
+                              Padding(
+                                padding: const EdgeInsets.only(
+                                  left: 48,
+                                  top: 4,
+                                ),
+                                child: Text(
+                                  _termsError!,
+                                  style: const TextStyle(
+                                    color: AppColors.error,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
 
-                  const SizedBox(height: 24),
+                    const SizedBox(height: 24),
 
-                  // Submit Button
-                  CustomButton(
-                    text: 'Submit Vendor Profile',
-                    onPressed: !isSubmitting ? _onSubmit : null,
-                    isLoading: isSubmitting,
-                    width: double.infinity,
-                    icon: Icons.send,
-                  ),
+                    // Submit Button
+                    CustomButton(
+                      text: 'Submit Vendor Profile',
+                      onPressed: !isSubmitting ? _onSubmit : null,
+                      isLoading: isSubmitting,
+                      width: double.infinity,
+                      icon: Icons.send,
+                    ),
 
-                  const SizedBox(height: 24),
-                ],
-              ),
-            );
-          },
+                    const SizedBox(height: 24),
+                  ],
+                ),
+              );
+            },
+          ),
         ),
       ),
     );
@@ -1724,6 +1789,26 @@ Widget _buildImageThumbnail(File imageFile, int index, VoidCallback onRemove) {
           ),
         ),
       ),
+    ],
+  );
+}
+
+Widget responsiveRow({
+  required BuildContext context,
+  required Widget left,
+  required Widget right,
+}) {
+  final width = MediaQuery.of(context).size.width;
+
+  if (width < 380) {
+    return Column(children: [left, const SizedBox(height: 16), right]);
+  }
+
+  return Row(
+    children: [
+      Expanded(child: left),
+      const SizedBox(width: 16),
+      Expanded(child: right),
     ],
   );
 }

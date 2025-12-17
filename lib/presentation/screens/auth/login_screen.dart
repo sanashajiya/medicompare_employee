@@ -73,7 +73,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final systemBottomPadding = MediaQuery.of(context).viewPadding.bottom;
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       body: BlocListener<AuthBloc, AuthState>(
         // 🎯 BlocListener for side effects (navigation, snackbars)
         listener: (context, state) {
@@ -142,7 +145,14 @@ class _LoginScreenState extends State<LoginScreen> {
 
             return SafeArea(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.all(24),
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
+                padding: EdgeInsets.fromLTRB(
+                  24,
+                  24,
+                  24,
+                  24 + systemBottomPadding + (bottomInset > 0 ? 16 : 0),
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
