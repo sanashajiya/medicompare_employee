@@ -175,27 +175,53 @@ class Validators {
     return null;
   }
 
+  static String? validateAadhaarNumber(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'Aadhaar number is required';
+    }
+    final trimmedValue = value.trim();
+    if (!RegExp(r'^[0-9]+$').hasMatch(trimmedValue)) {
+      return 'Aadhaar number must contain only digits';
+    }
+    if (trimmedValue.length != 12) {
+      return 'Aadhaar number must be exactly 12 digits';
+    }
+    // Reject all same digits
+    if (RegExp(r'^(\d)\1+$').hasMatch(trimmedValue)) {
+      return 'Please enter a valid Aadhaar number';
+    }
+    return null;
+  }
+
+  static String? validateAddress(String? value, {int minLength = 10}) {
+    if (value == null || value.trim().isEmpty) {
+      return 'Address is required';
+    }
+    if (value.trim().length < minLength) {
+      return 'Address must be at least $minLength characters';
+    }
+    return null;
+  }
 
   /// Validates file presence + max size
-static String? validateFileUpload(
-  File? file,
-  String fieldName, {
-  int maxSizeMB = 5,
-}) {
-  if (file == null) {
-    return '$fieldName is required';
+  static String? validateFileUpload(
+    File? file,
+    String fieldName, {
+    int maxSizeMB = 5,
+  }) {
+    if (file == null) {
+      return '$fieldName is required';
+    }
+
+    final maxBytes = maxSizeMB * 1024 * 1024;
+    final fileSize = file.lengthSync();
+
+    if (fileSize > maxBytes) {
+      return '$fieldName must be less than $maxSizeMB MB';
+    }
+
+    return null;
   }
-
-  final maxBytes = maxSizeMB * 1024 * 1024;
-  final fileSize = file.lengthSync();
-
-  if (fileSize > maxBytes) {
-    return '$fieldName must be less than $maxSizeMB MB';
-  }
-
-  return null;
-}
-
 
   Validators._();
 }

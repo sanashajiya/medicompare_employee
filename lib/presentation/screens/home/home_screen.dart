@@ -1070,7 +1070,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       children: [
                         CustomTextField(
                           controller: _businessNameController,
-                          label: 'Business Name *',
+                          label: 'Business Display Name *',
                           hint: 'e.g., Alpha Enterprises',
                           errorText: _businessNameError,
                           enabled: !isSubmitting,
@@ -1189,7 +1189,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         const SizedBox(height: 20),
                         CustomTextField(
                           controller: _accountHolderNameController,
-                          label: 'Account Holder Name *',
+                          label: 'Account  Name *',
                           hint: 'e.g., John Doe',
                           errorText: _accountHolderNameError,
                           enabled: !isSubmitting,

@@ -49,9 +49,13 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  final _aadhaarNumberController = TextEditingController();
+  final _residentialAddressController = TextEditingController();
+  File? _aadhaarPhoto;
 
   // Controllers - Business Details
   final _businessNameController = TextEditingController();
+  final _businessLegalNameController = TextEditingController();
   final _businessEmailController = TextEditingController();
   final _businessMobileController = TextEditingController();
   final _altBusinessMobileController = TextEditingController();
@@ -103,7 +107,7 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
 
   // Section data
   final List<_SectionData> _sections = [
-    _SectionData('Personal Details', Icons.person_outline),
+    _SectionData('Authorized Personal Details', Icons.person_outline),
     _SectionData('Business Details', Icons.business_outlined),
     _SectionData('Banking Details', Icons.account_balance_outlined),
     _SectionData('Documents & Certifications', Icons.description_outlined),
@@ -153,7 +157,10 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
     _phoneController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+    _aadhaarNumberController.dispose();
+    _residentialAddressController.dispose();
     _businessNameController.dispose();
+    _businessLegalNameController.dispose();
     _businessEmailController.dispose();
     _businessMobileController.dispose();
     _altBusinessMobileController.dispose();
@@ -308,7 +315,11 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
       _phoneController.clear();
       _passwordController.clear();
       _confirmPasswordController.clear();
+      _aadhaarNumberController.clear();
+      _residentialAddressController.clear();
+      _aadhaarPhoto = null;
       _businessNameController.clear();
+      _businessLegalNameController.clear();
       _businessEmailController.clear();
       _businessMobileController.clear();
       _altBusinessMobileController.clear();
@@ -352,7 +363,13 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
           phoneController: _phoneController,
           passwordController: _passwordController,
           confirmPasswordController: _confirmPasswordController,
+          aadhaarNumberController: _aadhaarNumberController,
+          residentialAddressController: _residentialAddressController,
+          aadhaarPhoto: _aadhaarPhoto,
           enabled: enabled,
+          onAadhaarPhotoChanged: (photo) {
+            setState(() => _aadhaarPhoto = photo);
+          },
           onValidationChanged: (isValid) {
             context.read<VendorStepperBloc>().add(
               VendorStepperSectionValidated(0, isValid),
@@ -362,6 +379,7 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
       case 1:
         return BusinessDetailsSection(
           businessNameController: _businessNameController,
+          businessLegalNameController: _businessLegalNameController,
           businessEmailController: _businessEmailController,
           businessMobileController: _businessMobileController,
           altBusinessMobileController: _altBusinessMobileController,
@@ -547,7 +565,7 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
               return Scaffold(
                 backgroundColor: Colors.white,
                 appBar: AppBar(
-                  title: const Text('Create Vendor Profile'),
+                  title: const Text('Complete Vendor Profile'),
                   centerTitle: true,
                   elevation: 0,
                   backgroundColor: Colors.white,

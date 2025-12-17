@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/validators.dart';
 import '../../../widgets/custom_text_field.dart';
@@ -11,7 +13,11 @@ class PersonalDetailsSection extends StatefulWidget {
   final TextEditingController phoneController;
   final TextEditingController passwordController;
   final TextEditingController confirmPasswordController;
+  final TextEditingController aadhaarNumberController;
+  final TextEditingController residentialAddressController;
+  final File? aadhaarPhoto;
   final bool enabled;
+  final Function(File?) onAadhaarPhotoChanged;
   final Function(bool isValid) onValidationChanged;
 
   const PersonalDetailsSection({
@@ -22,7 +28,11 @@ class PersonalDetailsSection extends StatefulWidget {
     required this.phoneController,
     required this.passwordController,
     required this.confirmPasswordController,
+    required this.aadhaarNumberController,
+    required this.residentialAddressController,
+    required this.aadhaarPhoto,
     required this.enabled,
+    required this.onAadhaarPhotoChanged,
     required this.onValidationChanged,
   });
 
@@ -31,12 +41,17 @@ class PersonalDetailsSection extends StatefulWidget {
 }
 
 class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
+  final ImagePicker _imagePicker = ImagePicker();
+
   String? _firstNameError;
   String? _lastNameError;
   String? _emailError;
   String? _phoneError;
   String? _passwordError;
   String? _confirmPasswordError;
+  String? _aadhaarNumberError;
+  String? _aadhaarPhotoError;
+  String? _residentialAddressError;
   bool _showErrors = false;
 
   @override
@@ -52,6 +67,16 @@ class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
     widget.phoneController.addListener(_validate);
     widget.passwordController.addListener(_validate);
     widget.confirmPasswordController.addListener(_validate);
+    widget.aadhaarNumberController.addListener(_validate);
+    widget.residentialAddressController.addListener(_validate);
+  }
+
+  @override
+  void didUpdateWidget(PersonalDetailsSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.aadhaarPhoto != widget.aadhaarPhoto) {
+      _validate();
+    }
   }
 
   void _validate() {
@@ -74,6 +99,15 @@ class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
       widget.passwordController.text,
       widget.confirmPasswordController.text,
     );
+    final aadhaarNumberError = Validators.validateAadhaarNumber(
+      widget.aadhaarNumberController.text,
+    );
+    final aadhaarPhotoError = widget.aadhaarPhoto == null
+        ? 'Aadhaar photo is required'
+        : null;
+    final residentialAddressError = Validators.validateAddress(
+      widget.residentialAddressController.text,
+    );
 
     final isValid =
         firstNameError == null &&
@@ -82,12 +116,18 @@ class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
         phoneError == null &&
         passwordError == null &&
         confirmPasswordError == null &&
+        aadhaarNumberError == null &&
+        aadhaarPhotoError == null &&
+        residentialAddressError == null &&
         widget.firstNameController.text.isNotEmpty &&
         widget.lastNameController.text.isNotEmpty &&
         widget.emailController.text.isNotEmpty &&
         widget.phoneController.text.isNotEmpty &&
         widget.passwordController.text.isNotEmpty &&
-        widget.confirmPasswordController.text.isNotEmpty;
+        widget.confirmPasswordController.text.isNotEmpty &&
+        widget.aadhaarNumberController.text.isNotEmpty &&
+        widget.aadhaarPhoto != null &&
+        widget.residentialAddressController.text.isNotEmpty;
 
     widget.onValidationChanged(isValid);
 
@@ -99,12 +139,120 @@ class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
         _phoneError = phoneError;
         _passwordError = passwordError;
         _confirmPasswordError = confirmPasswordError;
+        _aadhaarNumberError = aadhaarNumberError;
+        _aadhaarPhotoError = aadhaarPhotoError;
+        _residentialAddressError = residentialAddressError;
       });
     }
   }
 
-  void showValidationErrors() {
-    setState(() => _showErrors = true);
+  Future<void> _pickAadhaarPhoto() async {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.border,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Upload Aadhaar Photo',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 16),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(Icons.camera_alt, color: AppColors.primary),
+                ),
+                title: const Text('Take Photo'),
+                subtitle: const Text('Use camera to capture'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _captureImage(ImageSource.camera);
+                },
+              ),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppColors.secondary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(Icons.photo_library, color: AppColors.secondary),
+                ),
+                title: const Text('Choose from Gallery'),
+                subtitle: const Text('Select from device'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _captureImage(ImageSource.gallery);
+                },
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _captureImage(ImageSource source) async {
+    try {
+      final XFile? pickedFile = await _imagePicker.pickImage(
+        source: source,
+        imageQuality: 85,
+        maxWidth: 1200,
+        maxHeight: 1200,
+      );
+
+      if (pickedFile == null) return;
+
+      final file = File(pickedFile.path);
+      const int maxSizeMB = 5;
+      const int maxSizeBytes = maxSizeMB * 1024 * 1024;
+
+      if (file.lengthSync() > maxSizeBytes) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Image must be less than $maxSizeMB MB'),
+              backgroundColor: AppColors.error,
+            ),
+          );
+        }
+        return;
+      }
+
+      widget.onAadhaarPhotoChanged(file);
+      if (!_showErrors) setState(() => _showErrors = true);
+      _validate();
+    } catch (e) {
+      debugPrint('Image pick error: $e');
+    }
+  }
+
+  void _removeAadhaarPhoto() {
+    widget.onAadhaarPhotoChanged(null);
     _validate();
   }
 
@@ -197,6 +345,184 @@ class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
             if (!_showErrors) setState(() => _showErrors = true);
           },
         ),
+        const SizedBox(height: 20),
+        // Aadhaar Number
+        CustomTextField(
+          controller: widget.aadhaarNumberController,
+          label: 'Aadhaar Number *',
+          hint: 'Enter 12 digit Aadhaar number',
+          errorText: _aadhaarNumberError,
+          keyboardType: TextInputType.number,
+          maxLength: 12,
+          enabled: widget.enabled,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          onChanged: (_) {
+            if (!_showErrors) setState(() => _showErrors = true);
+          },
+        ),
+        const SizedBox(height: 20),
+        // Aadhaar Photo Upload
+        _buildAadhaarPhotoUpload(),
+        const SizedBox(height: 20),
+        // Residential Address
+        CustomTextField(
+          controller: widget.residentialAddressController,
+          label: 'Residential Address *',
+          hint: 'Enter your complete residential address',
+          errorText: _residentialAddressError,
+          maxLines: 3,
+          enabled: widget.enabled,
+          onChanged: (_) {
+            if (!_showErrors) setState(() => _showErrors = true);
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAadhaarPhotoUpload() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Aadhaar Photo *',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: AppColors.textPrimary,
+          ),
+        ),
+        const SizedBox(height: 8),
+        if (widget.aadhaarPhoto != null)
+          // Photo Preview
+          Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.success.withOpacity(0.5)),
+            ),
+            child: Column(
+              children: [
+                ClipRRect(
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(11),
+                  ),
+                  child: Image.file(
+                    widget.aadhaarPhoto!,
+                    width: double.infinity,
+                    height: 150,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.success.withOpacity(0.05),
+                    borderRadius: const BorderRadius.vertical(
+                      bottom: Radius.circular(11),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.check_circle,
+                        color: AppColors.success,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Aadhaar photo uploaded',
+                          style: TextStyle(
+                            color: AppColors.success,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                      TextButton.icon(
+                        onPressed: widget.enabled ? _pickAadhaarPhoto : null,
+                        icon: const Icon(Icons.refresh, size: 18),
+                        label: const Text('Replace'),
+                        style: TextButton.styleFrom(
+                          foregroundColor: AppColors.primary,
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: widget.enabled ? _removeAadhaarPhoto : null,
+                        icon: const Icon(Icons.delete_outline, size: 20),
+                        color: AppColors.error,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          )
+        else
+          // Upload Button
+          InkWell(
+            onTap: widget.enabled ? _pickAadhaarPhoto : null,
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              decoration: BoxDecoration(
+                color: AppColors.background,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: _showErrors && _aadhaarPhotoError != null
+                      ? AppColors.error
+                      : AppColors.border,
+                  style: BorderStyle.solid,
+                ),
+              ),
+              child: Column(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.add_a_photo_outlined,
+                      color: AppColors.primary,
+                      size: 28,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Upload Aadhaar Photo',
+                    style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Take photo or choose from gallery',
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        if (_showErrors && _aadhaarPhotoError != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 6, left: 4),
+            child: Text(
+              _aadhaarPhotoError!,
+              style: const TextStyle(color: AppColors.error, fontSize: 12),
+            ),
+          ),
       ],
     );
   }
