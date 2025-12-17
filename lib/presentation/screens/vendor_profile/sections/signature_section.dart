@@ -2,9 +2,11 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:signature/signature.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../widgets/custom_text_field.dart';
 
 class SignatureSection extends StatefulWidget {
   final SignatureController signatureController;
+  final TextEditingController signerNameController;
   final Uint8List? signatureBytes;
   final bool acceptedTerms;
   final bool enabled;
@@ -15,6 +17,7 @@ class SignatureSection extends StatefulWidget {
   const SignatureSection({
     super.key,
     required this.signatureController,
+    required this.signerNameController,
     required this.signatureBytes,
     required this.acceptedTerms,
     required this.enabled,
@@ -28,6 +31,7 @@ class SignatureSection extends StatefulWidget {
 }
 
 class _SignatureSectionState extends State<SignatureSection> {
+  String? _signerNameError;
   String? _signatureError;
   String? _termsError;
   bool _showErrors = false;
@@ -35,10 +39,20 @@ class _SignatureSectionState extends State<SignatureSection> {
   @override
   void initState() {
     super.initState();
+    widget.signerNameController.addListener(_validate);
     _validate();
   }
 
+  @override
+  void dispose() {
+    widget.signerNameController.removeListener(_validate);
+    super.dispose();
+  }
+
   void _validate() {
+    final signerNameError = widget.signerNameController.text.trim().isEmpty
+        ? 'Signer name is required'
+        : null;
     final signatureError = widget.signatureBytes == null
         ? 'Please provide your digital signature'
         : null;
@@ -46,11 +60,15 @@ class _SignatureSectionState extends State<SignatureSection> {
         ? 'You must accept the Terms and Conditions'
         : null;
 
-    final isValid = widget.signatureBytes != null && widget.acceptedTerms;
+    final isValid =
+        widget.signerNameController.text.trim().isNotEmpty &&
+        widget.signatureBytes != null &&
+        widget.acceptedTerms;
     widget.onValidationChanged(isValid);
 
     if (_showErrors) {
       setState(() {
+        _signerNameError = signerNameError;
         _signatureError = signatureError;
         _termsError = termsError;
       });
@@ -88,11 +106,37 @@ class _SignatureSectionState extends State<SignatureSection> {
           style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
         ),
         const SizedBox(height: 24),
+        // Signer Name Field
+        CustomTextField(
+          controller: widget.signerNameController,
+          label: 'Signer Name *',
+          hint: 'Enter the name of the person signing',
+          errorText: _showErrors ? _signerNameError : null,
+          enabled: widget.enabled,
+          onChanged: (_) {
+            if (!_showErrors) setState(() => _showErrors = true);
+          },
+        ),
+        const SizedBox(height: 20),
+        // Signature Pad Label
+        Text(
+          'Digital Signature *',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: AppColors.textPrimary,
+          ),
+        ),
+        const SizedBox(height: 8),
         // Signature Pad
         Container(
           height: 150,
           decoration: BoxDecoration(
-            border: Border.all(color: AppColors.border),
+            border: Border.all(
+              color: _showErrors && _signatureError != null
+                  ? AppColors.error
+                  : AppColors.border,
+            ),
             borderRadius: BorderRadius.circular(12),
           ),
           child: ClipRRect(

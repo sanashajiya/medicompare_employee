@@ -1580,10 +1580,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                             ),
                                         children: [
                                           const TextSpan(
-                                            text: 'I agree to the ',
+                                            text: 'Vendor agree to the ',
                                           ),
                                           TextSpan(
-                                            text: 'Terms and Conditions',
+                                            text: 'SLA, Terms and Conditions',
                                             style: const TextStyle(
                                               color: AppColors.primary,
                                               decoration:

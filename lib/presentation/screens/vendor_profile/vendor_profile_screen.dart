@@ -81,6 +81,7 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
     penStrokeWidth: 3,
     penColor: Colors.black,
   );
+  final _signerNameController = TextEditingController();
   Uint8List? _signatureBytes;
 
   // Categories
@@ -179,6 +180,7 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
     _professionalLicenseNumberController.dispose();
     _additionalDocumentNameController.dispose();
     _signatureController.dispose();
+    _signerNameController.dispose();
     super.dispose();
   }
 
@@ -355,6 +357,7 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
       _additionalDocumentFileName = null;
       _frontStoreImages = [];
       _signatureController.clear();
+      _signerNameController.clear();
       _signatureBytes = null;
       _acceptedTerms = false;
     });
@@ -463,6 +466,7 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
       case 5:
         return SignatureSection(
           signatureController: _signatureController,
+          signerNameController: _signerNameController,
           signatureBytes: _signatureBytes,
           acceptedTerms: _acceptedTerms,
           enabled: enabled,
