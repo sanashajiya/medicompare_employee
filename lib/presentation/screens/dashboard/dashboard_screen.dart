@@ -8,8 +8,9 @@ import '../../blocs/dashboard/dashboard_bloc.dart';
 import '../../blocs/dashboard/dashboard_event.dart';
 import '../../blocs/dashboard/dashboard_state.dart';
 import '../../blocs/vendor_form/vendor_form_bloc.dart';
+import '../../blocs/vendor_stepper/vendor_stepper_bloc.dart';
 import '../auth/login_screen.dart';
-import '../home/home_screen.dart';
+import '../vendor_profile/vendor_profile_screen.dart';
 import 'widgets/dashboard_action_buttons.dart';
 import 'widgets/dashboard_app_bar.dart';
 import 'widgets/dashboard_drawer.dart';
@@ -63,9 +64,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void _navigateToVendorForm() {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => BlocProvider<VendorFormBloc>(
-          create: (_) => sl<VendorFormBloc>(),
-          child: HomeScreen(user: widget.user),
+        builder: (_) => MultiBlocProvider(
+          providers: [
+            BlocProvider<VendorFormBloc>(create: (_) => sl<VendorFormBloc>()),
+            BlocProvider<VendorStepperBloc>(
+              create: (_) => sl<VendorStepperBloc>(),
+            ),
+          ],
+          child: VendorProfileScreen(user: widget.user),
         ),
       ),
     );

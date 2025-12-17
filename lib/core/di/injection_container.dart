@@ -18,6 +18,7 @@ import '../../presentation/blocs/auth/auth_bloc.dart';
 import '../../presentation/blocs/dashboard/dashboard_bloc.dart';
 import '../../presentation/blocs/otp/otp_bloc.dart';
 import '../../presentation/blocs/vendor_form/vendor_form_bloc.dart';
+import '../../presentation/blocs/vendor_stepper/vendor_stepper_bloc.dart';
 
 final sl = GetIt.instance;
 
@@ -55,4 +56,5 @@ Future<void> initializeDependencies() async {
   sl.registerFactory(
     () => DashboardBloc(authLocalStorage: sl<AuthLocalStorage>()),
   );
+  sl.registerFactory(() => VendorStepperBloc());
 }
