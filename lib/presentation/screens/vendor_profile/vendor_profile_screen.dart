@@ -74,6 +74,7 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
   final _gstCertificateNumberController = TextEditingController();
   final _businessRegistrationNumberController = TextEditingController();
   final _professionalLicenseNumberController = TextEditingController();
+  final _additionalDocumentNameController = TextEditingController();
 
   // Signature
   final SignatureController _signatureController = SignatureController(
@@ -93,10 +94,12 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
   File? _gstCertificateFile;
   File? _panCardFile;
   File? _professionalLicenseFile;
+  File? _additionalDocumentFile;
   String? _businessRegistrationFileName;
   String? _gstCertificateFileName;
   String? _panCardFileName;
   String? _professionalLicenseFileName;
+  String? _additionalDocumentFileName;
 
   // Images
   List<File> _frontendImages = [];
@@ -175,6 +178,7 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
     _gstCertificateNumberController.dispose();
     _businessRegistrationNumberController.dispose();
     _professionalLicenseNumberController.dispose();
+    _additionalDocumentNameController.dispose();
     _signatureController.dispose();
     super.dispose();
   }
@@ -212,6 +216,10 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
         case 'professional_license':
           _professionalLicenseFile = file;
           _professionalLicenseFileName = fileName;
+          break;
+        case 'additional_document':
+          _additionalDocumentFile = file;
+          _additionalDocumentFileName = fileName;
           break;
       }
     });
@@ -334,15 +342,18 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
       _gstCertificateNumberController.clear();
       _businessRegistrationNumberController.clear();
       _professionalLicenseNumberController.clear();
+      _additionalDocumentNameController.clear();
       _selectedBusinessCategories = [];
       _businessRegistrationFile = null;
       _gstCertificateFile = null;
       _panCardFile = null;
       _professionalLicenseFile = null;
+      _additionalDocumentFile = null;
       _businessRegistrationFileName = null;
       _gstCertificateFileName = null;
       _panCardFileName = null;
       _professionalLicenseFileName = null;
+      _additionalDocumentFileName = null;
       _frontendImages = [];
       _backendImages = [];
       _signatureController.clear();
@@ -422,12 +433,15 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
           gstCertificateFileName: _gstCertificateFileName,
           panCardFileName: _panCardFileName,
           professionalLicenseFileName: _professionalLicenseFileName,
+          additionalDocumentFile: _additionalDocumentFile,
+          additionalDocumentFileName: _additionalDocumentFileName,
           panCardNumberController: _panCardNumberController,
           gstCertificateNumberController: _gstCertificateNumberController,
           businessRegistrationNumberController:
               _businessRegistrationNumberController,
           professionalLicenseNumberController:
               _professionalLicenseNumberController,
+          additionalDocumentNameController: _additionalDocumentNameController,
           enabled: enabled,
           onFileSelected: _onFileSelected,
           onValidationChanged: (isValid) {

@@ -13,14 +13,17 @@ class DocumentsSection extends StatefulWidget {
   final File? gstCertificateFile;
   final File? panCardFile;
   final File? professionalLicenseFile;
+  final File? additionalDocumentFile;
   final String? businessRegistrationFileName;
   final String? gstCertificateFileName;
   final String? panCardFileName;
   final String? professionalLicenseFileName;
+  final String? additionalDocumentFileName;
   final TextEditingController panCardNumberController;
   final TextEditingController gstCertificateNumberController;
   final TextEditingController businessRegistrationNumberController;
   final TextEditingController professionalLicenseNumberController;
+  final TextEditingController additionalDocumentNameController;
   final bool enabled;
   final Function(String fieldName, File? file, String? fileName) onFileSelected;
   final Function(bool isValid) onValidationChanged;
@@ -31,14 +34,17 @@ class DocumentsSection extends StatefulWidget {
     required this.gstCertificateFile,
     required this.panCardFile,
     required this.professionalLicenseFile,
+    required this.additionalDocumentFile,
     required this.businessRegistrationFileName,
     required this.gstCertificateFileName,
     required this.panCardFileName,
     required this.professionalLicenseFileName,
+    required this.additionalDocumentFileName,
     required this.panCardNumberController,
     required this.gstCertificateNumberController,
     required this.businessRegistrationNumberController,
     required this.professionalLicenseNumberController,
+    required this.additionalDocumentNameController,
     required this.enabled,
     required this.onFileSelected,
     required this.onValidationChanged,
@@ -55,6 +61,7 @@ class _DocumentsSectionState extends State<DocumentsSection> {
   String? _gstCertificateError;
   String? _panCardError;
   String? _professionalLicenseError;
+  String? _additionalDocumentError;
   bool _showErrors = false;
 
   static const int _maxFileSizeMB = 5;
@@ -64,7 +71,14 @@ class _DocumentsSectionState extends State<DocumentsSection> {
   @override
   void initState() {
     super.initState();
+    widget.additionalDocumentNameController.addListener(_validate);
     _validate();
+  }
+
+  @override
+  void dispose() {
+    widget.additionalDocumentNameController.removeListener(_validate);
+    super.dispose();
   }
 
   void _validate() {
@@ -85,11 +99,21 @@ class _DocumentsSectionState extends State<DocumentsSection> {
       'Professional License',
     );
 
+    // Additional document validation: if name is entered, file is required
+    String? additionalDocumentError;
+    final hasAdditionalName = widget.additionalDocumentNameController.text
+        .trim()
+        .isNotEmpty;
+    if (hasAdditionalName && widget.additionalDocumentFile == null) {
+      additionalDocumentError = 'Please upload the additional document';
+    }
+
     final isValid =
         businessRegistrationError == null &&
         gstCertificateError == null &&
         panCardError == null &&
         professionalLicenseError == null &&
+        additionalDocumentError == null &&
         widget.businessRegistrationFile != null &&
         widget.gstCertificateFile != null &&
         widget.panCardFile != null &&
@@ -103,6 +127,7 @@ class _DocumentsSectionState extends State<DocumentsSection> {
         _gstCertificateError = gstCertificateError;
         _panCardError = panCardError;
         _professionalLicenseError = professionalLicenseError;
+        _additionalDocumentError = additionalDocumentError;
       });
     }
   }
@@ -334,6 +359,9 @@ class _DocumentsSectionState extends State<DocumentsSection> {
         case 'professional_license':
           _professionalLicenseError = error;
           break;
+        case 'additional_document':
+          _additionalDocumentError = error;
+          break;
       }
     });
   }
@@ -358,6 +386,10 @@ class _DocumentsSectionState extends State<DocumentsSection> {
 
   @override
   Widget build(BuildContext context) {
+    final hasAdditionalName = widget.additionalDocumentNameController.text
+        .trim()
+        .isNotEmpty;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -442,6 +474,65 @@ class _DocumentsSectionState extends State<DocumentsSection> {
           label: 'Professional License Number',
           hint: 'Enter license number',
           enabled: widget.enabled,
+        ),
+        // Additional Document Section
+        const SizedBox(height: 28),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppColors.primary.withOpacity(0.03),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.border.withOpacity(0.5)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    Icons.add_circle_outline,
+                    color: AppColors.primary,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Additional Document (Optional)',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Add any other supporting document if needed',
+                style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+              ),
+              const SizedBox(height: 16),
+              CustomTextField(
+                controller: widget.additionalDocumentNameController,
+                label: 'Document Name',
+                hint: 'e.g., Trade License, FSSAI Certificate',
+                enabled: widget.enabled,
+                onChanged: (_) {
+                  if (!_showErrors) setState(() => _showErrors = true);
+                },
+              ),
+              const SizedBox(height: 16),
+              FileUploadField(
+                label: 'Upload Document',
+                fileName: widget.additionalDocumentFileName,
+                file: widget.additionalDocumentFile,
+                errorText: _showErrors ? _additionalDocumentError : null,
+                required: hasAdditionalName,
+                enabled: widget.enabled,
+                onTap: () => _showUploadOptions('additional_document'),
+                onRemove: () => _removeFile('additional_document'),
+              ),
+            ],
+          ),
         ),
       ],
     );
