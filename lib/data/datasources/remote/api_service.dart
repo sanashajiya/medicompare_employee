@@ -107,20 +107,29 @@ class ApiService {
 
   Future<Map<String, dynamic>> post(
     String url,
-    Map<String, dynamic> body,
-  ) async {
+    Map<String, dynamic> body, {
+    String? token,
+  }) async {
     print('');
     print('═══════════════════════════════════════════════════════');
     print('📡 API POST REQUEST');
     print('═══════════════════════════════════════════════════════');
     print('🔗 URL: $url');
     print('📦 Body: ${jsonEncode(body)}');
+    if (token != null) {
+      print('🔑 Token: ${token.substring(0, 20)}...');
+    }
     print('═══════════════════════════════════════════════════════');
 
     try {
+      final headers = <String, String>{'Content-Type': 'application/json'};
+      if (token != null) {
+        headers['Authorization'] = 'Bearer $token';
+      }
+
       final response = await client.post(
         Uri.parse(url),
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
         body: jsonEncode(body),
       );
 

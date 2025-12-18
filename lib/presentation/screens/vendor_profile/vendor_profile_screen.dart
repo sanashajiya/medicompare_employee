@@ -31,6 +31,7 @@ import 'sections/signature_section.dart';
 import 'widgets/animated_section_container.dart';
 import 'widgets/section_header.dart';
 import 'widgets/stepper_navigation_buttons.dart';
+import 'widgets/vendor_otp_dialog.dart';
 
 class VendorProfileScreen extends StatefulWidget {
   final UserEntity user;
@@ -116,6 +117,13 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
 
   // Terms
   bool _acceptedTerms = false;
+
+  // OTP verification state
+  bool _isOtpVerificationInProgress = false;
+  String? _verifiedOtp; // Store verified OTP
+  String?
+  _mobileNumberForOtp; // Store mobile number used for OTP (must match in vendor creation)
+  final ApiService _apiService = ApiService();
 
   // Section data
   final List<_SectionData> _sections = [
@@ -536,17 +544,171 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
   }
 
   Future<void> _onSubmit() async {
+    // Step 1: Send OTP to mobile number from Authorized Personal Details
+    final mobileNumber = _phoneController.text.trim();
+
+    if (mobileNumber.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please enter a valid mobile number'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+      return;
+    }
+
+    // Store mobile number for vendor creation (must match exactly)
+    _mobileNumberForOtp = mobileNumber;
+
+    setState(() {
+      _isOtpVerificationInProgress = true;
+    });
+
+    try {
+      // Step 2: Call Send OTP API
+      print('═══════════════════════════════════════════════════════');
+      print('📱 STEP 1: Sending OTP');
+      print('   Identifier: $mobileNumber');
+      print('   Type: phone');
+      print('   Usertype: app');
+      print('═══════════════════════════════════════════════════════');
+      final otpResponse = await _apiService.post(
+        ApiEndpoints.sendVendorProfileOtp,
+        {'identifier': mobileNumber, 'usertype': 'app', 'type': 'phone'},
+        token: widget.user.token,
+      );
+
+      print('✅ OTP sent successfully');
+      if (otpResponse['data']?['user']?['otp'] != null) {
+        print('   OTP generated: ${otpResponse['data']['user']['otp']}');
+      }
+
+      if (!mounted) return;
+
+      // Show success message when OTP is sent
+      if (otpResponse['success'] == true) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                otpResponse['message'] ?? 'OTP sent to your mobile number',
+              ),
+              backgroundColor: AppColors.success,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+
+      // Step 3: Show OTP Dialog
+      final otpVerified = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => VendorOtpDialog(
+          mobileNumber: mobileNumber,
+          onVerify: (otp) async {
+            // Store OTP for vendor creation
+            // Backend will verify OTP when creating vendor
+            print('✅ OTP verified and stored: $otp');
+            _verifiedOtp = otp;
+            return true;
+          },
+          onResend: () async {
+            // Resend OTP
+            final response = await _apiService.post(
+              ApiEndpoints.sendVendorProfileOtp,
+              {'identifier': mobileNumber, 'usertype': 'app', 'type': 'phone'},
+              token: widget.user.token,
+            );
+            // Check if OTP was sent successfully
+            if (response['success'] != true) {
+              throw Exception(response['message'] ?? 'Failed to resend OTP');
+            }
+            // Show success message
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    response['message'] ??
+                        'OTP has been resent to your mobile number',
+                  ),
+                  backgroundColor: AppColors.success,
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            }
+          },
+        ),
+      );
+
+      setState(() {
+        _isOtpVerificationInProgress = false;
+      });
+
+      // If user cancelled OTP dialog
+      if (otpVerified != true) {
+        return;
+      }
+
+      // Step 5: Create Vendor API (after OTP verification)
+      await _createVendor();
+    } catch (e) {
+      setState(() {
+        _isOtpVerificationInProgress = false;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Failed to send OTP: ${e.toString().replaceAll('Exception: ', '')}',
+            ),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _createVendor() async {
     final categoryIds = _selectedBusinessCategories
         .map((name) => _categoryNameToId[name] ?? name)
         .where((id) => id.isNotEmpty)
         .toList();
+
+    // Use the same mobile number that was used for OTP
+    // This ensures the identifier matches exactly between send-otp and create vendor APIs
+    final mobileForVendor = _mobileNumberForOtp ?? _phoneController.text.trim();
+
+    print('\n═══════════════════════════════════════════════════════');
+    print('📱 STEP 2: Creating Vendor');
+    print('   Mobile (must match identifier from Step 1): $mobileForVendor');
+    print('   OTP: ${_verifiedOtp ?? "❌ NULL - THIS WILL CAUSE ERROR!"}');
+    print('   Type: phone');
+    print('   Usertype: app');
+    print('═══════════════════════════════════════════════════════');
+
+    if (_verifiedOtp == null || _verifiedOtp!.isEmpty) {
+      throw Exception(
+        'OTP is required for vendor creation. Please verify OTP first.',
+      );
+    }
+
+    if (mobileForVendor != _mobileNumberForOtp) {
+      print('⚠️ WARNING: Mobile number mismatch!');
+      print('   OTP was sent to: $_mobileNumberForOtp');
+      print('   Vendor creation using: $mobileForVendor');
+      print('   This will cause "No OTP request found" error!');
+    }
 
     final vendor = VendorEntity(
       firstName: _firstNameController.text,
       lastName: _lastNameController.text,
       email: _emailController.text,
       password: _passwordController.text,
-      mobile: _phoneController.text,
+      mobile: mobileForVendor,
       aadhaarFrontImage: _aadhaarFrontImage,
       aadhaarBackImage: _aadhaarBackImage,
       signname: _signerNameController.text,
@@ -599,6 +761,7 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
       accountNumber: _accountNumberController.text,
       ifscCode: _ifscCodeController.text,
       branchName: _bankBranchController.text,
+      otp: _verifiedOtp, // Include verified OTP in vendor creation
     );
 
     List<File> signatureFiles = [];
@@ -620,15 +783,17 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
       }
     }
 
-    context.read<VendorFormBloc>().add(
-      VendorFormSubmitted(
-        vendor,
-        widget.user.token,
-        frontimages: _frontStoreImages,
-        backimages: [],
-        signature: signatureFiles,
-      ),
-    );
+    if (mounted) {
+      context.read<VendorFormBloc>().add(
+        VendorFormSubmitted(
+          vendor,
+          widget.user.token,
+          frontimages: _frontStoreImages,
+          backimages: [],
+          signature: signatureFiles,
+        ),
+      );
+    }
   }
 
   void _resetForm() {
@@ -1030,7 +1195,8 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
                                     isExpanded: isExpanded,
                                     child: _buildSectionContent(
                                       index,
-                                      !isSubmitting,
+                                      !isSubmitting &&
+                                          !_isOtpVerificationInProgress,
                                     ),
                                   ),
                                 ],
@@ -1044,7 +1210,8 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
                         isFirstSection: stepperState.isFirstSection,
                         isLastSection: stepperState.isLastSection,
                         canProceed: stepperState.canProceed,
-                        isSubmitting: isSubmitting,
+                        isSubmitting:
+                            isSubmitting || _isOtpVerificationInProgress,
                         onPrevious: () {
                           context.read<VendorStepperBloc>().add(
                             VendorStepperPreviousPressed(),

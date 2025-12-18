@@ -33,6 +33,7 @@ class VendorModel extends VendorEntity {
     required super.accountNumber,
     required super.ifscCode,
     required super.branchName,
+    super.otp,
     super.vendorId,
     super.success,
     super.message,
@@ -108,6 +109,7 @@ class VendorModel extends VendorEntity {
       accountNumber: entity.accountNumber,
       ifscCode: entity.ifscCode,
       branchName: entity.branchName,
+      otp: entity.otp,
       vendorId: entity.vendorId,
       success: entity.success,
       message: entity.message,
@@ -137,6 +139,27 @@ class VendorModel extends VendorEntity {
       'adharnumber': adharnumber,
       'residentaladdress': residentaladdress,
     };
+
+    // Add OTP if provided (ALWAYS add type and usertype when OTP is present)
+    final otpValue = otp;
+    print('🔍 DEBUG: Checking OTP in toMultipartFields()');
+    print('   otp field value: $otpValue');
+    print('   otp is null: ${otpValue == null}');
+    print('   otp is empty: ${otpValue?.isEmpty ?? true}');
+
+    if (otpValue != null && otpValue.isNotEmpty) {
+      fields['otp'] = otpValue;
+      // Add type and usertype when OTP is present (required for OTP verification)
+      // These must match the values used in send-otp API
+      fields['type'] = 'phone';
+      fields['usertype'] = 'app';
+      print('✅ Adding OTP fields: otp=$otpValue, type=phone, usertype=app');
+    } else {
+      print('❌ ERROR: OTP is null or empty! OTP verification will fail.');
+      print(
+        '   This means the OTP was not passed from VendorEntity to VendorModel',
+      );
+    }
 
     return fields;
   }

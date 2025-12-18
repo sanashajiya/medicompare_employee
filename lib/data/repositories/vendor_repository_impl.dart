@@ -29,7 +29,10 @@ class VendorRepositoryImpl implements VendorRepository {
       print('   signature: ${vendor.signature.length}');
 
       // 🔹 Entity → Model
+      print('🔍 DEBUG: Converting VendorEntity to VendorModel');
+      print('   Entity OTP: ${vendor.otp}');
       final vendorModel = VendorModel.fromEntity(vendor);
+      print('   Model OTP: ${vendorModel.otp}');
 
       // 🔹 Multipart fields & files
       final fields = vendorModel.toMultipartFields();
@@ -37,6 +40,10 @@ class VendorRepositoryImpl implements VendorRepository {
       final files = await vendorModel.toMultipartFiles();
 
       print('\n📝 Multipart Fields: ${fields.length} fields');
+      print('   Mobile: ${fields['mobile']}');
+      print('   OTP: ${fields['otp'] ?? 'NOT PROVIDED'}');
+      print('   Type: ${fields['type'] ?? 'NOT PROVIDED'}');
+      print('   Usertype: ${fields['usertype'] ?? 'NOT PROVIDED'}');
       print('📋 Array Fields: ${arrayFields.length} array types');
       for (final entry in arrayFields.entries) {
         print('   ${entry.key}: ${entry.value.length} items');

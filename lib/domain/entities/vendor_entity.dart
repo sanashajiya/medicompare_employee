@@ -41,6 +41,9 @@ class VendorEntity extends Equatable {
   final String ifscCode;
   final String branchName;
 
+  // OTP for verification
+  final String? otp;
+
   // Response fields (optional, populated after creation)
   final String? vendorId;
   final bool? success;
@@ -76,6 +79,7 @@ class VendorEntity extends Equatable {
     required this.accountNumber,
     required this.ifscCode,
     required this.branchName,
+    this.otp,
     this.vendorId,
     this.success,
     this.message,
@@ -111,6 +115,7 @@ class VendorEntity extends Equatable {
     String? accountNumber,
     String? ifscCode,
     String? branchName,
+    String? otp,
     String? vendorId,
     bool? success,
     String? message,
@@ -145,6 +150,7 @@ class VendorEntity extends Equatable {
       accountNumber: accountNumber ?? this.accountNumber,
       ifscCode: ifscCode ?? this.ifscCode,
       branchName: branchName ?? this.branchName,
+      otp: otp ?? this.otp,
       vendorId: vendorId ?? this.vendorId,
       success: success ?? this.success,
       message: message ?? this.message,
@@ -182,9 +188,9 @@ class VendorEntity extends Equatable {
     accountNumber,
     ifscCode,
     branchName,
+    otp,
     vendorId,
     success,
     message,
   ];
 }
-
