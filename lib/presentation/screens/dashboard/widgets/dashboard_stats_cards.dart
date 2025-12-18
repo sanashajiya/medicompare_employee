@@ -42,7 +42,7 @@ class DashboardStatsCards extends StatelessWidget {
             ),
             _StatCard(
               icon: Icons.pending_rounded,
-              label: 'Pending',
+              label: 'Pending approval',
               count: stats.pendingVendors,
               color: AppColors.warning,
             ),
@@ -126,3 +126,4 @@ class _StatCard extends StatelessWidget {
     );
   }
 }
+

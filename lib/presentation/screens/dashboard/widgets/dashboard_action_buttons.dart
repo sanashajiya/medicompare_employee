@@ -29,7 +29,7 @@ class DashboardActionButtons extends StatelessWidget {
             Expanded(
               child: _ActionButton(
                 icon: Icons.person_add_alt_1_rounded,
-                label: 'Add Vendor\nRequest',
+                label: 'Add Vendor',
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
@@ -119,3 +119,4 @@ class _ActionButton extends StatelessWidget {
     );
   }
 }
+
