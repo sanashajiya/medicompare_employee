@@ -9,6 +9,7 @@ class VendorStepperBloc extends Bloc<VendorStepperEvent, VendorStepperState> {
     on<VendorStepperPreviousPressed>(_onPreviousPressed);
     on<VendorStepperSectionValidated>(_onSectionValidated);
     on<VendorStepperReset>(_onReset);
+    on<VendorStepperRestoreState>(_onRestoreState);
   }
 
   void _onSectionTapped(
@@ -90,5 +91,19 @@ class VendorStepperBloc extends Bloc<VendorStepperEvent, VendorStepperState> {
 
   void _onReset(VendorStepperReset event, Emitter<VendorStepperState> emit) {
     emit(const VendorStepperState());
+  }
+
+  void _onRestoreState(
+    VendorStepperRestoreState event,
+    Emitter<VendorStepperState> emit,
+  ) {
+    emit(
+      state.copyWith(
+        currentSection: event.currentSection,
+        sectionValidations: event.sectionValidations,
+        sectionCompleted: event.sectionCompleted,
+        sectionExpanded: event.sectionExpanded,
+      ),
+    );
   }
 }

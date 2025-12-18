@@ -5,19 +5,23 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:signature/signature.dart';
 import '../../../core/constants/api_endpoints.dart';
-import '../../../core/di/injection_container.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/datasources/remote/api_service.dart';
 import '../../../data/models/category_model.dart';
+import '../../../domain/entities/draft_vendor_entity.dart';
 import '../../../domain/entities/user_entity.dart';
 import '../../../domain/entities/vendor_entity.dart';
+import '../../blocs/draft/draft_state.dart';
 import '../../blocs/vendor_form/vendor_form_bloc.dart';
 import '../../blocs/vendor_form/vendor_form_event.dart';
 import '../../blocs/vendor_form/vendor_form_state.dart';
+import '../../blocs/draft/draft_bloc.dart';
+import '../../blocs/draft/draft_event.dart';
 import '../../blocs/vendor_stepper/vendor_stepper_bloc.dart';
 import '../../blocs/vendor_stepper/vendor_stepper_event.dart';
 import '../../blocs/vendor_stepper/vendor_stepper_state.dart';
 import '../../widgets/custom_button.dart';
+import 'utils/draft_helper.dart';
 import 'sections/banking_details_section.dart';
 import 'sections/business_details_section.dart';
 import 'sections/documents_section.dart';
@@ -30,8 +34,9 @@ import 'widgets/stepper_navigation_buttons.dart';
 
 class VendorProfileScreen extends StatefulWidget {
   final UserEntity user;
+  final String? draftId;
 
-  const VendorProfileScreen({super.key, required this.user});
+  const VendorProfileScreen({super.key, required this.user, this.draftId});
 
   @override
   State<VendorProfileScreen> createState() => _VendorProfileScreenState();
@@ -41,6 +46,8 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
   final ScrollController _scrollController = ScrollController();
   final List<GlobalKey> _sectionKeys = List.generate(6, (_) => GlobalKey());
   List<bool>? _previousExpandedState;
+  String? _currentDraftId;
+  bool _isSavingDraft = false;
 
   // Controllers - Personal Details
   final _firstNameController = TextEditingController();
@@ -121,7 +128,218 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
   @override
   void initState() {
     super.initState();
+    _currentDraftId =
+        widget.draftId ?? DateTime.now().millisecondsSinceEpoch.toString();
     _fetchCategories();
+    if (widget.draftId != null) {
+      _loadDraft(widget.draftId!);
+    }
+  }
+
+  Future<void> _loadDraft(String draftId) async {
+    if (!mounted) return;
+    final draftBloc = context.read<DraftBloc>();
+    draftBloc.add(DraftLoadByIdRequested(draftId));
+  }
+
+  Future<void> _restoreDraftData(DraftVendorEntity draft) async {
+    if (!mounted) return;
+
+    setState(() {
+      // Personal Details
+      _firstNameController.text = draft.firstName;
+      _lastNameController.text = draft.lastName;
+      _emailController.text = draft.email;
+      _passwordController.text = draft.password;
+      _phoneController.text = draft.mobile;
+      _aadhaarNumberController.text = draft.aadhaarNumber;
+      _residentialAddressController.text = draft.residentialAddress;
+
+      // Business Details
+      _businessNameController.text = draft.businessName;
+      _businessLegalNameController.text = draft.businessLegalName;
+      _businessEmailController.text = draft.businessEmail;
+      _businessMobileController.text = draft.businessMobile;
+      _altBusinessMobileController.text = draft.altBusinessMobile;
+      _businessAddressController.text = draft.businessAddress;
+      _selectedBusinessCategories = List<String>.from(draft.categories);
+
+      // Banking Details
+      _accountNumberController.text = draft.accountNumber;
+      _accountHolderNameController.text = draft.accountHolderName;
+      _ifscCodeController.text = draft.ifscCode;
+      _bankNameController.text = draft.bankName;
+      _bankBranchController.text = draft.bankBranch;
+
+      // Documents
+      _panCardNumberController.text = draft.panCardNumber;
+      _gstCertificateNumberController.text = draft.gstCertificateNumber;
+      _businessRegistrationNumberController.text =
+          draft.businessRegistrationNumber;
+      _professionalLicenseNumberController.text =
+          draft.professionalLicenseNumber;
+      _additionalDocumentNameController.text = draft.additionalDocumentName;
+
+      // Signature
+      _signerNameController.text = draft.signerName ?? '';
+      _acceptedTerms = draft.acceptedTerms;
+    });
+
+    // Restore files from paths
+    try {
+      // Aadhaar photo
+      if (draft.aadhaarPhotoPath != null) {
+        final file = File(draft.aadhaarPhotoPath!);
+        if (await file.exists()) {
+          // Check if file is not empty
+          final fileSize = await file.length();
+          if (fileSize > 0) {
+            setState(() => _aadhaarPhoto = file);
+          } else {
+            print('Aadhaar photo file is empty, skipping restoration');
+          }
+        }
+      }
+
+      // Document files - check file size to ensure they're not empty
+      if (draft.panCardFilePath != null) {
+        final file = File(draft.panCardFilePath!);
+        if (await file.exists()) {
+          final fileSize = await file.length();
+          if (fileSize > 0) {
+            setState(() {
+              _panCardFile = file;
+              _panCardFileName = file.path.split('/').last;
+            });
+          }
+        }
+      }
+
+      if (draft.gstCertificateFilePath != null) {
+        final file = File(draft.gstCertificateFilePath!);
+        if (await file.exists()) {
+          final fileSize = await file.length();
+          if (fileSize > 0) {
+            setState(() {
+              _gstCertificateFile = file;
+              _gstCertificateFileName = file.path.split('/').last;
+            });
+          }
+        }
+      }
+
+      if (draft.businessRegistrationFilePath != null) {
+        final file = File(draft.businessRegistrationFilePath!);
+        if (await file.exists()) {
+          final fileSize = await file.length();
+          if (fileSize > 0) {
+            setState(() {
+              _businessRegistrationFile = file;
+              _businessRegistrationFileName = file.path.split('/').last;
+            });
+          }
+        }
+      }
+
+      if (draft.professionalLicenseFilePath != null) {
+        final file = File(draft.professionalLicenseFilePath!);
+        if (await file.exists()) {
+          final fileSize = await file.length();
+          if (fileSize > 0) {
+            setState(() {
+              _professionalLicenseFile = file;
+              _professionalLicenseFileName = file.path.split('/').last;
+            });
+          }
+        }
+      }
+
+      if (draft.additionalDocumentFilePath != null) {
+        final file = File(draft.additionalDocumentFilePath!);
+        if (await file.exists()) {
+          final fileSize = await file.length();
+          if (fileSize > 0) {
+            setState(() {
+              _additionalDocumentFile = file;
+              _additionalDocumentFileName = file.path.split('/').last;
+            });
+          }
+        }
+      }
+
+      // Front store images - check file size
+      final restoredImages = <File>[];
+      for (final imagePath in draft.frontStoreImagePaths) {
+        final file = File(imagePath);
+        if (await file.exists()) {
+          final fileSize = await file.length();
+          if (fileSize > 0) {
+            restoredImages.add(file);
+          }
+        }
+      }
+      setState(() => _frontStoreImages = restoredImages);
+
+      // Signature - check file size
+      if (draft.signatureImagePath != null) {
+        final signatureFile = File(draft.signatureImagePath!);
+        if (await signatureFile.exists()) {
+          final fileSize = await signatureFile.length();
+          if (fileSize > 0) {
+            try {
+              final bytes = await signatureFile.readAsBytes();
+              if (bytes.isNotEmpty) {
+                setState(() => _signatureBytes = bytes);
+              }
+            } catch (e) {
+              print('Error reading signature file: $e');
+            }
+          }
+        }
+      }
+    } catch (e) {
+      print('Error restoring files from draft: $e');
+    }
+
+    // Restore stepper state
+    if (mounted) {
+      final stepperBloc = context.read<VendorStepperBloc>();
+
+      // Prepare expanded state - ensure current section is expanded
+      final newExpanded = List<bool>.generate(6, (index) => false);
+      // Expand current section
+      if (draft.currentSectionIndex < newExpanded.length) {
+        newExpanded[draft.currentSectionIndex] = true;
+      }
+
+      // Restore stepper state
+      stepperBloc.add(
+        VendorStepperRestoreState(
+          currentSection: draft.currentSectionIndex,
+          sectionValidations: List<bool>.from(draft.sectionValidations),
+          sectionCompleted: List<bool>.from(draft.sectionCompleted),
+          sectionExpanded: newExpanded,
+        ),
+      );
+
+      // Trigger validation for restored sections to update UI
+      for (int i = 0; i < draft.sectionValidations.length; i++) {
+        if (draft.sectionValidations[i]) {
+          stepperBloc.add(VendorStepperSectionValidated(i, true));
+        }
+      }
+
+      // Navigate to the last active section after a short delay
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && draft.currentSectionIndex < _sectionKeys.length) {
+          Future.delayed(const Duration(milliseconds: 300), () {
+            if (mounted) {
+              _scrollToSection(draft.currentSectionIndex);
+            }
+          });
+        }
+      });
+    }
   }
 
   Future<void> _fetchCategories() async {
@@ -151,8 +369,82 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
     }
   }
 
+  Future<void> _saveDraft() async {
+    if (_currentDraftId == null || _isSavingDraft) return;
+    _isSavingDraft = true;
+
+    try {
+      if (!mounted) return;
+
+      final stepperState = context.read<VendorStepperBloc>().state;
+      final draftBloc = context.read<DraftBloc>();
+
+      // Extract form data
+      final formData = DraftHelper.extractFormData(
+        controllers: {
+          'firstName': _firstNameController,
+          'lastName': _lastNameController,
+          'email': _emailController,
+          'password': _passwordController,
+          'mobile': _phoneController,
+          'aadhaarNumber': _aadhaarNumberController,
+          'residentialAddress': _residentialAddressController,
+          'businessName': _businessNameController,
+          'businessLegalName': _businessLegalNameController,
+          'businessEmail': _businessEmailController,
+          'businessMobile': _businessMobileController,
+          'altBusinessMobile': _altBusinessMobileController,
+          'businessAddress': _businessAddressController,
+          'accountNumber': _accountNumberController,
+          'accountHolderName': _accountHolderNameController,
+          'ifscCode': _ifscCodeController,
+          'bankName': _bankNameController,
+          'bankBranch': _bankBranchController,
+          'panCardNumber': _panCardNumberController,
+          'gstCertificateNumber': _gstCertificateNumberController,
+          'businessRegistrationNumber': _businessRegistrationNumberController,
+          'professionalLicenseNumber': _professionalLicenseNumberController,
+          'additionalDocumentName': _additionalDocumentNameController,
+        },
+        aadhaarPhoto: _aadhaarPhoto,
+        panCardFile: _panCardFile,
+        gstCertificateFile: _gstCertificateFile,
+        businessRegistrationFile: _businessRegistrationFile,
+        professionalLicenseFile: _professionalLicenseFile,
+        additionalDocumentFile: _additionalDocumentFile,
+        frontStoreImages: _frontStoreImages,
+        signatureBytes: _signatureBytes,
+        categories: _selectedBusinessCategories,
+        signerName: _signerNameController.text,
+        acceptedTerms: _acceptedTerms,
+      );
+
+      // Create draft entity
+      final draft = await DraftHelper.createDraftFromFormData(
+        draftId: _currentDraftId!,
+        stepperState: stepperState,
+        formData: formData,
+      );
+
+      // Save draft if it has data
+      if (draft != null && draft.hasAnyData) {
+        if (mounted) {
+          draftBloc.add(DraftSaveRequested(draft));
+        }
+      }
+    } catch (e) {
+      print('Error saving draft: $e');
+    } finally {
+      _isSavingDraft = false;
+    }
+  }
+
   @override
   void dispose() {
+    // Note: We can't await in dispose, but PopScope handles saving before navigation
+    // This is a fallback in case PopScope doesn't catch it
+    _saveDraft();
+
     _scrollController.dispose();
     _firstNameController.dispose();
     _lastNameController.dispose();
@@ -485,74 +777,111 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocListener<VendorFormBloc, VendorFormState>(
-      listener: (context, state) {
-        if (state is VendorFormSuccess) {
-          showDialog(
-            context: context,
-            barrierDismissible: false,
-            builder: (context) => Dialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Container(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 80,
-                      height: 80,
-                      decoration: BoxDecoration(
-                        color: AppColors.success.withOpacity(0.1),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.check_circle,
-                        color: AppColors.success,
-                        size: 48,
-                      ),
+    return MultiBlocListener(
+      listeners: [
+        BlocListener<DraftBloc, DraftState>(
+          listener: (context, draftState) {
+            if (draftState is DraftLoaded) {
+              _restoreDraftData(draftState.draft);
+            } else if (draftState is DraftError) {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Error loading draft: ${draftState.message}'),
+                    backgroundColor: AppColors.error,
+                  ),
+                );
+              }
+            }
+          },
+        ),
+        BlocListener<VendorFormBloc, VendorFormState>(
+          listener: (context, state) {
+            if (state is VendorFormSuccess) {
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (context) => Dialog(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Container(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 80,
+                          height: 80,
+                          decoration: BoxDecoration(
+                            color: AppColors.success.withOpacity(0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.check_circle,
+                            color: AppColors.success,
+                            size: 48,
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        const Text(
+                          'Success!',
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        const Text(
+                          'Vendor created successfully',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontSize: 16, color: Colors.black54),
+                        ),
+                        const SizedBox(height: 24),
+                        SizedBox(
+                          width: double.infinity,
+                          child: CustomButton(
+                            text: 'OK',
+                            onPressed: () async {
+                              // Delete draft on successful submission
+                              if (_currentDraftId != null) {
+                                try {
+                                  context.read<DraftBloc>().add(
+                                    DraftDeleteRequested(_currentDraftId!),
+                                  );
+                                } catch (e) {
+                                  print('Error deleting draft: $e');
+                                }
+                              }
+                              Navigator.of(
+                                context,
+                              ).pop(); // Close success dialog
+                              _resetForm();
+                              // Navigate back to Dashboard (pop all routes until Dashboard)
+                              Navigator.of(context).popUntil((route) {
+                                // Pop until we reach Dashboard or root
+                                return route.isFirst ||
+                                    route.settings.name == '/dashboard';
+                              });
+                            },
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 20),
-                    const Text(
-                      'Success!',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    const Text(
-                      'Vendor created successfully',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 16, color: Colors.black54),
-                    ),
-                    const SizedBox(height: 24),
-                    SizedBox(
-                      width: double.infinity,
-                      child: CustomButton(
-                        text: 'OK',
-                        onPressed: () {
-                          Navigator.of(context).pop();
-                          _resetForm();
-                          Navigator.of(context).pop();
-                        },
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
-            ),
-          );
-        } else if (state is VendorFormFailure) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(state.error),
-              backgroundColor: AppColors.error,
-            ),
-          );
-        }
-      },
+              );
+            } else if (state is VendorFormFailure) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(state.error),
+                  backgroundColor: AppColors.error,
+                ),
+              );
+            }
+          },
+        ),
+      ],
       child: BlocConsumer<VendorStepperBloc, VendorStepperState>(
         listenWhen: (previous, current) {
           // Only listen when expanded state actually changes
@@ -575,87 +904,110 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
             builder: (context, formState) {
               final isSubmitting = formState is VendorFormSubmitting;
 
-              return Scaffold(
-                backgroundColor: Colors.white,
-                appBar: AppBar(
-                  title: const Text('Complete Vendor Profile'),
-                  centerTitle: true,
-                  elevation: 0,
+              return PopScope(
+                canPop: false,
+                onPopInvoked: (didPop) async {
+                  if (didPop) return;
+                  // Save draft before navigating back
+                  await _saveDraft();
+                  // Small delay to ensure draft is saved
+                  await Future.delayed(const Duration(milliseconds: 100));
+                  if (mounted) {
+                    // If we came from DraftListScreen (resuming a draft), pop twice to go to Dashboard
+                    // Otherwise, just pop once
+                    if (widget.draftId != null) {
+                      // Resuming draft - pop twice to skip DraftListScreen
+                      Navigator.of(context).pop(); // Pop VendorProfileScreen
+                      if (Navigator.of(context).canPop()) {
+                        Navigator.of(context).pop(); // Pop DraftListScreen
+                      }
+                    } else {
+                      Navigator.of(context).pop(); // Normal navigation back
+                    }
+                  }
+                },
+                child: Scaffold(
                   backgroundColor: Colors.white,
-                  foregroundColor: AppColors.textPrimary,
-                  surfaceTintColor: Colors.transparent,
-                ),
-                body: Column(
-                  children: [
-                    // Progress indicator
-                    _buildProgressHeader(stepperState),
-                    // Sections list
-                    Expanded(
-                      child: SingleChildScrollView(
-                        controller: _scrollController,
-                        physics: const BouncingScrollPhysics(),
-                        child: Column(
-                          children: List.generate(_sections.length, (index) {
-                            final section = _sections[index];
-                            final isExpanded =
-                                stepperState.sectionExpanded[index];
-                            final isCompleted =
-                                stepperState.sectionCompleted[index];
-                            final isEnabled = stepperState.isSectionEnabled(
-                              index,
-                            );
-                            final isActive =
-                                stepperState.currentSection == index;
+                  appBar: AppBar(
+                    title: const Text('Complete Vendor Profile'),
+                    centerTitle: true,
+                    elevation: 0,
+                    backgroundColor: Colors.white,
+                    foregroundColor: AppColors.textPrimary,
+                    surfaceTintColor: Colors.transparent,
+                  ),
+                  body: Column(
+                    children: [
+                      // Progress indicator
+                      _buildProgressHeader(stepperState),
+                      // Sections list
+                      Expanded(
+                        child: SingleChildScrollView(
+                          controller: _scrollController,
+                          physics: const BouncingScrollPhysics(),
+                          child: Column(
+                            children: List.generate(_sections.length, (index) {
+                              final section = _sections[index];
+                              final isExpanded =
+                                  stepperState.sectionExpanded[index];
+                              final isCompleted =
+                                  stepperState.sectionCompleted[index];
+                              final isEnabled = stepperState.isSectionEnabled(
+                                index,
+                              );
+                              final isActive =
+                                  stepperState.currentSection == index;
 
-                            return Column(
-                              key: _sectionKeys[index],
-                              children: [
-                                SectionHeader(
-                                  index: index,
-                                  title: section.title,
-                                  icon: section.icon,
-                                  isExpanded: isExpanded,
-                                  isCompleted: isCompleted,
-                                  isEnabled: isEnabled,
-                                  isActive: isActive,
-                                  onTap: () {
-                                    context.read<VendorStepperBloc>().add(
-                                      VendorStepperSectionTapped(index),
-                                    );
-                                  },
-                                ),
-                                AnimatedSectionContainer(
-                                  isExpanded: isExpanded,
-                                  child: _buildSectionContent(
-                                    index,
-                                    !isSubmitting,
+                              return Column(
+                                key: _sectionKeys[index],
+                                children: [
+                                  SectionHeader(
+                                    index: index,
+                                    title: section.title,
+                                    icon: section.icon,
+                                    isExpanded: isExpanded,
+                                    isCompleted: isCompleted,
+                                    isEnabled: isEnabled,
+                                    isActive: isActive,
+                                    onTap: () {
+                                      context.read<VendorStepperBloc>().add(
+                                        VendorStepperSectionTapped(index),
+                                      );
+                                    },
                                   ),
-                                ),
-                              ],
-                            );
-                          }),
+                                  AnimatedSectionContainer(
+                                    isExpanded: isExpanded,
+                                    child: _buildSectionContent(
+                                      index,
+                                      !isSubmitting,
+                                    ),
+                                  ),
+                                ],
+                              );
+                            }),
+                          ),
                         ),
                       ),
-                    ),
-                    // Navigation buttons
-                    StepperNavigationButtons(
-                      isFirstSection: stepperState.isFirstSection,
-                      isLastSection: stepperState.isLastSection,
-                      canProceed: stepperState.canProceed,
-                      isSubmitting: isSubmitting,
-                      onPrevious: () {
-                        context.read<VendorStepperBloc>().add(
-                          VendorStepperPreviousPressed(),
-                        );
-                      },
-                      onNext: () {
-                        context.read<VendorStepperBloc>().add(
-                          VendorStepperNextPressed(),
-                        );
-                      },
-                      onSubmit: _onSubmit,
-                    ),
-                  ],
+                      // Navigation buttons
+                      StepperNavigationButtons(
+                        isFirstSection: stepperState.isFirstSection,
+                        isLastSection: stepperState.isLastSection,
+                        canProceed: stepperState.canProceed,
+                        isSubmitting: isSubmitting,
+                        onPrevious: () {
+                          context.read<VendorStepperBloc>().add(
+                            VendorStepperPreviousPressed(),
+                          );
+                        },
+                        onNext: () {
+                          context.read<VendorStepperBloc>().add(
+                            VendorStepperNextPressed(),
+                          );
+                        },
+                        onSubmit: _onSubmit,
+                      ),
+                    ],
+                  ),
                 ),
               );
             },

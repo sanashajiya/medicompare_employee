@@ -7,9 +7,13 @@ import '../../../domain/entities/user_entity.dart';
 import '../../blocs/dashboard/dashboard_bloc.dart';
 import '../../blocs/dashboard/dashboard_event.dart';
 import '../../blocs/dashboard/dashboard_state.dart';
+import '../../blocs/draft/draft_bloc.dart';
+import '../../blocs/draft/draft_event.dart';
+import '../../blocs/draft/draft_state.dart';
 import '../../blocs/vendor_form/vendor_form_bloc.dart';
 import '../../blocs/vendor_stepper/vendor_stepper_bloc.dart';
 import '../auth/login_screen.dart';
+import '../draft_list/draft_list_screen.dart';
 import '../vendor_profile/vendor_profile_screen.dart';
 import 'widgets/dashboard_action_buttons.dart';
 import 'widgets/dashboard_app_bar.dart';
@@ -32,7 +36,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void initState() {
     super.initState();
-    context.read<DashboardBloc>().add(DashboardLoadRequested());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        context.read<DashboardBloc>().add(DashboardLoadRequested());
+        // Ensure draft count is loaded
+        context.read<DraftBloc>().add(DraftLoadCountRequested());
+      }
+    });
   }
 
   void _handleLogout() async {
@@ -62,26 +72,38 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   void _navigateToVendorForm() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => MultiBlocProvider(
-          providers: [
-            BlocProvider<VendorFormBloc>(create: (_) => sl<VendorFormBloc>()),
-            BlocProvider<VendorStepperBloc>(
-              create: (_) => sl<VendorStepperBloc>(),
+    Navigator.of(context)
+        .push(
+          MaterialPageRoute(
+            builder: (_) => MultiBlocProvider(
+              providers: [
+                BlocProvider<VendorFormBloc>(
+                  create: (_) => sl<VendorFormBloc>(),
+                ),
+                BlocProvider<VendorStepperBloc>(
+                  create: (_) => sl<VendorStepperBloc>(),
+                ),
+                BlocProvider<DraftBloc>.value(value: context.read<DraftBloc>()),
+              ],
+              child: VendorProfileScreen(user: widget.user),
             ),
-          ],
-          child: VendorProfileScreen(user: widget.user),
-        ),
-      ),
-    );
+          ),
+        )
+        .then((_) {
+          // Refresh draft count when returning from vendor form
+          if (mounted) {
+            context.read<DraftBloc>().add(DraftLoadCountRequested());
+          }
+        });
   }
 
   void _handleDraftTap() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Draft feature coming soon!'),
-        duration: Duration(seconds: 2),
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => BlocProvider.value(
+          value: context.read<DraftBloc>(),
+          child: DraftListScreen(user: widget.user),
+        ),
       ),
     );
   }
@@ -134,43 +156,54 @@ class _DashboardScreenState extends State<DashboardScreen> {
           onPrivacyPolicy: _handlePrivacyPolicy,
           onAboutUs: _handleAboutUs,
         ),
-        body: BlocBuilder<DashboardBloc, DashboardState>(
-          builder: (context, state) {
-            if (state is DashboardLoading) {
-              return const Center(child: CircularProgressIndicator());
-            }
+        body: BlocBuilder<DraftBloc, DraftState>(
+          builder: (context, draftState) {
+            final draftCount = draftState is DraftCountLoaded
+                ? draftState.count
+                : (draftState is DraftListLoaded
+                      ? draftState.drafts.length
+                      : 0);
 
-            final stats = state is DashboardLoaded
-                ? state.stats
-                : const DashboardStatsEntity();
+            return BlocBuilder<DashboardBloc, DashboardState>(
+              builder: (context, state) {
+                if (state is DashboardLoading) {
+                  return const Center(child: CircularProgressIndicator());
+                }
 
-            return RefreshIndicator(
-              onRefresh: () async {
-                context.read<DashboardBloc>().add(DashboardLoadRequested());
-              },
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Header/Banner Section
-                    DashboardHeader(userName: widget.user.name),
-                    const SizedBox(height: 24),
+                final stats = state is DashboardLoaded
+                    ? state.stats
+                    : const DashboardStatsEntity();
 
-                    // Action Buttons Section
-                    DashboardActionButtons(
-                      onNewVendorTap: _navigateToVendorForm,
-                      onDraftTap: _handleDraftTap,
+                return RefreshIndicator(
+                  onRefresh: () async {
+                    context.read<DashboardBloc>().add(DashboardLoadRequested());
+                  },
+                  child: SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Header/Banner Section
+                        DashboardHeader(userName: widget.user.name),
+                        const SizedBox(height: 24),
+
+                        // Action Buttons Section
+                        DashboardActionButtons(
+                          onNewVendorTap: _navigateToVendorForm,
+                          onDraftTap: _handleDraftTap,
+                          draftCount: draftCount,
+                        ),
+                        const SizedBox(height: 24),
+
+                        // Statistics Cards Section
+                        DashboardStatsCards(stats: stats),
+                        const SizedBox(height: 24),
+                      ],
                     ),
-                    const SizedBox(height: 24),
-
-                    // Statistics Cards Section
-                    DashboardStatsCards(stats: stats),
-                    const SizedBox(height: 24),
-                  ],
-                ),
-              ),
+                  ),
+                );
+              },
             );
           },
         ),

@@ -7,6 +7,8 @@ import 'core/di/injection_container.dart';
 import 'core/theme/app_theme.dart';
 import 'data/datasources/local/auth_local_storage.dart';
 import 'presentation/blocs/dashboard/dashboard_bloc.dart';
+import 'presentation/blocs/draft/draft_bloc.dart';
+import 'presentation/blocs/draft/draft_event.dart';
 import 'presentation/screens/auth/login_screen.dart';
 import 'presentation/screens/dashboard/dashboard_screen.dart';
 
@@ -55,8 +57,13 @@ class AppInitializer extends StatelessWidget {
 
     if (isLoggedIn && savedUser != null) {
       print('✅ User is logged in, navigating to DashboardScreen');
-      return BlocProvider<DashboardBloc>(
-        create: (_) => sl<DashboardBloc>(),
+      return MultiBlocProvider(
+        providers: [
+          BlocProvider<DashboardBloc>(create: (_) => sl<DashboardBloc>()),
+          BlocProvider<DraftBloc>(
+            create: (_) => sl<DraftBloc>()..add(DraftLoadCountRequested()),
+          ),
+        ],
         child: DashboardScreen(user: savedUser),
       );
     } else {

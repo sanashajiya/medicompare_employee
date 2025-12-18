@@ -4,11 +4,13 @@ import '../../../../core/theme/app_colors.dart';
 class DashboardActionButtons extends StatelessWidget {
   final VoidCallback onNewVendorTap;
   final VoidCallback onDraftTap;
+  final int draftCount;
 
   const DashboardActionButtons({
     super.key,
     required this.onNewVendorTap,
     required this.onDraftTap,
+    this.draftCount = 0,
   });
 
   @override
@@ -42,7 +44,7 @@ class DashboardActionButtons extends StatelessWidget {
             Expanded(
               child: _ActionButton(
                 icon: Icons.drafts_rounded,
-                label: 'Draft',
+                label: draftCount > 0 ? 'Draft ($draftCount)' : 'Draft',
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
@@ -119,4 +121,3 @@ class _ActionButton extends StatelessWidget {
     );
   }
 }
-
