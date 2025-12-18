@@ -18,17 +18,6 @@ class DraftListScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // The DraftBloc should already be provided by the parent (DashboardScreen)
-    final draftBloc = context.read<DraftBloc>();
-
-    // Load drafts on first build if not already loaded
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (draftBloc.state is! DraftListLoaded &&
-          draftBloc.state is! DraftLoading) {
-        draftBloc.add(DraftLoadAllRequested());
-      }
-    });
-
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -61,6 +50,14 @@ class DraftListScreen extends StatelessWidget {
           }
         },
         builder: (context, state) {
+          // Load drafts on first build if not already loaded
+          if (state is DraftInitial ||
+              (state is DraftCountLoaded && state is! DraftListLoaded)) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              context.read<DraftBloc>().add(DraftLoadAllRequested());
+            });
+          }
+
           if (state is DraftLoading) {
             return const Center(child: CircularProgressIndicator());
           }
@@ -184,9 +181,12 @@ class DraftListScreen extends StatelessWidget {
   }
 
   void _handleDeleteDraft(BuildContext context, DraftVendorEntity draft) {
+    // Capture the bloc reference before showing the dialog
+    final draftBloc = context.read<DraftBloc>();
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Delete Draft'),
         content: Text(
@@ -195,13 +195,13 @@ class DraftListScreen extends StatelessWidget {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () => Navigator.of(dialogContext).pop(),
             child: const Text('Cancel'),
           ),
           TextButton(
             onPressed: () {
-              Navigator.of(context).pop();
-              context.read<DraftBloc>().add(DraftDeleteRequested(draft.id));
+              Navigator.of(dialogContext).pop();
+              draftBloc.add(DraftDeleteRequested(draft.id));
             },
             style: TextButton.styleFrom(foregroundColor: AppColors.error),
             child: const Text('Delete'),
@@ -361,4 +361,3 @@ class _DraftCard extends StatelessWidget {
     );
   }
 }
-

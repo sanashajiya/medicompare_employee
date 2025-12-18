@@ -72,10 +72,17 @@ class DraftBloc extends Bloc<DraftEvent, DraftState> {
     Emitter<DraftState> emit,
   ) async {
     try {
+      // Delete the draft
       await deleteDraftUseCase(event.draftId);
+
+      // Emit DraftDeleted first so listener can show success message
       emit(DraftDeleted());
-      // Refresh list and count after deletion
-      add(DraftLoadAllRequested());
+
+      // Immediately reload the list to reflect the deletion
+      final drafts = await getAllDraftsUseCase();
+      emit(DraftListLoaded(drafts));
+
+      // Also refresh the count in the background
       add(DraftLoadCountRequested());
     } catch (e) {
       emit(DraftError(e.toString()));
@@ -99,5 +106,3 @@ class DraftBloc extends Bloc<DraftEvent, DraftState> {
     }
   }
 }
-
-
