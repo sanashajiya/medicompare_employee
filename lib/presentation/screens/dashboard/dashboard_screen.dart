@@ -20,6 +20,8 @@ import 'widgets/dashboard_app_bar.dart';
 import 'widgets/dashboard_drawer.dart';
 import 'widgets/dashboard_header.dart';
 import 'widgets/dashboard_stats_cards.dart';
+import 'package:url_launcher/url_launcher.dart';
+
 
 class DashboardScreen extends StatefulWidget {
   final UserEntity user;
@@ -108,22 +110,39 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  void _handlePrivacyPolicy() {
+  void _handlePrivacyPolicy() async {
+  final Uri url = Uri.parse(
+    'https://medicompares.com/policies/privacy-policy',
+  );
+
+  if (!await launchUrl(
+    url,
+    mode: LaunchMode.externalApplication,
+  )) {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Privacy Policy - Coming soon!'),
-        duration: Duration(seconds: 2),
+        content: Text('Could not open Privacy Policy'),
       ),
     );
   }
+}
 
-  void _handleAboutUs() {
+
+  void _handleAboutUs() async{
+      final Uri url = Uri.parse(
+    'https://medicompares.com/policies/terms-and-conditions',
+  );
+
+  if (!await launchUrl(
+    url,
+    mode: LaunchMode.externalApplication,
+  )) {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('About Us - Coming soon!'),
-        duration: Duration(seconds: 2),
+        content: Text('Could not open Terms and Conditions'),
       ),
     );
+  }
   }
 
   @override
