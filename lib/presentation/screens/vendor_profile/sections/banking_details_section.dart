@@ -163,9 +163,12 @@ class _BankingDetailsSectionState extends State<BankingDetailsSection> {
           errorText: _ifscCodeError,
           enabled: widget.enabled,
           inputFormatters: [
-            FilteringTextInputFormatter.allow(RegExp(r'[A-Z0-9]')),
+            FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9]')),
             TextInputFormatter.withFunction((oldValue, newValue) {
-              return newValue.copyWith(text: newValue.text.toUpperCase());
+              return newValue.copyWith(
+                text: newValue.text.toUpperCase(),
+                selection: newValue.selection,
+              );
             }),
           ],
           onChanged: (_) {
@@ -212,4 +215,3 @@ class _BankingDetailsSectionState extends State<BankingDetailsSection> {
     );
   }
 }
-

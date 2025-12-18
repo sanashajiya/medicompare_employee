@@ -117,7 +117,7 @@ class DashboardDrawer extends StatelessWidget {
                   const SizedBox(height: 4),
                   _DrawerItem(
                     icon: Icons.info_outline,
-                    label: 'About Us',
+                    label: 'Terms & Conditions',
                     onTap: () {
                       Navigator.pop(context);
                       onAboutUs();

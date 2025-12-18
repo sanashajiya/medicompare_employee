@@ -271,7 +271,7 @@ class _BusinessDetailsSectionState extends State<BusinessDetailsSection> {
         const SizedBox(height: 24),
         CustomTextField(
           controller: widget.businessNameController,
-          label: 'Business Name *',
+          label: 'Business Display Name *',
           hint: 'e.g., Alpha Enterprises',
           errorText: _businessNameError,
           enabled: widget.enabled,
@@ -314,7 +314,25 @@ class _BusinessDetailsSectionState extends State<BusinessDetailsSection> {
                 keyboardType: TextInputType.phone,
                 maxLength: 10,
                 enabled: widget.enabled,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  TextInputFormatter.withFunction((oldValue, newValue) {
+                    // Allow backspace / clear
+                    if (newValue.text.isEmpty) {
+                      return newValue;
+                    }
+
+                    // Block first digit if it is 0–5
+                    if (newValue.text.length == 1) {
+                      final firstDigit = int.tryParse(newValue.text);
+                      if (firstDigit != null && firstDigit < 6) {
+                        return oldValue;
+                      }
+                    }
+
+                    return newValue;
+                  }),
+                ],
                 onChanged: (_) {
                   if (!_showErrors) setState(() => _showErrors = true);
                 },
@@ -330,7 +348,25 @@ class _BusinessDetailsSectionState extends State<BusinessDetailsSection> {
                 keyboardType: TextInputType.phone,
                 maxLength: 10,
                 enabled: widget.enabled,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  TextInputFormatter.withFunction((oldValue, newValue) {
+                    // Allow backspace / clear
+                    if (newValue.text.isEmpty) {
+                      return newValue;
+                    }
+
+                    // Block first digit if it is 0–5
+                    if (newValue.text.length == 1) {
+                      final firstDigit = int.tryParse(newValue.text);
+                      if (firstDigit != null && firstDigit < 6) {
+                        return oldValue;
+                      }
+                    }
+
+                    return newValue;
+                  }),
+                ],
                 onChanged: (_) {
                   if (!_showErrors) setState(() => _showErrors = true);
                 },
@@ -496,4 +532,3 @@ class _BusinessDetailsSectionState extends State<BusinessDetailsSection> {
     );
   }
 }
-

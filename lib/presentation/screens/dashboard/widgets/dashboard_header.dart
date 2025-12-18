@@ -76,7 +76,7 @@ class DashboardHeader extends StatelessWidget {
                     Row(
                       children: [
                         Container(
-                          padding: const EdgeInsets.all(14),
+                          padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
                               begin: Alignment.topLeft,
@@ -95,7 +95,7 @@ class DashboardHeader extends StatelessWidget {
                           child: Icon(
                             Icons.waving_hand,
                             color: AppColors.primary,
-                            size: 28,
+                            size: 24,
                           ),
                         ),
                         const SizedBox(width: 16),
@@ -117,7 +117,7 @@ class DashboardHeader extends StatelessWidget {
                                 userName,
                                 style: TextStyle(
                                   color: AppColors.textPrimary,
-                                  fontSize: 24,
+                                  fontSize: 22,
                                   fontWeight: FontWeight.bold,
                                   letterSpacing: 0.3,
                                 ),
@@ -156,7 +156,7 @@ class DashboardHeader extends StatelessWidget {
                             'Employee Portal',
                             style: TextStyle(
                               color: AppColors.primary,
-                              fontSize: 13,
+                              fontSize: 11,
                               fontWeight: FontWeight.w600,
                               letterSpacing: 0.3,
                             ),
