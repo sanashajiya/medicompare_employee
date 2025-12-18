@@ -30,3 +30,4 @@ class VendorStepperRestoreState extends VendorStepperEvent {
     required this.sectionExpanded,
   });
 }
+

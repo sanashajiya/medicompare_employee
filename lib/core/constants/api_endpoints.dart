@@ -15,6 +15,7 @@ class ApiEndpoints {
   // Vendor endpoints
   static const String createVendor = '$baseUrl/employeevendor/vendor/create';
   static const String getCategories = '$baseUrl/common/medicalcategories';
+  static const String getDashboard = '$baseUrl/employeevendor/dashboard';
 
   ApiEndpoints._();
 }

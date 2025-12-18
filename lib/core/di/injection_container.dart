@@ -17,6 +17,7 @@ import '../../domain/repositories/vendor_repository.dart';
 import '../../domain/usecases/create_vendor_usecase.dart';
 import '../../domain/usecases/delete_draft_usecase.dart';
 import '../../domain/usecases/get_all_drafts_usecase.dart';
+import '../../domain/usecases/get_dashboard_stats_usecase.dart';
 import '../../domain/usecases/get_draft_by_id_usecase.dart';
 import '../../domain/usecases/get_draft_count_usecase.dart';
 import '../../domain/usecases/login_usecase.dart';
@@ -63,6 +64,7 @@ Future<void> initializeDependencies() async {
   sl.registerLazySingleton(() => SendOtpUseCase(sl()));
   sl.registerLazySingleton(() => VerifyOtpUseCase(sl()));
   sl.registerLazySingleton(() => CreateVendorUseCase(sl()));
+  sl.registerLazySingleton(() => GetDashboardStatsUseCase(sl()));
 
   // Draft Use cases
   sl.registerLazySingleton(() => SaveDraftUseCase(sl<DraftRepository>()));
@@ -80,7 +82,10 @@ Future<void> initializeDependencies() async {
   );
   sl.registerFactory(() => VendorFormBloc(createVendorUseCase: sl()));
   sl.registerFactory(
-    () => DashboardBloc(authLocalStorage: sl<AuthLocalStorage>()),
+    () => DashboardBloc(
+      authLocalStorage: sl<AuthLocalStorage>(),
+      getDashboardStatsUseCase: sl<GetDashboardStatsUseCase>(),
+    ),
   );
   sl.registerFactory(() => VendorStepperBloc());
   sl.registerFactory(

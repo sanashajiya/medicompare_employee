@@ -61,7 +61,7 @@ class Validators {
     }
 
     if (!_mobileRegex.hasMatch(value)) {
-      return 'Enter a valid 10-digit mobile number starting with 6–9';
+      return 'Enter a valid 10-digit mobile number';
     }
 
     // Extra safety check

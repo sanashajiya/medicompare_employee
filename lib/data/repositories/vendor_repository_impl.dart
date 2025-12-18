@@ -1,7 +1,9 @@
 import '../../core/constants/api_endpoints.dart';
+import '../../domain/entities/dashboard_stats_entity.dart';
 import '../../domain/entities/vendor_entity.dart';
 import '../../domain/repositories/vendor_repository.dart';
 import '../datasources/remote/api_service.dart';
+import '../models/dashboard_stats_model.dart';
 import '../models/vendor_model.dart';
 
 class VendorRepositoryImpl implements VendorRepository {
@@ -94,5 +96,63 @@ class VendorRepositoryImpl implements VendorRepository {
       throw Exception('An unexpected error occurred: ${e.toString()}');
     }
   }
-}
 
+  @override
+  Future<DashboardStatsEntity> getDashboardStats(String token) async {
+    try {
+      print(
+        '\n╔══════════════════════════════════════════════════════════════╗',
+      );
+      print('║        📊 VENDOR REPOSITORY - GET DASHBOARD STATS          ║');
+      print('╚══════════════════════════════════════════════════════════════╝');
+
+      final response = await apiService.get(
+        ApiEndpoints.getDashboard,
+        token: token,
+      );
+
+      print(
+        '\n═══════════════════════════════════════════════════════════════',
+      );
+      print('✅ DASHBOARD STATS RESPONSE:');
+      print('═══════════════════════════════════════════════════════════════');
+      print('Success: ${response['success']}');
+      print('Message: ${response['message']}');
+      print(
+        '═══════════════════════════════════════════════════════════════\n',
+      );
+
+      // Parse and return dashboard stats
+      return DashboardStatsModel.fromJson(response);
+    } on Exception catch (e) {
+      final errorString = e.toString();
+
+      if (errorString.contains('SocketException') ||
+          errorString.contains('Failed host lookup')) {
+        throw Exception(
+          'Unable to connect to server. Please check your internet connection.',
+        );
+      } else if (errorString.contains('TimeoutException')) {
+        throw Exception('Connection timed out. Please try again.');
+      } else if (errorString.contains('FormatException')) {
+        throw Exception('Invalid server response. Please try again later.');
+      } else if (errorString.contains('API Error: 401')) {
+        throw Exception('Unauthorized. Please login again.');
+      } else if (errorString.contains('API Error: 404')) {
+        throw Exception('Service not found. Please contact support.');
+      } else if (errorString.contains('API Error: 500') ||
+          errorString.contains('API Error: 502') ||
+          errorString.contains('API Error: 503')) {
+        throw Exception('Server error. Please try again later.');
+      } else {
+        throw Exception(
+          errorString.startsWith('Exception: ')
+              ? errorString.replaceFirst('Exception: ', '')
+              : 'Failed to fetch dashboard stats. Please try again.',
+        );
+      }
+    } catch (e) {
+      throw Exception('An unexpected error occurred: ${e.toString()}');
+    }
+  }
+}

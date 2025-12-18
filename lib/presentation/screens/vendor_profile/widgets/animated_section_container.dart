@@ -40,3 +40,4 @@ class AnimatedSectionContainer extends StatelessWidget {
     );
   }
 }
+

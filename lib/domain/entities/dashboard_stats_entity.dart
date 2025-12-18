@@ -11,3 +11,4 @@ class DashboardStatsEntity {
     this.rejectedVendors = 0,
   });
 }
+
