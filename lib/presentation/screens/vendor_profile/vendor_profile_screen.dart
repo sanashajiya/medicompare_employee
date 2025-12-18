@@ -161,6 +161,8 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
       _lastNameController.text = draft.lastName;
       _emailController.text = draft.email;
       _passwordController.text = draft.password;
+      // Auto-fill confirm password from password (they should match)
+      _confirmPasswordController.text = draft.password;
       _phoneController.text = draft.mobile;
       _aadhaarNumberController.text = draft.aadhaarNumber;
       _residentialAddressController.text = draft.residentialAddress;
@@ -176,6 +178,8 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
 
       // Banking Details
       _accountNumberController.text = draft.accountNumber;
+      // Auto-fill confirm account number from account number (they should match)
+      _confirmAccountNumberController.text = draft.accountNumber;
       _accountHolderNameController.text = draft.accountHolderName;
       _ifscCodeController.text = draft.ifscCode;
       _bankNameController.text = draft.bankName;
@@ -197,113 +201,145 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
 
     // Restore files from paths
     try {
-      // Govt Id Proof Image
-      if (draft.aadhaarFrontImagePath != null) {
-        final file = File(draft.aadhaarFrontImagePath!);
-        if (await file.exists()) {
-          final fileSize = await file.length();
-          if (fileSize > 0) {
-            setState(() => _aadhaarFrontImage = file);
-          } else {
-            print('Govt Id Proof Image file is empty, skipping restoration');
-          }
-        }
-      }
-      // Govt Id Proof Back Image
-      if (draft.aadhaarBackImagePath != null) {
-        final file = File(draft.aadhaarBackImagePath!);
-        if (await file.exists()) {
-          final fileSize = await file.length();
-          if (fileSize > 0) {
-            setState(() => _aadhaarBackImage = file);
+      // Govt Id Proof Image - restore with better error handling
+      if (draft.aadhaarFrontImagePath != null &&
+          draft.aadhaarFrontImagePath!.isNotEmpty) {
+        try {
+          final file = File(draft.aadhaarFrontImagePath!);
+          if (await file.exists()) {
+            final fileSize = await file.length();
+            if (fileSize > 0) {
+              setState(() => _aadhaarFrontImage = file);
+            } else {
+              print(
+                '⚠️ Govt Id Proof Front Image file is empty: ${draft.aadhaarFrontImagePath}',
+              );
+            }
           } else {
             print(
-              'Govt Id Proof Back Image file is empty, skipping restoration',
+              '⚠️ Govt Id Proof Front Image file not found: ${draft.aadhaarFrontImagePath}',
             );
           }
+        } catch (e) {
+          print('❌ Error restoring Govt Id Proof Front Image: $e');
+        }
+      }
+      // Govt Id Proof Back Image - restore with better error handling
+      if (draft.aadhaarBackImagePath != null &&
+          draft.aadhaarBackImagePath!.isNotEmpty) {
+        try {
+          final file = File(draft.aadhaarBackImagePath!);
+          if (await file.exists()) {
+            final fileSize = await file.length();
+            if (fileSize > 0) {
+              setState(() => _aadhaarBackImage = file);
+            } else {
+              print(
+                '⚠️ Govt Id Proof Back Image file is empty: ${draft.aadhaarBackImagePath}',
+              );
+            }
+          } else {
+            print(
+              '⚠️ Govt Id Proof Back Image file not found: ${draft.aadhaarBackImagePath}',
+            );
+          }
+        } catch (e) {
+          print('❌ Error restoring Govt Id Proof Back Image: $e');
         }
       }
 
       // Document files - check file size to ensure they're not empty
-      if (draft.panCardFilePath != null) {
-        final file = File(draft.panCardFilePath!);
-        if (await file.exists()) {
-          final fileSize = await file.length();
-          if (fileSize > 0) {
-            setState(() {
-              _panCardFile = file;
-              _panCardFileName = file.path.split('/').last;
-            });
+      // Use a helper function to safely restore files
+      Future<void> restoreFile(
+        String? filePath,
+        Function(File, String) onRestored,
+      ) async {
+        if (filePath == null || filePath.isEmpty) return;
+        try {
+          final file = File(filePath);
+          if (await file.exists()) {
+            final fileSize = await file.length();
+            if (fileSize > 0) {
+              // Extract filename from path, handling both Windows and Unix paths
+              // Split by both forward and back slashes, then take the last part
+              final fileName = filePath.replaceAll('\\', '/').split('/').last;
+              onRestored(file, fileName);
+            } else {
+              print('⚠️ File exists but is empty: $filePath');
+            }
+          } else {
+            print('⚠️ File not found: $filePath');
           }
+        } catch (e) {
+          print('❌ Error restoring file from path $filePath: $e');
         }
       }
 
-      if (draft.gstCertificateFilePath != null) {
-        final file = File(draft.gstCertificateFilePath!);
-        if (await file.exists()) {
-          final fileSize = await file.length();
-          if (fileSize > 0) {
-            setState(() {
-              _gstCertificateFile = file;
-              _gstCertificateFileName = file.path.split('/').last;
-            });
-          }
-        }
-      }
+      await restoreFile(draft.panCardFilePath, (file, fileName) {
+        setState(() {
+          _panCardFile = file;
+          _panCardFileName = fileName;
+        });
+      });
 
-      if (draft.businessRegistrationFilePath != null) {
-        final file = File(draft.businessRegistrationFilePath!);
-        if (await file.exists()) {
-          final fileSize = await file.length();
-          if (fileSize > 0) {
-            setState(() {
-              _businessRegistrationFile = file;
-              _businessRegistrationFileName = file.path.split('/').last;
-            });
-          }
-        }
-      }
+      await restoreFile(draft.gstCertificateFilePath, (file, fileName) {
+        setState(() {
+          _gstCertificateFile = file;
+          _gstCertificateFileName = fileName;
+        });
+      });
 
-      if (draft.professionalLicenseFilePath != null) {
-        final file = File(draft.professionalLicenseFilePath!);
-        if (await file.exists()) {
-          final fileSize = await file.length();
-          if (fileSize > 0) {
-            setState(() {
-              _professionalLicenseFile = file;
-              _professionalLicenseFileName = file.path.split('/').last;
-            });
-          }
-        }
-      }
+      await restoreFile(draft.businessRegistrationFilePath, (file, fileName) {
+        setState(() {
+          _businessRegistrationFile = file;
+          _businessRegistrationFileName = fileName;
+        });
+      });
 
-      if (draft.additionalDocumentFilePath != null) {
-        final file = File(draft.additionalDocumentFilePath!);
-        if (await file.exists()) {
-          final fileSize = await file.length();
-          if (fileSize > 0) {
-            setState(() {
-              _additionalDocumentFile = file;
-              _additionalDocumentFileName = file.path.split('/').last;
-            });
-          }
-        }
-      }
+      await restoreFile(draft.professionalLicenseFilePath, (file, fileName) {
+        setState(() {
+          _professionalLicenseFile = file;
+          _professionalLicenseFileName = fileName;
+        });
+      });
 
-      // Front store images - check file size
+      await restoreFile(draft.additionalDocumentFilePath, (file, fileName) {
+        setState(() {
+          _additionalDocumentFile = file;
+          _additionalDocumentFileName = fileName;
+        });
+      });
+
+      // Front store images - check file size with better error handling
       final restoredImages = <File>[];
       for (final imagePath in draft.frontStoreImagePaths) {
-        final file = File(imagePath);
-        if (await file.exists()) {
-          final fileSize = await file.length();
-          if (fileSize > 0) {
-            restoredImages.add(file);
+        if (imagePath.isEmpty) continue;
+        try {
+          final file = File(imagePath);
+          if (await file.exists()) {
+            final fileSize = await file.length();
+            if (fileSize > 0) {
+              restoredImages.add(file);
+            } else {
+              print('⚠️ Front store image file is empty: $imagePath');
+            }
+          } else {
+            print('⚠️ Front store image file not found: $imagePath');
           }
+        } catch (e) {
+          print('❌ Error restoring front store image from $imagePath: $e');
         }
       }
-      setState(() => _frontStoreImages = restoredImages);
+      if (restoredImages.isNotEmpty) {
+        setState(() => _frontStoreImages = restoredImages);
+        print('✅ Restored ${restoredImages.length} front store image(s)');
+      } else if (draft.frontStoreImagePaths.isNotEmpty) {
+        print(
+          '⚠️ No front store images could be restored from ${draft.frontStoreImagePaths.length} path(s)',
+        );
+      }
 
-      // Signature - check file size
+      // Signature - check file size and load into controller
       if (draft.signatureImagePath != null) {
         final signatureFile = File(draft.signatureImagePath!);
         if (await signatureFile.exists()) {
@@ -312,7 +348,14 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
             try {
               final bytes = await signatureFile.readAsBytes();
               if (bytes.isNotEmpty) {
-                setState(() => _signatureBytes = bytes);
+                setState(() {
+                  _signatureBytes = bytes;
+                });
+                // Load signature image into the controller for display
+                // Note: SignatureController doesn't support loading from bytes directly,
+                // but the signatureBytes will be used to show the saved signature indicator
+                // The actual signature pad will remain empty until user draws again
+                // This is expected behavior - user can see their saved signature was restored
               }
             } catch (e) {
               print('Error reading signature file: $e');
