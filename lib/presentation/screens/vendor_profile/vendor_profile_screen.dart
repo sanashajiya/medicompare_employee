@@ -197,7 +197,7 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
 
     // Restore files from paths
     try {
-      // Aadhaar front image
+      // Govt Id Proof Image
       if (draft.aadhaarFrontImagePath != null) {
         final file = File(draft.aadhaarFrontImagePath!);
         if (await file.exists()) {
@@ -205,11 +205,11 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
           if (fileSize > 0) {
             setState(() => _aadhaarFrontImage = file);
           } else {
-            print('Aadhaar front image file is empty, skipping restoration');
+            print('Govt Id Proof Image file is empty, skipping restoration');
           }
         }
       }
-      // Aadhaar back image
+      // Govt Id Proof Back Image
       if (draft.aadhaarBackImagePath != null) {
         final file = File(draft.aadhaarBackImagePath!);
         if (await file.exists()) {
@@ -217,7 +217,9 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
           if (fileSize > 0) {
             setState(() => _aadhaarBackImage = file);
           } else {
-            print('Aadhaar back image file is empty, skipping restoration');
+            print(
+              'Govt Id Proof Back Image file is empty, skipping restoration',
+            );
           }
         }
       }

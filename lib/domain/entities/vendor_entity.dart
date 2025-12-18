@@ -8,8 +8,8 @@ class VendorEntity extends Equatable {
   final String email;
   final String password;
   final String mobile;
-  final File? aadhaarFrontImage; // Aadhaar front image file
-  final File? aadhaarBackImage; // Aadhaar back image file
+  final File? aadhaarFrontImage; // Govt Id Proof Image file
+  final File? aadhaarBackImage; // Govt Id Proof Back Image file
   final String signname; // Signature name
   final String adharnumber; // Aadhaar number
   final String residentaladdress; // Residential address

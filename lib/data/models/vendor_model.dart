@@ -200,8 +200,10 @@ class VendorModel extends VendorEntity {
     print('\n═══════════════════════════════════════════════════════════════');
     print('📤 PREPARING MULTIPART FILES');
     print('═══════════════════════════════════════════════════════════════');
-    print('🆔 Aadhaar Front Image: ${aadhaarFrontImage != null ? "✅" : "❌"}');
-    print('🆔 Aadhaar Back Image: ${aadhaarBackImage != null ? "✅" : "❌"}');
+    print('🆔 Govt Id Proof Image: ${aadhaarFrontImage != null ? "✅" : "❌"}');
+    print(
+      '🆔 Govt Id Proof Back Image: ${aadhaarBackImage != null ? "✅" : "❌"}',
+    );
     print('📸 Front Images: ${frontimages.length}');
     print('📷 Back Images: ${backimages.length}');
     print('✍️  signature: ${signature.length}');
@@ -222,11 +224,11 @@ class VendorModel extends VendorEntity {
       }
     }
 
-    // 🔹 Aadhaar Front Image - API expects 'adhaarfrontimage'
+    // 🔹 Govt Id Proof Image - API expects 'adhaarfrontimage'
     if (aadhaarFrontImage != null) {
       final file = aadhaarFrontImage!;
       final exists = await file.exists();
-      print('\n  🆔 Aadhaar Front Image:');
+      print('\n  🆔 Govt Id Proof Image:');
       print('     Path: ${file.path}');
       print('     Exists: $exists');
       if (exists) {
@@ -249,11 +251,11 @@ class VendorModel extends VendorEntity {
       }
     }
 
-    // 🔹 Aadhaar Back Image - API expects 'adhaarbackimage'
+    // 🔹 Govt Id Proof Back Image - API expects 'adhaarbackimage'
     if (aadhaarBackImage != null) {
       final file = aadhaarBackImage!;
       final exists = await file.exists();
-      print('\n  🆔 Aadhaar Back Image:');
+      print('\n  🆔 Govt Id Proof Back Image:');
       print('     Path: ${file.path}');
       print('     Exists: $exists');
       if (exists) {

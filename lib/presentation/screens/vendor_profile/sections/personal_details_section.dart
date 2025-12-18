@@ -109,10 +109,10 @@ class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
       widget.aadhaarNumberController.text,
     );
     final aadhaarFrontImageError = widget.aadhaarFrontImage == null
-        ? 'Aadhaar front image is required'
+        ? 'Govt Id Proof Image is required'
         : null;
     final aadhaarBackImageError = widget.aadhaarBackImage == null
-        ? 'Aadhaar back image is required'
+        ? 'Govt Id Proof Back Image is required'
         : null;
     final residentialAddressError = Validators.validateAddress(
       widget.residentialAddressController.text,
@@ -399,10 +399,10 @@ class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
           },
         ),
         const SizedBox(height: 20),
-        // Aadhaar Front Image Upload
+        // Govt Id Proof Image Upload
         _buildAadhaarImageUpload(true),
         const SizedBox(height: 20),
-        // Aadhaar Back Image Upload
+        // Govt Id Proof Back Image Upload
         _buildAadhaarImageUpload(false),
         const SizedBox(height: 20),
         // Residential Address
@@ -424,10 +424,12 @@ class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
   Widget _buildAadhaarImageUpload(bool isFront) {
     final image = isFront ? widget.aadhaarFrontImage : widget.aadhaarBackImage;
     final error = isFront ? _aadhaarFrontImageError : _aadhaarBackImageError;
-    final label = isFront ? 'Aadhaar Front Image *' : 'Aadhaar Back Image *';
+    final label = isFront
+        ? 'Govt Id Proof Image *'
+        : 'Govt Id Proof Back Image *';
     final uploadText = isFront
-        ? 'Upload Aadhaar Front Image'
-        : 'Upload Aadhaar Back Image';
+        ? 'Upload Govt Id Proof Image'
+        : 'Upload Govt Id Proof Back Image';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -615,4 +617,3 @@ class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
     );
   }
 }
-

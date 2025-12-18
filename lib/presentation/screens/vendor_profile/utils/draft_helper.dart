@@ -20,7 +20,7 @@ class DraftHelper {
         await draftDir.create(recursive: true);
       }
 
-      // Save aadhaar front image
+      // Save Govt Id Proof Image
       String? aadhaarFrontImagePath;
       if (formData['aadhaarFrontImage'] != null &&
           formData['aadhaarFrontImage'] is File) {
@@ -32,7 +32,7 @@ class DraftHelper {
         aadhaarFrontImagePath = savedFile.path;
       }
 
-      // Save aadhaar back image
+      // Save Govt Id Proof Back Image
       String? aadhaarBackImagePath;
       if (formData['aadhaarBackImage'] != null &&
           formData['aadhaarBackImage'] is File) {
@@ -241,4 +241,3 @@ class DraftHelper {
     };
   }
 }
-
