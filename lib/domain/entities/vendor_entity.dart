@@ -8,6 +8,11 @@ class VendorEntity extends Equatable {
   final String email;
   final String password;
   final String mobile;
+  final File? aadhaarFrontImage; // Aadhaar front image file
+  final File? aadhaarBackImage; // Aadhaar back image file
+  final String signname; // Signature name
+  final String adharnumber; // Aadhaar number
+  final String residentaladdress; // Residential address
 
   // Business Details
   final String businessName;
@@ -16,6 +21,7 @@ class VendorEntity extends Equatable {
   final String address;
   final List<String> categories;
   final String bussinessmobile;
+  final String bussinesslegalname; // Business legal name
 
   // Document Details
   final List<String> docNames;
@@ -46,12 +52,18 @@ class VendorEntity extends Equatable {
     required this.email,
     required this.password,
     required this.mobile,
+    this.aadhaarFrontImage,
+    this.aadhaarBackImage,
+    this.signname = '',
+    this.adharnumber = '',
+    this.residentaladdress = '',
     required this.businessName,
     required this.businessEmail,
     required this.altMobile,
     required this.address,
     required this.categories,
     required this.bussinessmobile,
+    this.bussinesslegalname = '',
     required this.docNames,
     required this.docIds,
     required this.documentNumbers,
@@ -75,12 +87,18 @@ class VendorEntity extends Equatable {
     String? email,
     String? password,
     String? mobile,
+    File? aadhaarFrontImage,
+    File? aadhaarBackImage,
+    String? signname,
+    String? adharnumber,
+    String? residentaladdress,
     String? businessName,
     String? businessEmail,
     String? altMobile,
     String? address,
     List<String>? categories,
     String? bussinessmobile,
+    String? bussinesslegalname,
     List<String>? docNames,
     List<String>? docIds,
     List<String>? documentNumbers,
@@ -103,12 +121,18 @@ class VendorEntity extends Equatable {
       email: email ?? this.email,
       password: password ?? this.password,
       mobile: mobile ?? this.mobile,
+      aadhaarFrontImage: aadhaarFrontImage ?? this.aadhaarFrontImage,
+      aadhaarBackImage: aadhaarBackImage ?? this.aadhaarBackImage,
+      signname: signname ?? this.signname,
+      adharnumber: adharnumber ?? this.adharnumber,
+      residentaladdress: residentaladdress ?? this.residentaladdress,
       businessName: businessName ?? this.businessName,
       businessEmail: businessEmail ?? this.businessEmail,
       altMobile: altMobile ?? this.altMobile,
       address: address ?? this.address,
       categories: categories ?? this.categories,
       bussinessmobile: bussinessmobile ?? this.bussinessmobile,
+      bussinesslegalname: bussinesslegalname ?? this.bussinesslegalname,
       docNames: docNames ?? this.docNames,
       docIds: docIds ?? this.docIds,
       documentNumbers: documentNumbers ?? this.documentNumbers,
@@ -134,12 +158,18 @@ class VendorEntity extends Equatable {
     email,
     password,
     mobile,
+    aadhaarFrontImage,
+    aadhaarBackImage,
+    signname,
+    adharnumber,
+    residentaladdress,
     businessName,
     businessEmail,
     altMobile,
     address,
     categories,
     bussinessmobile,
+    bussinesslegalname,
     docNames,
     docIds,
     documentNumbers,
@@ -157,9 +187,3 @@ class VendorEntity extends Equatable {
     message,
   ];
 }
-
-
-
-
-
-

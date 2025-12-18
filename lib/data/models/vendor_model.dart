@@ -9,12 +9,18 @@ class VendorModel extends VendorEntity {
     required super.email,
     required super.password,
     required super.mobile,
+    super.aadhaarFrontImage,
+    super.aadhaarBackImage,
+    super.signname,
+    super.adharnumber,
+    super.residentaladdress,
     required super.businessName,
     required super.businessEmail,
     required super.altMobile,
     required super.address,
     required super.categories,
     required super.bussinessmobile,
+    super.bussinesslegalname,
     required super.docNames,
     required super.docIds,
     required super.documentNumbers,
@@ -78,12 +84,18 @@ class VendorModel extends VendorEntity {
       email: entity.email,
       password: entity.password,
       mobile: entity.mobile,
+      aadhaarFrontImage: entity.aadhaarFrontImage,
+      aadhaarBackImage: entity.aadhaarBackImage,
+      signname: entity.signname,
+      adharnumber: entity.adharnumber,
+      residentaladdress: entity.residentaladdress,
       businessName: entity.businessName,
       businessEmail: entity.businessEmail,
       altMobile: entity.altMobile,
       address: entity.address,
       categories: entity.categories,
       bussinessmobile: entity.bussinessmobile,
+      bussinesslegalname: entity.bussinesslegalname,
       docNames: entity.docNames,
       docIds: entity.docIds,
       documentNumbers: entity.documentNumbers,
@@ -120,6 +132,10 @@ class VendorModel extends VendorEntity {
       'ifscCode': ifscCode,
       'branchName': branchName,
       'bussinessmobile': bussinessmobile,
+      'signname': signname,
+      'bussinesslegalname': bussinesslegalname,
+      'adharnumber': adharnumber,
+      'residentaladdress': residentaladdress,
     };
 
     return fields;
@@ -127,11 +143,30 @@ class VendorModel extends VendorEntity {
 
   /// 🔹 Array fields that need to be added multiple times with the same key
   Map<String, List<String>> toMultipartArrayFields() {
+    // Ensure documentNumber array has the same length as docNames/docIds
+    // and replace empty strings with a placeholder to prevent backend errors
+    final safeDocumentNumbers = <String>[];
+    final maxLength = [
+      docNames.length,
+      docIds.length,
+      documentNumbers.length,
+    ].reduce((a, b) => a > b ? a : b);
+
+    for (int i = 0; i < maxLength; i++) {
+      if (i < documentNumbers.length) {
+        // Use the actual value if it exists and is not empty, otherwise use empty string
+        safeDocumentNumbers.add(documentNumbers[i]);
+      } else {
+        // Pad with empty string to match array lengths
+        safeDocumentNumbers.add('');
+      }
+    }
+
     return {
       'categories[]': categories,
       'doc_name[]': docNames,
       'doc_id[]': docIds,
-      'documentNumber[]': documentNumbers,
+      'documentNumber[]': safeDocumentNumbers,
     };
   }
 
@@ -142,6 +177,8 @@ class VendorModel extends VendorEntity {
     print('\n═══════════════════════════════════════════════════════════════');
     print('📤 PREPARING MULTIPART FILES');
     print('═══════════════════════════════════════════════════════════════');
+    print('🆔 Aadhaar Front Image: ${aadhaarFrontImage != null ? "✅" : "❌"}');
+    print('🆔 Aadhaar Back Image: ${aadhaarBackImage != null ? "✅" : "❌"}');
     print('📸 Front Images: ${frontimages.length}');
     print('📷 Back Images: ${backimages.length}');
     print('✍️  signature: ${signature.length}');
@@ -159,6 +196,60 @@ class VendorModel extends VendorEntity {
           return MediaType('application', 'pdf');
         default:
           return MediaType('application', 'octet-stream');
+      }
+    }
+
+    // 🔹 Aadhaar Front Image - API expects 'adhaarfrontimage'
+    if (aadhaarFrontImage != null) {
+      final file = aadhaarFrontImage!;
+      final exists = await file.exists();
+      print('\n  🆔 Aadhaar Front Image:');
+      print('     Path: ${file.path}');
+      print('     Exists: $exists');
+      if (exists) {
+        try {
+          final size = await file.length();
+          print('     Size: $size bytes');
+          filesList.add(
+            await http.MultipartFile.fromPath(
+              'adhaarfrontimage',
+              file.path,
+              contentType: _mediaType(file.path),
+            ),
+          );
+          print('     ✅ Added to multipart');
+        } catch (e) {
+          print('     ❌ Error adding: $e');
+        }
+      } else {
+        print('     ❌ FILE NOT FOUND!');
+      }
+    }
+
+    // 🔹 Aadhaar Back Image - API expects 'adhaarbackimage'
+    if (aadhaarBackImage != null) {
+      final file = aadhaarBackImage!;
+      final exists = await file.exists();
+      print('\n  🆔 Aadhaar Back Image:');
+      print('     Path: ${file.path}');
+      print('     Exists: $exists');
+      if (exists) {
+        try {
+          final size = await file.length();
+          print('     Size: $size bytes');
+          filesList.add(
+            await http.MultipartFile.fromPath(
+              'adhaarbackimage',
+              file.path,
+              contentType: _mediaType(file.path),
+            ),
+          );
+          print('     ✅ Added to multipart');
+        } catch (e) {
+          print('     ❌ Error adding: $e');
+        }
+      } else {
+        print('     ❌ FILE NOT FOUND!');
       }
     }
 
@@ -279,4 +370,3 @@ class VendorModel extends VendorEntity {
     return filesList;
   }
 }
-

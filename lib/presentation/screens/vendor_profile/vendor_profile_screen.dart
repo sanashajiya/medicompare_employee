@@ -59,7 +59,8 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
   final _confirmPasswordController = TextEditingController();
   final _aadhaarNumberController = TextEditingController();
   final _residentialAddressController = TextEditingController();
-  File? _aadhaarPhoto;
+  File? _aadhaarFrontImage;
+  File? _aadhaarBackImage;
 
   // Controllers - Business Details
   final _businessNameController = TextEditingController();
@@ -188,16 +189,27 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
 
     // Restore files from paths
     try {
-      // Aadhaar photo
-      if (draft.aadhaarPhotoPath != null) {
-        final file = File(draft.aadhaarPhotoPath!);
+      // Aadhaar front image
+      if (draft.aadhaarFrontImagePath != null) {
+        final file = File(draft.aadhaarFrontImagePath!);
         if (await file.exists()) {
-          // Check if file is not empty
           final fileSize = await file.length();
           if (fileSize > 0) {
-            setState(() => _aadhaarPhoto = file);
+            setState(() => _aadhaarFrontImage = file);
           } else {
-            print('Aadhaar photo file is empty, skipping restoration');
+            print('Aadhaar front image file is empty, skipping restoration');
+          }
+        }
+      }
+      // Aadhaar back image
+      if (draft.aadhaarBackImagePath != null) {
+        final file = File(draft.aadhaarBackImagePath!);
+        if (await file.exists()) {
+          final fileSize = await file.length();
+          if (fileSize > 0) {
+            setState(() => _aadhaarBackImage = file);
+          } else {
+            print('Aadhaar back image file is empty, skipping restoration');
           }
         }
       }
@@ -407,7 +419,8 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
           'professionalLicenseNumber': _professionalLicenseNumberController,
           'additionalDocumentName': _additionalDocumentNameController,
         },
-        aadhaarPhoto: _aadhaarPhoto,
+        aadhaarFrontImage: _aadhaarFrontImage,
+        aadhaarBackImage: _aadhaarBackImage,
         panCardFile: _panCardFile,
         gstCertificateFile: _gstCertificateFile,
         businessRegistrationFile: _businessRegistrationFile,
@@ -534,12 +547,18 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
       email: _emailController.text,
       password: _passwordController.text,
       mobile: _phoneController.text,
+      aadhaarFrontImage: _aadhaarFrontImage,
+      aadhaarBackImage: _aadhaarBackImage,
+      signname: _signerNameController.text,
+      adharnumber: _aadhaarNumberController.text,
+      residentaladdress: _residentialAddressController.text,
       businessName: _businessNameController.text,
       businessEmail: _businessEmailController.text,
       altMobile: _altBusinessMobileController.text,
       address: _businessAddressController.text,
       categories: categoryIds,
       bussinessmobile: _businessMobileController.text,
+      bussinesslegalname: _businessLegalNameController.text,
       docNames: [
         'PAN Card',
         'GST Certificate',
@@ -622,7 +641,8 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
       _confirmPasswordController.clear();
       _aadhaarNumberController.clear();
       _residentialAddressController.clear();
-      _aadhaarPhoto = null;
+      _aadhaarFrontImage = null;
+      _aadhaarBackImage = null;
       _businessNameController.clear();
       _businessLegalNameController.clear();
       _businessEmailController.clear();
@@ -673,10 +693,14 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
           confirmPasswordController: _confirmPasswordController,
           aadhaarNumberController: _aadhaarNumberController,
           residentialAddressController: _residentialAddressController,
-          aadhaarPhoto: _aadhaarPhoto,
+          aadhaarFrontImage: _aadhaarFrontImage,
+          aadhaarBackImage: _aadhaarBackImage,
           enabled: enabled,
-          onAadhaarPhotoChanged: (photo) {
-            setState(() => _aadhaarPhoto = photo);
+          onAadhaarFrontImageChanged: (photo) {
+            setState(() => _aadhaarFrontImage = photo);
+          },
+          onAadhaarBackImageChanged: (photo) {
+            setState(() => _aadhaarBackImage = photo);
           },
           onValidationChanged: (isValid) {
             context.read<VendorStepperBloc>().add(

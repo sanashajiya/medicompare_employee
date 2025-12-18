@@ -50,16 +50,15 @@ class ApiService {
           final key = entry.key; // e.g., 'categories[]'
           print('   $key: ${entry.value.length} value(s)');
           for (final value in entry.value) {
-            if (value.isNotEmpty) {
-              // Create a multipart file from string for each array value
-              // This creates a form field (not a file) that the backend can parse
-              final arrayField = http.MultipartFile.fromString(
-                key, // Keep the [] in the key name
-                value,
-              );
-              request.files.add(arrayField);
-              print('     - Added: $value');
-            }
+            // IMPORTANT: Always send array values, even if empty, to maintain array alignment
+            // The backend expects arrays like documentNumber[] to match the length of doc_name[]
+            // Skipping empty values causes array misalignment and backend errors
+            final arrayField = http.MultipartFile.fromString(
+              key, // Keep the [] in the key name
+              value, // Send empty string if needed to maintain array alignment
+            );
+            request.files.add(arrayField);
+            print('     - Added: ${value.isEmpty ? "(empty)" : value}');
           }
         }
       }

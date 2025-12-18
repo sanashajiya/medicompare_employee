@@ -15,7 +15,8 @@ class DraftVendorModel extends DraftVendorEntity {
     super.mobile,
     super.aadhaarNumber,
     super.residentialAddress,
-    super.aadhaarPhotoPath,
+    super.aadhaarFrontImagePath,
+    super.aadhaarBackImagePath,
     super.businessName,
     super.businessLegalName,
     super.businessEmail,
@@ -60,7 +61,8 @@ class DraftVendorModel extends DraftVendorEntity {
       mobile: entity.mobile,
       aadhaarNumber: entity.aadhaarNumber,
       residentialAddress: entity.residentialAddress,
-      aadhaarPhotoPath: entity.aadhaarPhotoPath,
+      aadhaarFrontImagePath: entity.aadhaarFrontImagePath,
+      aadhaarBackImagePath: entity.aadhaarBackImagePath,
       businessName: entity.businessName,
       businessLegalName: entity.businessLegalName,
       businessEmail: entity.businessEmail,
@@ -106,7 +108,8 @@ class DraftVendorModel extends DraftVendorEntity {
       'mobile': mobile,
       'aadhaarNumber': aadhaarNumber,
       'residentialAddress': residentialAddress,
-      'aadhaarPhotoPath': aadhaarPhotoPath,
+      'aadhaarFrontImagePath': aadhaarFrontImagePath,
+      'aadhaarBackImagePath': aadhaarBackImagePath,
       'businessName': businessName,
       'businessLegalName': businessLegalName,
       'businessEmail': businessEmail,
@@ -152,7 +155,11 @@ class DraftVendorModel extends DraftVendorEntity {
       mobile: map['mobile'] as String? ?? '',
       aadhaarNumber: map['aadhaarNumber'] as String? ?? '',
       residentialAddress: map['residentialAddress'] as String? ?? '',
-      aadhaarPhotoPath: map['aadhaarPhotoPath'] as String?,
+      // Backward compatibility: if old aadhaarPhotoPath exists, use it as front image
+      aadhaarFrontImagePath:
+          map['aadhaarFrontImagePath'] as String? ??
+          map['aadhaarPhotoPath'] as String?,
+      aadhaarBackImagePath: map['aadhaarBackImagePath'] as String?,
       businessName: map['businessName'] as String? ?? '',
       businessLegalName: map['businessLegalName'] as String? ?? '',
       businessEmail: map['businessEmail'] as String? ?? '',
@@ -204,5 +211,3 @@ class DraftVendorModel extends DraftVendorEntity {
     );
   }
 }
-
-

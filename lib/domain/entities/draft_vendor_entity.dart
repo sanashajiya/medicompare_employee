@@ -17,7 +17,8 @@ class DraftVendorEntity extends Equatable {
   final String mobile;
   final String aadhaarNumber;
   final String residentialAddress;
-  final String? aadhaarPhotoPath;
+  final String? aadhaarFrontImagePath;
+  final String? aadhaarBackImagePath;
 
   // Business Details
   final String businessName;
@@ -71,7 +72,8 @@ class DraftVendorEntity extends Equatable {
     this.mobile = '',
     this.aadhaarNumber = '',
     this.residentialAddress = '',
-    this.aadhaarPhotoPath,
+    this.aadhaarFrontImagePath,
+    this.aadhaarBackImagePath,
     this.businessName = '',
     this.businessLegalName = '',
     this.businessEmail = '',
@@ -150,7 +152,8 @@ class DraftVendorEntity extends Equatable {
     String? mobile,
     String? aadhaarNumber,
     String? residentialAddress,
-    String? aadhaarPhotoPath,
+    String? aadhaarFrontImagePath,
+    String? aadhaarBackImagePath,
     String? businessName,
     String? businessLegalName,
     String? businessEmail,
@@ -192,7 +195,9 @@ class DraftVendorEntity extends Equatable {
       mobile: mobile ?? this.mobile,
       aadhaarNumber: aadhaarNumber ?? this.aadhaarNumber,
       residentialAddress: residentialAddress ?? this.residentialAddress,
-      aadhaarPhotoPath: aadhaarPhotoPath ?? this.aadhaarPhotoPath,
+      aadhaarFrontImagePath:
+          aadhaarFrontImagePath ?? this.aadhaarFrontImagePath,
+      aadhaarBackImagePath: aadhaarBackImagePath ?? this.aadhaarBackImagePath,
       businessName: businessName ?? this.businessName,
       businessLegalName: businessLegalName ?? this.businessLegalName,
       businessEmail: businessEmail ?? this.businessEmail,
@@ -244,7 +249,8 @@ class DraftVendorEntity extends Equatable {
     mobile,
     aadhaarNumber,
     residentialAddress,
-    aadhaarPhotoPath,
+    aadhaarFrontImagePath,
+    aadhaarBackImagePath,
     businessName,
     businessLegalName,
     businessEmail,
@@ -275,5 +281,3 @@ class DraftVendorEntity extends Equatable {
     sectionValidations,
   ];
 }
-
-

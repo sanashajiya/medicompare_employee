@@ -20,13 +20,28 @@ class DraftHelper {
         await draftDir.create(recursive: true);
       }
 
-      // Save aadhaar photo
-      String? aadhaarPhotoPath;
-      if (formData['aadhaarPhoto'] != null &&
-          formData['aadhaarPhoto'] is File) {
-        final file = formData['aadhaarPhoto'] as File;
-        final savedFile = await file.copy('${draftDir.path}/aadhaar_photo.jpg');
-        aadhaarPhotoPath = savedFile.path;
+      // Save aadhaar front image
+      String? aadhaarFrontImagePath;
+      if (formData['aadhaarFrontImage'] != null &&
+          formData['aadhaarFrontImage'] is File) {
+        final file = formData['aadhaarFrontImage'] as File;
+        final extension = file.path.split('.').last;
+        final savedFile = await file.copy(
+          '${draftDir.path}/aadhaar_front.$extension',
+        );
+        aadhaarFrontImagePath = savedFile.path;
+      }
+
+      // Save aadhaar back image
+      String? aadhaarBackImagePath;
+      if (formData['aadhaarBackImage'] != null &&
+          formData['aadhaarBackImage'] is File) {
+        final file = formData['aadhaarBackImage'] as File;
+        final extension = file.path.split('.').last;
+        final savedFile = await file.copy(
+          '${draftDir.path}/aadhaar_back.$extension',
+        );
+        aadhaarBackImagePath = savedFile.path;
       }
 
       // Save document files
@@ -122,7 +137,8 @@ class DraftHelper {
         mobile: formData['mobile'] ?? '',
         aadhaarNumber: formData['aadhaarNumber'] ?? '',
         residentialAddress: formData['residentialAddress'] ?? '',
-        aadhaarPhotoPath: aadhaarPhotoPath,
+        aadhaarFrontImagePath: aadhaarFrontImagePath,
+        aadhaarBackImagePath: aadhaarBackImagePath,
         businessName: formData['businessName'] ?? '',
         businessLegalName: formData['businessLegalName'] ?? '',
         businessEmail: formData['businessEmail'] ?? '',
@@ -170,7 +186,8 @@ class DraftHelper {
   /// Extract form data from vendor profile screen state
   static Map<String, dynamic> extractFormData({
     required Map<String, TextEditingController> controllers,
-    File? aadhaarPhoto,
+    File? aadhaarFrontImage,
+    File? aadhaarBackImage,
     File? panCardFile,
     File? gstCertificateFile,
     File? businessRegistrationFile,
@@ -190,7 +207,8 @@ class DraftHelper {
       'mobile': controllers['mobile']?.text ?? '',
       'aadhaarNumber': controllers['aadhaarNumber']?.text ?? '',
       'residentialAddress': controllers['residentialAddress']?.text ?? '',
-      'aadhaarPhoto': aadhaarPhoto,
+      'aadhaarFrontImage': aadhaarFrontImage,
+      'aadhaarBackImage': aadhaarBackImage,
       'businessName': controllers['businessName']?.text ?? '',
       'businessLegalName': controllers['businessLegalName']?.text ?? '',
       'businessEmail': controllers['businessEmail']?.text ?? '',
@@ -223,5 +241,3 @@ class DraftHelper {
     };
   }
 }
-
-
