@@ -46,6 +46,7 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
   final ScrollController _scrollController = ScrollController();
   final List<GlobalKey> _sectionKeys = List.generate(6, (_) => GlobalKey());
   List<bool>? _previousExpandedState;
+  int? _previousCurrentSection;
   String? _currentDraftId;
   bool _isSavingDraft = false;
 
@@ -480,13 +481,16 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
     final key = _sectionKeys[index];
     final context = key.currentContext;
     if (context != null) {
-      Future.delayed(const Duration(milliseconds: 100), () {
-        Scrollable.ensureVisible(
-          context,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeInOut,
-          alignment: 0.1,
-        );
+      // Wait for the section animation to complete (300ms) plus a small buffer
+      Future.delayed(const Duration(milliseconds: 350), () {
+        if (mounted && key.currentContext != null) {
+          Scrollable.ensureVisible(
+            key.currentContext!,
+            duration: const Duration(milliseconds: 400),
+            curve: Curves.easeInOut,
+            alignment: 0.0, // Scroll to the top of the section
+          );
+        }
       });
     }
   }
@@ -884,20 +888,43 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
       ],
       child: BlocConsumer<VendorStepperBloc, VendorStepperState>(
         listenWhen: (previous, current) {
-          // Only listen when expanded state actually changes
-          return previous.sectionExpanded != current.sectionExpanded;
+          // Listen when expanded state or current section changes
+          return previous.sectionExpanded != current.sectionExpanded ||
+              previous.currentSection != current.currentSection;
         },
         listener: (context, state) {
-          // Only scroll if a section was newly expanded
-          if (_previousExpandedState != null) {
-            for (int i = 0; i < state.sectionExpanded.length; i++) {
-              if (state.sectionExpanded[i] && !_previousExpandedState![i]) {
-                _scrollToSection(i);
-                break;
-              }
-            }
+          // Initialize previous state if null
+          if (_previousExpandedState == null) {
+            _previousExpandedState = List.from(state.sectionExpanded);
+            _previousCurrentSection = state.currentSection;
+            return;
           }
+
+          final currentSection = state.currentSection;
+          final isCurrentSectionExpanded =
+              currentSection < state.sectionExpanded.length &&
+              state.sectionExpanded[currentSection];
+
+          // Check if current section changed (Next/Previous button pressed)
+          bool currentSectionChanged =
+              _previousCurrentSection != currentSection;
+
+          // Check if current section was just expanded
+          bool wasJustExpanded =
+              currentSection < _previousExpandedState!.length &&
+              !_previousExpandedState![currentSection] &&
+              isCurrentSectionExpanded;
+
+          // Scroll to current section if:
+          // 1. Current section changed (Next/Previous button) AND it's expanded, OR
+          // 2. Current section was just expanded
+          if (isCurrentSectionExpanded &&
+              (currentSectionChanged || wasJustExpanded)) {
+            _scrollToSection(currentSection);
+          }
+
           _previousExpandedState = List.from(state.sectionExpanded);
+          _previousCurrentSection = currentSection;
         },
         builder: (context, stepperState) {
           return BlocBuilder<VendorFormBloc, VendorFormState>(
