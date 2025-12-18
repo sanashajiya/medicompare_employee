@@ -8,6 +8,8 @@ import '../../blocs/auth/auth_bloc.dart';
 import '../../blocs/auth/auth_event.dart';
 import '../../blocs/auth/auth_state.dart';
 import '../../blocs/dashboard/dashboard_bloc.dart';
+import '../../blocs/draft/draft_bloc.dart';
+import '../../blocs/draft/draft_event.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/custom_text_field.dart';
 import '../dashboard/dashboard_screen.dart';
@@ -118,8 +120,16 @@ class _LoginScreenState extends State<LoginScreen> {
             print('🚀 [BlocListener] Navigating to dashboard screen...');
             Navigator.of(context).pushReplacement(
               MaterialPageRoute(
-                builder: (_) => BlocProvider<DashboardBloc>(
-                  create: (_) => sl<DashboardBloc>(),
+                builder: (_) => MultiBlocProvider(
+                  providers: [
+                    BlocProvider<DashboardBloc>(
+                      create: (_) => sl<DashboardBloc>(),
+                    ),
+                    BlocProvider<DraftBloc>(
+                      create: (_) =>
+                          sl<DraftBloc>()..add(DraftLoadCountRequested()),
+                    ),
+                  ],
                   child: DashboardScreen(user: state.user),
                 ),
               ),

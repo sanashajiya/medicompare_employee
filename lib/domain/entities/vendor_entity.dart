@@ -187,3 +187,4 @@ class VendorEntity extends Equatable {
     message,
   ];
 }
+

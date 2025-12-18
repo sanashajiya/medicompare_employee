@@ -215,3 +215,4 @@ class _BankingDetailsSectionState extends State<BankingDetailsSection> {
     );
   }
 }
+

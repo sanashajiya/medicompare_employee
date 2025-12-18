@@ -211,3 +211,4 @@ class DraftVendorModel extends DraftVendorEntity {
     );
   }
 }
+

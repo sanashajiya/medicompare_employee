@@ -281,3 +281,4 @@ class DraftVendorEntity extends Equatable {
     sectionValidations,
   ];
 }
+
