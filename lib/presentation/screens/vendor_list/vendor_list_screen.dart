@@ -359,15 +359,15 @@ class _VendorCard extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             // Header Row with Status Badge
             Row(
               children: [
                 // Avatar
                 Container(
-                  width: 50,
-                  height: 50,
+                  width: 40,
+                  height: 40,
                   decoration: BoxDecoration(
                     color: AppColors.primary.withOpacity(0.1),
                     shape: BoxShape.circle,
@@ -375,7 +375,7 @@ class _VendorCard extends StatelessWidget {
                   child: Icon(
                     Icons.business,
                     color: AppColors.primary,
-                    size: 28,
+                    size: 24,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -384,6 +384,7 @@ class _VendorCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      const SizedBox(height: 6),
                       Text(
                         vendor.fullName,
                         style: Theme.of(context).textTheme.titleMedium
@@ -391,7 +392,7 @@ class _VendorCard extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 4),
+                      // const SizedBox(height: 4),
                       Text(
                         vendor.businessName ?? '',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -434,9 +435,9 @@ class _VendorCard extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 16),
-            const Divider(height: 1),
             const SizedBox(height: 12),
+            // const Divider(height: 1),
+            // const SizedBox(height: 12),
             // Contact Information
             _InfoRow(
               icon: Icons.email_outlined,
