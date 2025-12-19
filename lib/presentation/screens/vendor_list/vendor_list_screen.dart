@@ -9,7 +9,7 @@ import '../../blocs/vendor_list/vendor_list_event.dart';
 import '../../blocs/vendor_list/vendor_list_state.dart';
 import '../../../core/constants/vendor_filter_type.dart';
 
-class VendorListScreen extends StatelessWidget {
+class VendorListScreen extends StatefulWidget {
   final UserEntity user;
   final VendorFilterType filterType;
 
@@ -19,8 +19,21 @@ class VendorListScreen extends StatelessWidget {
     this.filterType = VendorFilterType.all,
   });
 
+  @override
+  State<VendorListScreen> createState() => _VendorListScreenState();
+}
+
+class _VendorListScreenState extends State<VendorListScreen> {
+  final TextEditingController _searchController = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
   String _getAppBarTitle() {
-    switch (filterType) {
+    switch (widget.filterType) {
       case VendorFilterType.all:
         return 'All Vendors';
       case VendorFilterType.approved:
@@ -29,17 +42,14 @@ class VendorListScreen extends StatelessWidget {
         return 'Pending Vendors';
       case VendorFilterType.rejected:
         return 'Rejected Vendors';
-      default:
-        return 'Vendors';
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (_) =>
-          sl<VendorListBloc>()
-            ..add(VendorListLoadRequested(user.token, filterType)),
+      create: (_) => sl<VendorListBloc>()
+        ..add(VendorListLoadRequested(widget.user.token, widget.filterType)),
       child: Scaffold(
         backgroundColor: AppColors.background,
         appBar: AppBar(
@@ -82,7 +92,10 @@ class VendorListScreen extends StatelessWidget {
                     ElevatedButton(
                       onPressed: () {
                         context.read<VendorListBloc>().add(
-                          VendorListLoadRequested(user.token, filterType),
+                          VendorListLoadRequested(
+                            widget.user.token,
+                            widget.filterType,
+                          ),
                         );
                       },
                       child: const Text('Retry'),
@@ -95,56 +108,123 @@ class VendorListScreen extends StatelessWidget {
             if (state is VendorListLoaded) {
               final vendors = state.vendors;
 
-              // Filter vendors based on filterType
+              // Filter vendors based on filterType and search query
               final filteredVendors = _filterVendors(vendors);
 
-              if (filteredVendors.isEmpty) {
-                return Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.business_outlined,
-                        size: 80,
-                        color: AppColors.textSecondary.withOpacity(0.5),
-                      ),
-                      const SizedBox(height: 24),
-                      Text(
-                        filterType == VendorFilterType.all
-                            ? 'No Vendors'
-                            : 'No Vendors Found',
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
+              return Column(
+                children: [
+                  // Search Bar
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    color: AppColors.surface,
+                    child: TextField(
+                      controller: _searchController,
+                      decoration: InputDecoration(
+                        hintText: 'Search by name, email, mobile, vendor ID...',
+                        prefixIcon: const Icon(Icons.search),
+                        suffixIcon: ValueListenableBuilder<TextEditingValue>(
+                          valueListenable: _searchController,
+                          builder: (context, value, child) {
+                            return value.text.isNotEmpty
+                                ? IconButton(
+                                    icon: const Icon(Icons.clear),
+                                    onPressed: () {
+                                      _searchController.clear();
+                                    },
+                                  )
+                                : const SizedBox.shrink();
+                          },
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: AppColors.border),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: AppColors.border),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                            color: AppColors.primary,
+                            width: 2,
+                          ),
+                        ),
+                        filled: true,
+                        fillColor: Colors.white,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        filterType == VendorFilterType.all
-                            ? 'No vendors found'
-                            : 'No vendors match the selected filter',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    ],
+                      onChanged: (value) {
+                        setState(() {});
+                      },
+                    ),
                   ),
-                );
-              }
-
-              return RefreshIndicator(
-                onRefresh: () async {
-                  context.read<VendorListBloc>().add(
-                    VendorListRefreshRequested(user.token, filterType),
-                  );
-                },
-                child: ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: filteredVendors.length,
-                  itemBuilder: (context, index) {
-                    final vendor = filteredVendors[index];
-                    return _VendorCard(vendor: vendor);
-                  },
-                ),
+                  // Vendor List
+                  Expanded(
+                    child: filteredVendors.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  _searchController.text.isNotEmpty
+                                      ? Icons.search_off
+                                      : Icons.business_outlined,
+                                  size: 80,
+                                  color: AppColors.textSecondary.withOpacity(
+                                    0.5,
+                                  ),
+                                ),
+                                const SizedBox(height: 24),
+                                Text(
+                                  _searchController.text.isNotEmpty
+                                      ? 'No Results Found'
+                                      : widget.filterType ==
+                                            VendorFilterType.all
+                                      ? 'No Vendors'
+                                      : 'No Vendors Found',
+                                  style: Theme.of(context).textTheme.titleLarge
+                                      ?.copyWith(fontWeight: FontWeight.bold),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  _searchController.text.isNotEmpty
+                                      ? 'Try adjusting your search terms'
+                                      : widget.filterType ==
+                                            VendorFilterType.all
+                                      ? 'No vendors found'
+                                      : 'No vendors match the selected filter',
+                                  style: Theme.of(context).textTheme.bodyMedium
+                                      ?.copyWith(
+                                        color: AppColors.textSecondary,
+                                      ),
+                                ),
+                              ],
+                            ),
+                          )
+                        : RefreshIndicator(
+                            onRefresh: () async {
+                              context.read<VendorListBloc>().add(
+                                VendorListRefreshRequested(
+                                  widget.user.token,
+                                  widget.filterType,
+                                ),
+                              );
+                            },
+                            child: ListView.builder(
+                              padding: const EdgeInsets.all(16),
+                              itemCount: filteredVendors.length,
+                              itemBuilder: (context, index) {
+                                final vendor = filteredVendors[index];
+                                return _VendorCard(vendor: vendor);
+                              },
+                            ),
+                          ),
+                  ),
+                ],
               );
             }
 
@@ -158,20 +238,47 @@ class VendorListScreen extends StatelessWidget {
   List<VendorListItemEntity> _filterVendors(
     List<VendorListItemEntity> vendors,
   ) {
-    if (filterType == VendorFilterType.all) {
-      return vendors;
+    // First filter by status
+    List<VendorListItemEntity> statusFiltered = vendors;
+    if (widget.filterType != VendorFilterType.all) {
+      final statusMap = {
+        VendorFilterType.approved: 'approved',
+        VendorFilterType.pending: 'pending',
+        VendorFilterType.rejected: 'rejected',
+      };
+
+      final targetStatus = statusMap[widget.filterType]?.toLowerCase();
+      statusFiltered = vendors.where((vendor) {
+        final vendorStatus = vendor.verifyStatus?.toLowerCase();
+        return vendorStatus == targetStatus;
+      }).toList();
     }
 
-    final statusMap = {
-      VendorFilterType.approved: 'approved',
-      VendorFilterType.pending: 'pending',
-      VendorFilterType.rejected: 'rejected',
-    };
+    // Then filter by search query
+    final searchQuery = _searchController.text.toLowerCase().trim();
+    if (searchQuery.isEmpty) {
+      return statusFiltered;
+    }
 
-    final targetStatus = statusMap[filterType]?.toLowerCase();
-    return vendors.where((vendor) {
-      final vendorStatus = vendor.verifyStatus?.toLowerCase();
-      return vendorStatus == targetStatus;
+    return statusFiltered.where((vendor) {
+      // Search in multiple fields
+      final fullName = vendor.fullName.toLowerCase();
+      final firstName = vendor.firstName.toLowerCase();
+      final lastName = vendor.lastName.toLowerCase();
+      final email = vendor.email.toLowerCase();
+      final mobile = vendor.mobile.toLowerCase();
+      final vendorId = vendor.vendorsId?.toLowerCase() ?? '';
+      final businessName = vendor.businessName?.toLowerCase() ?? '';
+      final businessEmail = vendor.businessEmail?.toLowerCase() ?? '';
+
+      return fullName.contains(searchQuery) ||
+          firstName.contains(searchQuery) ||
+          lastName.contains(searchQuery) ||
+          email.contains(searchQuery) ||
+          mobile.contains(searchQuery) ||
+          vendorId.contains(searchQuery) ||
+          businessName.contains(searchQuery) ||
+          businessEmail.contains(searchQuery);
     }).toList();
   }
 }
