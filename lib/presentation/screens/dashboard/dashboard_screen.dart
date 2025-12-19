@@ -12,8 +12,10 @@ import '../../blocs/draft/draft_event.dart';
 import '../../blocs/draft/draft_state.dart';
 import '../../blocs/vendor_form/vendor_form_bloc.dart';
 import '../../blocs/vendor_stepper/vendor_stepper_bloc.dart';
+import '../../../core/constants/vendor_filter_type.dart';
 import '../auth/login_screen.dart';
 import '../draft_list/draft_list_screen.dart';
+import '../vendor_list/vendor_list_screen.dart';
 import '../vendor_profile/vendor_profile_screen.dart';
 import 'widgets/dashboard_action_buttons.dart';
 import 'widgets/dashboard_app_bar.dart';
@@ -21,7 +23,6 @@ import 'widgets/dashboard_drawer.dart';
 import 'widgets/dashboard_header.dart';
 import 'widgets/dashboard_stats_cards.dart';
 import 'package:url_launcher/url_launcher.dart';
-
 
 class DashboardScreen extends StatefulWidget {
   final UserEntity user;
@@ -110,39 +111,37 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  void _handleVendorStatCardTap(VendorFilterType filterType) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) =>
+            VendorListScreen(user: widget.user, filterType: filterType),
+      ),
+    );
+  }
+
   void _handlePrivacyPolicy() async {
-  final Uri url = Uri.parse(
-    'https://medicompares.com/policies/privacy-policy',
-  );
-
-  if (!await launchUrl(
-    url,
-    mode: LaunchMode.externalApplication,
-  )) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Could not open Privacy Policy'),
-      ),
+    final Uri url = Uri.parse(
+      'https://medicompares.com/policies/privacy-policy',
     );
+
+    if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open Privacy Policy')),
+      );
+    }
   }
-}
 
-
-  void _handleAboutUs() async{
-      final Uri url = Uri.parse(
-    'https://medicompares.com/policies/terms-and-conditions',
-  );
-
-  if (!await launchUrl(
-    url,
-    mode: LaunchMode.externalApplication,
-  )) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Could not open Terms and Conditions'),
-      ),
+  void _handleAboutUs() async {
+    final Uri url = Uri.parse(
+      'https://medicompares.com/policies/terms-and-conditions',
     );
-  }
+
+    if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open Terms and Conditions')),
+      );
+    }
   }
 
   @override
@@ -216,7 +215,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         const SizedBox(height: 24),
 
                         // Statistics Cards Section
-                        DashboardStatsCards(stats: stats),
+                        DashboardStatsCards(
+                          stats: stats,
+                          onCardTap: _handleVendorStatCardTap,
+                        ),
                         const SizedBox(height: 24),
                       ],
                     ),

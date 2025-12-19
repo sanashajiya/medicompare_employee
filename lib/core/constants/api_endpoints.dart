@@ -20,6 +20,7 @@ class ApiEndpoints {
   //     '$baseUrl/employeevendor/vendor/profile/verify-otp';
   static const String getCategories = '$baseUrl/common/medicalcategories';
   static const String getDashboard = '$baseUrl/employeevendor/dashboard';
+  static const String getVendorList = '$baseUrl/employeevendor/vendor/list/all';
 
   ApiEndpoints._();
 }

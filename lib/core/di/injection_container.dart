@@ -20,6 +20,7 @@ import '../../domain/usecases/get_all_drafts_usecase.dart';
 import '../../domain/usecases/get_dashboard_stats_usecase.dart';
 import '../../domain/usecases/get_draft_by_id_usecase.dart';
 import '../../domain/usecases/get_draft_count_usecase.dart';
+import '../../domain/usecases/get_vendor_list_usecase.dart';
 import '../../domain/usecases/login_usecase.dart';
 import '../../domain/usecases/save_draft_usecase.dart';
 import '../../domain/usecases/send_otp_usecase.dart';
@@ -29,6 +30,7 @@ import '../../presentation/blocs/dashboard/dashboard_bloc.dart';
 import '../../presentation/blocs/draft/draft_bloc.dart';
 import '../../presentation/blocs/otp/otp_bloc.dart';
 import '../../presentation/blocs/vendor_form/vendor_form_bloc.dart';
+import '../../presentation/blocs/vendor_list/vendor_list_bloc.dart';
 import '../../presentation/blocs/vendor_stepper/vendor_stepper_bloc.dart';
 
 final sl = GetIt.instance;
@@ -65,6 +67,7 @@ Future<void> initializeDependencies() async {
   sl.registerLazySingleton(() => VerifyOtpUseCase(sl()));
   sl.registerLazySingleton(() => CreateVendorUseCase(sl()));
   sl.registerLazySingleton(() => GetDashboardStatsUseCase(sl()));
+  sl.registerLazySingleton(() => GetVendorListUseCase(sl()));
 
   // Draft Use cases
   sl.registerLazySingleton(() => SaveDraftUseCase(sl<DraftRepository>()));
@@ -88,6 +91,9 @@ Future<void> initializeDependencies() async {
     ),
   );
   sl.registerFactory(() => VendorStepperBloc());
+  sl.registerFactory(
+    () => VendorListBloc(getVendorListUseCase: sl<GetVendorListUseCase>()),
+  );
   sl.registerFactory(
     () => DraftBloc(
       saveDraftUseCase: sl<SaveDraftUseCase>(),

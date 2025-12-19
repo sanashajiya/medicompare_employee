@@ -417,7 +417,7 @@ class _DocumentsSectionState extends State<DocumentsSection> {
         ),
 
         const SizedBox(height: 20),
-                CustomTextField(
+        CustomTextField(
           controller: widget.gstCertificateNumberController,
           label: 'GST Certificate Number',
           hint: 'Enter GST number',
@@ -441,9 +441,15 @@ class _DocumentsSectionState extends State<DocumentsSection> {
           hint: 'Enter PAN number (e.g., ABCDE1234F)',
           enabled: widget.enabled,
           inputFormatters: [
-            FilteringTextInputFormatter.allow(RegExp(r'[A-Z0-9]')),
+            // Allow both lowercase & uppercase letters + numbers
+            FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9]')),
+
+            // Convert input to uppercase automatically
             TextInputFormatter.withFunction((oldValue, newValue) {
-              return newValue.copyWith(text: newValue.text.toUpperCase());
+              return newValue.copyWith(
+                text: newValue.text.toUpperCase(),
+                selection: newValue.selection,
+              );
             }),
           ],
         ),
@@ -539,5 +545,3 @@ class _DocumentsSectionState extends State<DocumentsSection> {
     );
   }
 }
-
-
