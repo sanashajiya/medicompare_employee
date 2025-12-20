@@ -1,8 +1,11 @@
 import 'dart:typed_data';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:signature/signature.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../widgets/custom_text_field.dart';
+import 'package:url_launcher/url_launcher.dart';
+
 
 class SignatureSection extends StatefulWidget {
   final SignatureController signatureController;
@@ -28,6 +31,13 @@ class SignatureSection extends StatefulWidget {
 
   @override
   State<SignatureSection> createState() => _SignatureSectionState();
+}
+
+Future<void> _openUrl(String url) async {
+  final uri = Uri.parse(url);
+  if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+    throw 'Could not launch $url';
+  }
 }
 
 class _SignatureSectionState extends State<SignatureSection> {
@@ -303,29 +313,43 @@ class _SignatureSectionState extends State<SignatureSection> {
                   Expanded(
                     child: RichText(
                       text: TextSpan(
-                        style: TextStyle(
-                          color: AppColors.textPrimary,
+                        style: const TextStyle(
+                          color: Colors.black,
                           fontSize: 14,
-                          height: 1.4,
                         ),
                         children: [
                           const TextSpan(text: 'I agree to the '),
+
                           TextSpan(
                             text: 'Terms and Conditions',
-                            style: TextStyle(
+                            style: const TextStyle(
                               color: AppColors.primary,
                               decoration: TextDecoration.underline,
                               fontWeight: FontWeight.w600,
                             ),
+                            recognizer: TapGestureRecognizer()
+                              ..onTap = () {
+                                _openUrl(
+                                  'https://medicompares.com/policies/terms-and-conditions',
+                                );
+                              },
                           ),
+
                           const TextSpan(text: ' and '),
+
                           TextSpan(
                             text: 'Privacy Policy',
-                            style: TextStyle(
+                            style: const TextStyle(
                               color: AppColors.primary,
                               decoration: TextDecoration.underline,
                               fontWeight: FontWeight.w600,
                             ),
+                            recognizer: TapGestureRecognizer()
+                              ..onTap = () {
+                                _openUrl(
+                                  'https://medicompares.com/policies/privacy-policy',
+                                );
+                              },
                           ),
                         ],
                       ),
