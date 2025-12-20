@@ -1,33 +1,36 @@
 import 'dart:io';
 import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:signature/signature.dart';
+
 import '../../../core/constants/api_endpoints.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/datasources/remote/api_service.dart';
 import '../../../data/models/category_model.dart';
 import '../../../domain/entities/draft_vendor_entity.dart';
 import '../../../domain/entities/user_entity.dart';
+import '../../../domain/entities/vendor_details_entity.dart';
 import '../../../domain/entities/vendor_entity.dart';
+import '../../blocs/draft/draft_bloc.dart';
+import '../../blocs/draft/draft_event.dart';
 import '../../blocs/draft/draft_state.dart';
 import '../../blocs/vendor_form/vendor_form_bloc.dart';
 import '../../blocs/vendor_form/vendor_form_event.dart';
 import '../../blocs/vendor_form/vendor_form_state.dart';
-import '../../blocs/draft/draft_bloc.dart';
-import '../../blocs/draft/draft_event.dart';
 import '../../blocs/vendor_stepper/vendor_stepper_bloc.dart';
 import '../../blocs/vendor_stepper/vendor_stepper_event.dart';
 import '../../blocs/vendor_stepper/vendor_stepper_state.dart';
 import '../../widgets/custom_button.dart';
-import 'utils/draft_helper.dart';
 import 'sections/banking_details_section.dart';
 import 'sections/business_details_section.dart';
 import 'sections/documents_section.dart';
 import 'sections/personal_details_section.dart';
 import 'sections/photos_section.dart';
 import 'sections/signature_section.dart';
+import 'utils/draft_helper.dart';
 import 'widgets/animated_section_container.dart';
 import 'widgets/section_header.dart';
 import 'widgets/stepper_navigation_buttons.dart';
@@ -36,8 +39,16 @@ import 'widgets/vendor_otp_dialog.dart';
 class VendorProfileScreen extends StatefulWidget {
   final UserEntity user;
   final String? draftId;
+  final VendorDetailsEntity? vendorDetails;
+  final bool isEditMode;
 
-  const VendorProfileScreen({super.key, required this.user, this.draftId});
+  const VendorProfileScreen({
+    super.key,
+    required this.user,
+    this.draftId,
+    this.vendorDetails,
+    this.isEditMode = false,
+  });
 
   @override
   State<VendorProfileScreen> createState() => _VendorProfileScreenState();
@@ -141,7 +152,11 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
     _currentDraftId =
         widget.draftId ?? DateTime.now().millisecondsSinceEpoch.toString();
     _fetchCategories();
-    if (widget.draftId != null) {
+
+    if (widget.isEditMode && widget.vendorDetails != null) {
+      // Prefill form with vendor details for editing
+      _prefillVendorDetails(widget.vendorDetails!);
+    } else if (widget.draftId != null) {
       _loadDraft(widget.draftId!);
     }
   }
@@ -155,53 +170,49 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
   Future<void> _restoreDraftData(DraftVendorEntity draft) async {
     if (!mounted) return;
 
-    setState(() {
-      // Personal Details
-      _firstNameController.text = draft.firstName;
-      _lastNameController.text = draft.lastName;
-      _emailController.text = draft.email;
-      _passwordController.text = draft.password;
-      // Auto-fill confirm password from password (they should match)
-      _confirmPasswordController.text = draft.password;
-      _phoneController.text = draft.mobile;
-      _aadhaarNumberController.text = draft.aadhaarNumber;
-      _residentialAddressController.text = draft.residentialAddress;
+    // First, restore all file data before updating UI
+    File? restoredAadhaarFrontImage;
+    File? restoredAadhaarBackImage;
+    File? restoredPanCardFile;
+    String? restoredPanCardFileName;
+    File? restoredGstCertificateFile;
+    String? restoredGstCertificateFileName;
+    File? restoredBusinessRegistrationFile;
+    String? restoredBusinessRegistrationFileName;
+    File? restoredProfessionalLicenseFile;
+    String? restoredProfessionalLicenseFileName;
+    File? restoredAdditionalDocumentFile;
+    String? restoredAdditionalDocumentFileName;
+    List<File> restoredFrontStoreImages = [];
+    Uint8List? restoredSignatureBytes;
 
-      // Business Details
-      _businessNameController.text = draft.businessName;
-      _businessLegalNameController.text = draft.businessLegalName;
-      _businessEmailController.text = draft.businessEmail;
-      _businessMobileController.text = draft.businessMobile;
-      _altBusinessMobileController.text = draft.altBusinessMobile;
-      _businessAddressController.text = draft.businessAddress;
-      _selectedBusinessCategories = List<String>.from(draft.categories);
+    // Helper function to restore files
+    Future<void> restoreFile(
+      String? filePath,
+      Function(File, String) onRestored,
+    ) async {
+      if (filePath == null || filePath.isEmpty) return;
+      try {
+        final file = File(filePath);
+        if (await file.exists()) {
+          final fileSize = await file.length();
+          if (fileSize > 0) {
+            // Extract filename from path, handling both Windows and Unix paths
+            final fileName = filePath.replaceAll('\\', '/').split('/').last;
+            onRestored(file, fileName);
+          } else {
+            print('⚠️ File exists but is empty: $filePath');
+          }
+        } else {
+          print('⚠️ File not found: $filePath');
+        }
+      } catch (e) {
+        print('❌ Error restoring file from path $filePath: $e');
+      }
+    }
 
-      // Banking Details
-      _accountNumberController.text = draft.accountNumber;
-      // Auto-fill confirm account number from account number (they should match)
-      _confirmAccountNumberController.text = draft.accountNumber;
-      _accountHolderNameController.text = draft.accountHolderName;
-      _ifscCodeController.text = draft.ifscCode;
-      _bankNameController.text = draft.bankName;
-      _bankBranchController.text = draft.bankBranch;
-
-      // Documents
-      _panCardNumberController.text = draft.panCardNumber;
-      _gstCertificateNumberController.text = draft.gstCertificateNumber;
-      _businessRegistrationNumberController.text =
-          draft.businessRegistrationNumber;
-      _professionalLicenseNumberController.text =
-          draft.professionalLicenseNumber;
-      _additionalDocumentNameController.text = draft.additionalDocumentName;
-
-      // Signature
-      _signerNameController.text = draft.signerName ?? '';
-      _acceptedTerms = draft.acceptedTerms;
-    });
-
-    // Restore files from paths
     try {
-      // Govt Id Proof Image - restore with better error handling
+      // Restore Govt ID Proof Images
       if (draft.aadhaarFrontImagePath != null &&
           draft.aadhaarFrontImagePath!.isNotEmpty) {
         try {
@@ -209,7 +220,7 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
           if (await file.exists()) {
             final fileSize = await file.length();
             if (fileSize > 0) {
-              setState(() => _aadhaarFrontImage = file);
+              restoredAadhaarFrontImage = file;
             } else {
               print(
                 '⚠️ Govt Id Proof Front Image file is empty: ${draft.aadhaarFrontImagePath}',
@@ -224,7 +235,7 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
           print('❌ Error restoring Govt Id Proof Front Image: $e');
         }
       }
-      // Govt Id Proof Back Image - restore with better error handling
+
       if (draft.aadhaarBackImagePath != null &&
           draft.aadhaarBackImagePath!.isNotEmpty) {
         try {
@@ -232,7 +243,7 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
           if (await file.exists()) {
             final fileSize = await file.length();
             if (fileSize > 0) {
-              setState(() => _aadhaarBackImage = file);
+              restoredAadhaarBackImage = file;
             } else {
               print(
                 '⚠️ Govt Id Proof Back Image file is empty: ${draft.aadhaarBackImagePath}',
@@ -248,70 +259,33 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
         }
       }
 
-      // Document files - check file size to ensure they're not empty
-      // Use a helper function to safely restore files
-      Future<void> restoreFile(
-        String? filePath,
-        Function(File, String) onRestored,
-      ) async {
-        if (filePath == null || filePath.isEmpty) return;
-        try {
-          final file = File(filePath);
-          if (await file.exists()) {
-            final fileSize = await file.length();
-            if (fileSize > 0) {
-              // Extract filename from path, handling both Windows and Unix paths
-              // Split by both forward and back slashes, then take the last part
-              final fileName = filePath.replaceAll('\\', '/').split('/').last;
-              onRestored(file, fileName);
-            } else {
-              print('⚠️ File exists but is empty: $filePath');
-            }
-          } else {
-            print('⚠️ File not found: $filePath');
-          }
-        } catch (e) {
-          print('❌ Error restoring file from path $filePath: $e');
-        }
-      }
-
+      // Restore document files
       await restoreFile(draft.panCardFilePath, (file, fileName) {
-        setState(() {
-          _panCardFile = file;
-          _panCardFileName = fileName;
-        });
+        restoredPanCardFile = file;
+        restoredPanCardFileName = fileName;
       });
 
       await restoreFile(draft.gstCertificateFilePath, (file, fileName) {
-        setState(() {
-          _gstCertificateFile = file;
-          _gstCertificateFileName = fileName;
-        });
+        restoredGstCertificateFile = file;
+        restoredGstCertificateFileName = fileName;
       });
 
       await restoreFile(draft.businessRegistrationFilePath, (file, fileName) {
-        setState(() {
-          _businessRegistrationFile = file;
-          _businessRegistrationFileName = fileName;
-        });
+        restoredBusinessRegistrationFile = file;
+        restoredBusinessRegistrationFileName = fileName;
       });
 
       await restoreFile(draft.professionalLicenseFilePath, (file, fileName) {
-        setState(() {
-          _professionalLicenseFile = file;
-          _professionalLicenseFileName = fileName;
-        });
+        restoredProfessionalLicenseFile = file;
+        restoredProfessionalLicenseFileName = fileName;
       });
 
       await restoreFile(draft.additionalDocumentFilePath, (file, fileName) {
-        setState(() {
-          _additionalDocumentFile = file;
-          _additionalDocumentFileName = fileName;
-        });
+        restoredAdditionalDocumentFile = file;
+        restoredAdditionalDocumentFileName = fileName;
       });
 
-      // Front store images - check file size with better error handling
-      final restoredImages = <File>[];
+      // Restore front store images
       for (final imagePath in draft.frontStoreImagePaths) {
         if (imagePath.isEmpty) continue;
         try {
@@ -319,7 +293,7 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
           if (await file.exists()) {
             final fileSize = await file.length();
             if (fileSize > 0) {
-              restoredImages.add(file);
+              restoredFrontStoreImages.add(file);
             } else {
               print('⚠️ Front store image file is empty: $imagePath');
             }
@@ -330,41 +304,96 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
           print('❌ Error restoring front store image from $imagePath: $e');
         }
       }
-      if (restoredImages.isNotEmpty) {
-        setState(() => _frontStoreImages = restoredImages);
-        print('✅ Restored ${restoredImages.length} front store image(s)');
+      if (restoredFrontStoreImages.isNotEmpty) {
+        print(
+          '✅ Restored ${restoredFrontStoreImages.length} front store image(s)',
+        );
       } else if (draft.frontStoreImagePaths.isNotEmpty) {
         print(
           '⚠️ No front store images could be restored from ${draft.frontStoreImagePaths.length} path(s)',
         );
       }
 
-      // Signature - check file size and load into controller
+      // Restore signature
       if (draft.signatureImagePath != null) {
-        final signatureFile = File(draft.signatureImagePath!);
-        if (await signatureFile.exists()) {
-          final fileSize = await signatureFile.length();
-          if (fileSize > 0) {
-            try {
+        try {
+          final signatureFile = File(draft.signatureImagePath!);
+          if (await signatureFile.exists()) {
+            final fileSize = await signatureFile.length();
+            if (fileSize > 0) {
               final bytes = await signatureFile.readAsBytes();
               if (bytes.isNotEmpty) {
-                setState(() {
-                  _signatureBytes = bytes;
-                });
-                // Load signature image into the controller for display
-                // Note: SignatureController doesn't support loading from bytes directly,
-                // but the signatureBytes will be used to show the saved signature indicator
-                // The actual signature pad will remain empty until user draws again
-                // This is expected behavior - user can see their saved signature was restored
+                restoredSignatureBytes = bytes;
               }
-            } catch (e) {
-              print('Error reading signature file: $e');
             }
           }
+        } catch (e) {
+          print('Error reading signature file: $e');
         }
       }
     } catch (e) {
       print('Error restoring files from draft: $e');
+    }
+
+    // Now update all UI state in a single setState call
+    if (mounted) {
+      setState(() {
+        // Personal Details
+        _firstNameController.text = draft.firstName;
+        _lastNameController.text = draft.lastName;
+        _emailController.text = draft.email;
+        _passwordController.text = draft.password;
+        _confirmPasswordController.text = draft.password;
+        _phoneController.text = draft.mobile;
+        _aadhaarNumberController.text = draft.aadhaarNumber;
+        _residentialAddressController.text = draft.residentialAddress;
+
+        // Business Details
+        _businessNameController.text = draft.businessName;
+        _businessLegalNameController.text = draft.businessLegalName;
+        _businessEmailController.text = draft.businessEmail;
+        _businessMobileController.text = draft.businessMobile;
+        _altBusinessMobileController.text = draft.altBusinessMobile;
+        _businessAddressController.text = draft.businessAddress;
+        _selectedBusinessCategories = List<String>.from(draft.categories);
+
+        // Banking Details
+        _accountNumberController.text = draft.accountNumber;
+        _confirmAccountNumberController.text = draft.accountNumber;
+        _accountHolderNameController.text = draft.accountHolderName;
+        _ifscCodeController.text = draft.ifscCode;
+        _bankNameController.text = draft.bankName;
+        _bankBranchController.text = draft.bankBranch;
+
+        // Documents
+        _panCardNumberController.text = draft.panCardNumber;
+        _gstCertificateNumberController.text = draft.gstCertificateNumber;
+        _businessRegistrationNumberController.text =
+            draft.businessRegistrationNumber;
+        _professionalLicenseNumberController.text =
+            draft.professionalLicenseNumber;
+        _additionalDocumentNameController.text = draft.additionalDocumentName;
+
+        // Images and Files
+        _aadhaarFrontImage = restoredAadhaarFrontImage;
+        _aadhaarBackImage = restoredAadhaarBackImage;
+        _panCardFile = restoredPanCardFile;
+        _panCardFileName = restoredPanCardFileName;
+        _gstCertificateFile = restoredGstCertificateFile;
+        _gstCertificateFileName = restoredGstCertificateFileName;
+        _businessRegistrationFile = restoredBusinessRegistrationFile;
+        _businessRegistrationFileName = restoredBusinessRegistrationFileName;
+        _professionalLicenseFile = restoredProfessionalLicenseFile;
+        _professionalLicenseFileName = restoredProfessionalLicenseFileName;
+        _additionalDocumentFile = restoredAdditionalDocumentFile;
+        _additionalDocumentFileName = restoredAdditionalDocumentFileName;
+        _frontStoreImages = restoredFrontStoreImages;
+        _signatureBytes = restoredSignatureBytes;
+
+        // Signature
+        _signerNameController.text = draft.signerName ?? '';
+        _acceptedTerms = draft.acceptedTerms;
+      });
     }
 
     // Restore stepper state
@@ -405,6 +434,63 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
           });
         }
       });
+    }
+  }
+
+  Future<void> _prefillVendorDetails(VendorDetailsEntity vendor) async {
+    if (!mounted) return;
+
+    setState(() {
+      // Personal Details
+      _firstNameController.text = vendor.firstName;
+      _lastNameController.text = vendor.lastName;
+      _emailController.text = vendor.email;
+      _phoneController.text = vendor.mobile;
+      _aadhaarNumberController.text = vendor.aadhaarNumber ?? '';
+      _residentialAddressController.text = vendor.residentialAddress ?? '';
+
+      // Business Details
+      _businessNameController.text = vendor.businessName ?? '';
+      _businessLegalNameController.text = vendor.businessLegalName ?? '';
+      _businessEmailController.text = vendor.businessEmail ?? '';
+      _businessMobileController.text = vendor.businessMobile ?? '';
+      _altBusinessMobileController.text = vendor.altMobile ?? '';
+      _businessAddressController.text = vendor.businessAddress ?? '';
+      _selectedBusinessCategories = List<String>.from(vendor.categories);
+
+      // Banking Details
+      _accountNumberController.text = vendor.accountNumber ?? '';
+      _confirmAccountNumberController.text = vendor.accountNumber ?? '';
+      _accountHolderNameController.text = vendor.accountName ?? '';
+      _ifscCodeController.text = vendor.ifscCode ?? '';
+      _bankNameController.text = vendor.bankName ?? '';
+      _bankBranchController.text = vendor.branchName ?? '';
+
+      // Documents
+      _panCardNumberController.text = vendor.documentNumbers.isNotEmpty
+          ? vendor.documentNumbers[0]
+          : '';
+      // Store document IDs and names for reference
+      if (vendor.docNames.isNotEmpty) {
+        _businessRegistrationNumberController.text = vendor.docNames[0];
+      }
+      if (vendor.docNames.length > 1) {
+        _gstCertificateNumberController.text = vendor.docNames[1];
+      }
+    });
+
+    // Update categories mapping after prefilling
+    if (_categoriesLoaded) {
+      _updateCategoryMappings();
+    }
+  }
+
+  void _updateCategoryMappings() {
+    // Update the category name to ID mappings
+    for (final category in _availableCategories) {
+      if (_selectedBusinessCategories.contains(category.id)) {
+        _categoryNameToId[category.name] = category.id;
+      }
     }
   }
 

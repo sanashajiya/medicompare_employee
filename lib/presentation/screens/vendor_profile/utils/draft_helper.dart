@@ -1,11 +1,104 @@
 import 'dart:io';
 import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
+
 import '../../../../domain/entities/draft_vendor_entity.dart';
 import '../../../../presentation/blocs/vendor_stepper/vendor_stepper_state.dart';
 
 class DraftHelper {
+  /// Helper function to safely copy file with proper handling
+  /// Reads file into memory first to avoid file handle issues
+  /// Returns the path of the saved file (either copied or original if already in draft dir)
+  static Future<String?> _copySafeFile(
+    File sourceFile,
+    String destinationPath,
+  ) async {
+    try {
+      // Check if source file exists and is not empty
+      if (!await sourceFile.exists()) {
+        print('⚠️ Source file does not exist: ${sourceFile.path}');
+        return null;
+      }
+
+      final fileSize = await sourceFile.length();
+      if (fileSize == 0) {
+        print('⚠️ Source file is empty: ${sourceFile.path}');
+        return null;
+      }
+
+      // Normalize paths for comparison (handle Windows/Unix path differences)
+      final sourcePath = sourceFile.absolute.path.replaceAll('\\', '/');
+      final destPath = File(
+        destinationPath,
+      ).absolute.path.replaceAll('\\', '/');
+
+      if (sourcePath == destPath) {
+        // File is already in the destination, no need to copy
+        print(
+          '✅ File already in draft directory: $destinationPath (${fileSize} bytes)',
+        );
+        return destinationPath;
+      }
+
+      // Delete the destination file if it exists to prevent copy issues
+      final destFile = File(destinationPath);
+      if (await destFile.exists()) {
+        try {
+          await destFile.delete();
+          print('✅ Deleted old destination file: $destinationPath');
+        } catch (e) {
+          print('⚠️ Could not delete existing destination file: $e');
+        }
+      }
+
+      // Read the source file into memory to avoid file handle issues
+      print(
+        '📖 Reading source file into memory: ${sourceFile.path} (${fileSize} bytes)',
+      );
+      final bytes = await sourceFile.readAsBytes();
+
+      if (bytes.isEmpty) {
+        print('❌ Source file read resulted in empty bytes: ${sourceFile.path}');
+        return null;
+      }
+
+      // Write bytes to destination
+      print(
+        '✍️ Writing ${bytes.length} bytes to destination: $destinationPath',
+      );
+      await destFile.writeAsBytes(bytes);
+
+      // Verify the write was successful
+      final writtenSize = await destFile.length();
+      if (writtenSize == 0) {
+        print('❌ Destination file is empty after write: $destinationPath');
+        // Try to delete the empty file
+        try {
+          await destFile.delete();
+        } catch (e) {
+          print('⚠️ Could not delete empty file: $e');
+        }
+        return null;
+      }
+
+      if (writtenSize != bytes.length) {
+        print(
+          '⚠️ Written size (${writtenSize}) does not match source size (${bytes.length}): $destinationPath',
+        );
+      }
+
+      print(
+        '✅ File copied successfully: $destinationPath (${writtenSize} bytes)',
+      );
+      return destFile.path;
+    } catch (e) {
+      print('❌ Error copying file: $e');
+      return null;
+    }
+  }
+
   /// Convert form data to draft entity
   static Future<DraftVendorEntity?> createDraftFromFormData({
     required String draftId,
@@ -26,10 +119,10 @@ class DraftHelper {
           formData['aadhaarFrontImage'] is File) {
         final file = formData['aadhaarFrontImage'] as File;
         final extension = file.path.split('.').last;
-        final savedFile = await file.copy(
+        aadhaarFrontImagePath = await _copySafeFile(
+          file,
           '${draftDir.path}/aadhaar_front.$extension',
         );
-        aadhaarFrontImagePath = savedFile.path;
       }
 
       // Save Govt Id Proof Back Image
@@ -38,10 +131,10 @@ class DraftHelper {
           formData['aadhaarBackImage'] is File) {
         final file = formData['aadhaarBackImage'] as File;
         final extension = file.path.split('.').last;
-        final savedFile = await file.copy(
+        aadhaarBackImagePath = await _copySafeFile(
+          file,
           '${draftDir.path}/aadhaar_back.$extension',
         );
-        aadhaarBackImagePath = savedFile.path;
       }
 
       // Save document files
@@ -54,50 +147,50 @@ class DraftHelper {
       if (formData['panCardFile'] != null && formData['panCardFile'] is File) {
         final file = formData['panCardFile'] as File;
         final extension = file.path.split('.').last;
-        final savedFile = await file.copy(
+        panCardFilePath = await _copySafeFile(
+          file,
           '${draftDir.path}/pan_card.$extension',
         );
-        panCardFilePath = savedFile.path;
       }
 
       if (formData['gstCertificateFile'] != null &&
           formData['gstCertificateFile'] is File) {
         final file = formData['gstCertificateFile'] as File;
         final extension = file.path.split('.').last;
-        final savedFile = await file.copy(
+        gstCertificateFilePath = await _copySafeFile(
+          file,
           '${draftDir.path}/gst_certificate.$extension',
         );
-        gstCertificateFilePath = savedFile.path;
       }
 
       if (formData['businessRegistrationFile'] != null &&
           formData['businessRegistrationFile'] is File) {
         final file = formData['businessRegistrationFile'] as File;
         final extension = file.path.split('.').last;
-        final savedFile = await file.copy(
+        businessRegistrationFilePath = await _copySafeFile(
+          file,
           '${draftDir.path}/business_registration.$extension',
         );
-        businessRegistrationFilePath = savedFile.path;
       }
 
       if (formData['professionalLicenseFile'] != null &&
           formData['professionalLicenseFile'] is File) {
         final file = formData['professionalLicenseFile'] as File;
         final extension = file.path.split('.').last;
-        final savedFile = await file.copy(
+        professionalLicenseFilePath = await _copySafeFile(
+          file,
           '${draftDir.path}/professional_license.$extension',
         );
-        professionalLicenseFilePath = savedFile.path;
       }
 
       if (formData['additionalDocumentFile'] != null &&
           formData['additionalDocumentFile'] is File) {
         final file = formData['additionalDocumentFile'] as File;
         final extension = file.path.split('.').last;
-        final savedFile = await file.copy(
+        additionalDocumentFilePath = await _copySafeFile(
+          file,
           '${draftDir.path}/additional_document.$extension',
         );
-        additionalDocumentFilePath = savedFile.path;
       }
 
       // Save front store images
@@ -108,10 +201,13 @@ class DraftHelper {
         for (int i = 0; i < images.length; i++) {
           final file = images[i];
           final extension = file.path.split('.').last;
-          final savedFile = await file.copy(
+          final savedPath = await _copySafeFile(
+            file,
             '${draftDir.path}/front_image_$i.$extension',
           );
-          frontStoreImagePaths.add(savedFile.path);
+          if (savedPath != null) {
+            frontStoreImagePaths.add(savedPath);
+          }
         }
       }
 
@@ -120,9 +216,30 @@ class DraftHelper {
       if (formData['signatureBytes'] != null &&
           formData['signatureBytes'] is Uint8List) {
         final bytes = formData['signatureBytes'] as Uint8List;
-        final signatureFile = File('${draftDir.path}/signature.png');
-        await signatureFile.writeAsBytes(bytes);
-        signatureImagePath = signatureFile.path;
+        try {
+          final signatureFile = File('${draftDir.path}/signature.png');
+          // Delete old signature file if it exists
+          if (await signatureFile.exists()) {
+            try {
+              await signatureFile.delete();
+            } catch (e) {
+              print('⚠️ Could not delete existing signature: $e');
+            }
+          }
+          await signatureFile.writeAsBytes(bytes);
+          // Verify signature was written
+          final sigSize = await signatureFile.length();
+          if (sigSize > 0) {
+            signatureImagePath = signatureFile.path;
+            print(
+              '✅ Signature saved successfully: $signatureImagePath (${sigSize} bytes)',
+            );
+          } else {
+            print('❌ Signature file is empty after write');
+          }
+        } catch (e) {
+          print('❌ Error saving signature: $e');
+        }
       }
 
       final draft = DraftVendorEntity(

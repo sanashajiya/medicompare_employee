@@ -35,7 +35,7 @@ class MedicompareEmployeeApp extends StatelessWidget {
     return MultiBlocProvider(
       providers: [BlocProvider<AuthBloc>(create: (_) => sl<AuthBloc>())],
       child: MaterialApp(
-        title: 'Medicompare Employee',
+        title: 'Emp Medicompares',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme,
         home: const AppInitializer(),
