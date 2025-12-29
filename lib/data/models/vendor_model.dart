@@ -50,7 +50,7 @@ class VendorModel extends VendorEntity {
       businessName: json['businessName'] ?? '',
       businessEmail: json['businessEmail'] ?? '',
       altMobile: json['alt_mobile'] ?? '',
-      address: json['address'] ?? '',
+      address: json['residentaladdress'] ?? '',
       categories: json['categories'] != null
           ? List<String>.from(json['categories'])
           : [],
