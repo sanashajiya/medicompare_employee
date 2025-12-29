@@ -44,31 +44,98 @@ class MedicompareEmployeeApp extends StatelessWidget {
   }
 }
 
-class AppInitializer extends StatelessWidget {
+class AppInitializer extends StatefulWidget {
   const AppInitializer({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final authStorage = sl<AuthLocalStorage>();
+  State<AppInitializer> createState() => _AppInitializerState();
+}
 
-    // Check login status synchronously (SharedPreferences is already initialized)
-    final isLoggedIn = authStorage.isLoggedIn();
-    final savedUser = authStorage.getSavedUser();
+class _AppInitializerState extends State<AppInitializer> {
+  late Future<Widget> _screenFuture;
 
-    if (isLoggedIn && savedUser != null) {
-      print('✅ User is logged in, navigating to DashboardScreen');
-      return MultiBlocProvider(
-        providers: [
-          BlocProvider<DashboardBloc>(create: (_) => sl<DashboardBloc>()),
-          BlocProvider<DraftBloc>(
-            create: (_) => sl<DraftBloc>()..add(DraftLoadCountRequested()),
-          ),
-        ],
-        child: DashboardScreen(user: savedUser),
-      );
-    } else {
-      print('🔐 User is not logged in, showing LoginScreen');
+  @override
+  void initState() {
+    super.initState();
+    _screenFuture = _determineInitialScreen();
+  }
+
+  Future<Widget> _determineInitialScreen() async {
+    try {
+      print('\n═══════════════════════════════════════════════════════');
+      print('🔐 [AppInitializer] Starting app initialization...');
+      print('═══════════════════════════════════════════════════════\n');
+
+      final authStorage = sl<AuthLocalStorage>();
+
+      // Give SharedPreferences a moment to ensure it's fully initialized
+      await Future.delayed(const Duration(milliseconds: 100));
+
+      // Check login status synchronously (SharedPreferences is initialized in DI)
+      final isLoggedIn = authStorage.isLoggedIn();
+      print('🔍 [AppInitializer] isLoggedIn: $isLoggedIn');
+
+      if (isLoggedIn) {
+        final savedUser = authStorage.getSavedUser();
+        if (savedUser != null && savedUser.token.isNotEmpty) {
+          print('✅ [AppInitializer] User is logged in');
+          print(
+            '✅ [AppInitializer] User: ${savedUser.name} (${savedUser.email})',
+          );
+          print(
+            '✅ [AppInitializer] Token exists: ${savedUser.token.substring(0, 20)}...',
+          );
+          print('═══════════════════════════════════════════════════════\n');
+
+          return MultiBlocProvider(
+            providers: [
+              BlocProvider<DashboardBloc>(create: (_) => sl<DashboardBloc>()),
+              BlocProvider<DraftBloc>(
+                create: (_) => sl<DraftBloc>()..add(DraftLoadCountRequested()),
+              ),
+            ],
+            child: DashboardScreen(user: savedUser),
+          );
+        } else {
+          print(
+            '⚠️  [AppInitializer] isLoggedIn=true but user is null or token is empty',
+          );
+          print('⚠️  [AppInitializer] Showing login screen instead');
+          // Clear corrupted login state
+          await authStorage.clearLoginStatus();
+        }
+      } else {
+        print('🔐 [AppInitializer] User is not logged in');
+        print('═══════════════════════════════════════════════════════\n');
+      }
+
+      return const LoginScreen();
+    } catch (e) {
+      print('❌ [AppInitializer] Error during initialization: $e');
+      print('═══════════════════════════════════════════════════════\n');
       return const LoginScreen();
     }
   }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<Widget>(
+      future: _screenFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        if (snapshot.hasError) {
+          print('❌ [AppInitializer] FutureBuilder error: ${snapshot.error}');
+          return const LoginScreen();
+        }
+
+        return snapshot.data ?? const LoginScreen();
+      },
+    );
+  }
 }
+

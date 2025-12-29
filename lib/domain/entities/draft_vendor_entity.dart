@@ -282,3 +282,6 @@ class DraftVendorEntity extends Equatable {
   ];
 }
 
+
+
+

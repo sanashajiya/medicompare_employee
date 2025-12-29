@@ -22,9 +22,16 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
   ) async {
     emit(DashboardLoading());
     try {
+      print('\n═══════════════════════════════════════════════════════');
+      print('📊 [DashboardBloc] Loading dashboard stats...');
+      print('═══════════════════════════════════════════════════════');
+
       // Get authentication token from local storage
       final user = authLocalStorage.getSavedUser();
-      if (user == null || user.token.isEmpty) {
+      
+      if (user == null) {
+        print('❌ [DashboardBloc] User is null in SharedPreferences');
+        print('═══════════════════════════════════════════════════════\n');
         emit(
           DashboardError(
             message: 'User not authenticated. Please login again.',
@@ -33,10 +40,29 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
         return;
       }
 
+      if (user.token.isEmpty) {
+        print('❌ [DashboardBloc] User token is empty');
+        print('❌ [DashboardBloc] User: ${user.email}');
+        print('═══════════════════════════════════════════════════════\n');
+        emit(
+          DashboardError(
+            message: 'Authentication token missing. Please login again.',
+          ),
+        );
+        return;
+      }
+
+      print('✅ [DashboardBloc] User found: ${user.email}');
+      print('✅ [DashboardBloc] Token: ${user.token.substring(0, 20)}...');
+
       // Fetch dashboard stats from API
       final stats = await getDashboardStatsUseCase(user.token);
+      print('✅ [DashboardBloc] Dashboard stats loaded successfully');
+      print('═══════════════════════════════════════════════════════\n');
       emit(DashboardLoaded(stats: stats));
     } catch (e) {
+      print('❌ [DashboardBloc] Error loading dashboard: $e');
+      print('═══════════════════════════════════════════════════════\n');
       emit(
         DashboardError(message: e.toString().replaceFirst('Exception: ', '')),
       );

@@ -96,44 +96,50 @@ class _LoginScreenState extends State<LoginScreen> {
 
             // Save login status and user data to SharedPreferences
             final authStorage = sl<AuthLocalStorage>();
-            authStorage
-                .saveLoginStatus(state.user)
-                .then((_) {
-                  print(
-                    '💾 [BlocListener] Login status saved to SharedPreferences',
-                  );
-                })
-                .catchError((error) {
-                  print('❌ [BlocListener] Failed to save login status: $error');
-                });
+            
+            // IMPORTANT: We MUST await saveLoginStatus before navigation
+            // Otherwise, the token might not be persisted in release builds
+            authStorage.saveLoginStatus(state.user).then((_) {
+              print('💾 [BlocListener] Login status saved to SharedPreferences');
 
-            // Show success message
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Welcome ${state.user.name}!'),
-                backgroundColor: AppColors.success,
-                duration: const Duration(seconds: 2),
-              ),
-            );
-
-            // Navigate immediately (no delay needed since we're in the listener)
-            print('🚀 [BlocListener] Navigating to dashboard screen...');
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(
-                builder: (_) => MultiBlocProvider(
-                  providers: [
-                    BlocProvider<DashboardBloc>(
-                      create: (_) => sl<DashboardBloc>(),
-                    ),
-                    BlocProvider<DraftBloc>(
-                      create: (_) =>
-                          sl<DraftBloc>()..add(DraftLoadCountRequested()),
-                    ),
-                  ],
-                  child: DashboardScreen(user: state.user),
+              // Show success message
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Welcome ${state.user.name}!'),
+                  backgroundColor: AppColors.success,
+                  duration: const Duration(seconds: 2),
                 ),
-              ),
-            );
+              );
+
+              // Navigate AFTER saving is complete
+              print('🚀 [BlocListener] Navigating to dashboard screen...');
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(
+                  builder: (_) => MultiBlocProvider(
+                    providers: [
+                      BlocProvider<DashboardBloc>(
+                        create: (_) => sl<DashboardBloc>(),
+                      ),
+                      BlocProvider<DraftBloc>(
+                        create: (_) =>
+                            sl<DraftBloc>()..add(DraftLoadCountRequested()),
+                      ),
+                    ],
+                    child: DashboardScreen(user: state.user),
+                  ),
+                ),
+              );
+            }).catchError((error) {
+              print('❌ [BlocListener] Failed to save login status: $error');
+              // Show error but still allow navigation as fallback
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Warning: Failed to save session: $error'),
+                  backgroundColor: AppColors.warning,
+                  duration: const Duration(seconds: 3),
+                ),
+              );
+            });
           } else if (state is AuthFailure) {
             print('❌ [BlocListener] Login failed: ${state.error}');
             ScaffoldMessenger.of(context).showSnackBar(

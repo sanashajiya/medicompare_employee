@@ -12,7 +12,6 @@ import '../../../data/datasources/remote/api_service.dart';
 import '../../../data/models/category_model.dart';
 import '../../../domain/entities/draft_vendor_entity.dart';
 import '../../../domain/entities/user_entity.dart';
-import '../../../domain/entities/vendor_details_entity.dart';
 import '../../../domain/entities/vendor_entity.dart';
 import '../../blocs/draft/draft_bloc.dart';
 import '../../blocs/draft/draft_event.dart';
@@ -39,14 +38,14 @@ import 'widgets/vendor_otp_dialog.dart';
 class VendorProfileScreen extends StatefulWidget {
   final UserEntity user;
   final String? draftId;
-  final VendorDetailsEntity? vendorDetails;
+  // final VendorDetailsEntity? vendorDetails;
   final bool isEditMode;
 
   const VendorProfileScreen({
     super.key,
     required this.user,
     this.draftId,
-    this.vendorDetails,
+    // this.vendorDetails,
     this.isEditMode = false,
   });
 
@@ -153,10 +152,8 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
         widget.draftId ?? DateTime.now().millisecondsSinceEpoch.toString();
     _fetchCategories();
 
-    if (widget.isEditMode && widget.vendorDetails != null) {
-      // Prefill form with vendor details for editing
-      _prefillVendorDetails(widget.vendorDetails!);
-    } else if (widget.draftId != null) {
+    // If we are resuming an existing draft, load and restore its data
+    if (widget.draftId != null) {
       _loadDraft(widget.draftId!);
     }
   }
@@ -437,53 +434,53 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
     }
   }
 
-  Future<void> _prefillVendorDetails(VendorDetailsEntity vendor) async {
-    if (!mounted) return;
+  // Future<void> _prefillVendorDetails(VendorDetailsEntity vendor) async {
+  //   if (!mounted) return;
 
-    setState(() {
-      // Personal Details
-      _firstNameController.text = vendor.firstName;
-      _lastNameController.text = vendor.lastName;
-      _emailController.text = vendor.email;
-      _phoneController.text = vendor.mobile;
-      _aadhaarNumberController.text = vendor.aadhaarNumber ?? '';
-      _residentialAddressController.text = vendor.residentialAddress ?? '';
+  //   setState(() {
+  //     // Personal Details
+  //     _firstNameController.text = vendor.firstName;
+  //     _lastNameController.text = vendor.lastName;
+  //     _emailController.text = vendor.email;
+  //     _phoneController.text = vendor.mobile;
+  //     _aadhaarNumberController.text = vendor.aadhaarNumber ?? '';
+  //     _residentialAddressController.text = vendor.residentialAddress ?? '';
 
-      // Business Details
-      _businessNameController.text = vendor.businessName ?? '';
-      _businessLegalNameController.text = vendor.businessLegalName ?? '';
-      _businessEmailController.text = vendor.businessEmail ?? '';
-      _businessMobileController.text = vendor.businessMobile ?? '';
-      _altBusinessMobileController.text = vendor.altMobile ?? '';
-      _businessAddressController.text = vendor.businessAddress ?? '';
-      _selectedBusinessCategories = List<String>.from(vendor.categories);
+  //     // Business Details
+  //     _businessNameController.text = vendor.businessName ?? '';
+  //     _businessLegalNameController.text = vendor.businessLegalName ?? '';
+  //     _businessEmailController.text = vendor.businessEmail ?? '';
+  //     _businessMobileController.text = vendor.businessMobile ?? '';
+  //     _altBusinessMobileController.text = vendor.altMobile ?? '';
+  //     _businessAddressController.text = vendor.businessAddress ?? '';
+  //     _selectedBusinessCategories = List<String>.from(vendor.categories);
 
-      // Banking Details
-      _accountNumberController.text = vendor.accountNumber ?? '';
-      _confirmAccountNumberController.text = vendor.accountNumber ?? '';
-      _accountHolderNameController.text = vendor.accountName ?? '';
-      _ifscCodeController.text = vendor.ifscCode ?? '';
-      _bankNameController.text = vendor.bankName ?? '';
-      _bankBranchController.text = vendor.branchName ?? '';
+  //     // Banking Details
+  //     _accountNumberController.text = vendor.accountNumber ?? '';
+  //     _confirmAccountNumberController.text = vendor.accountNumber ?? '';
+  //     _accountHolderNameController.text = vendor.accountName ?? '';
+  //     _ifscCodeController.text = vendor.ifscCode ?? '';
+  //     _bankNameController.text = vendor.bankName ?? '';
+  //     _bankBranchController.text = vendor.branchName ?? '';
 
-      // Documents
-      _panCardNumberController.text = vendor.documentNumbers.isNotEmpty
-          ? vendor.documentNumbers[0]
-          : '';
-      // Store document IDs and names for reference
-      if (vendor.docNames.isNotEmpty) {
-        _businessRegistrationNumberController.text = vendor.docNames[0];
-      }
-      if (vendor.docNames.length > 1) {
-        _gstCertificateNumberController.text = vendor.docNames[1];
-      }
-    });
+  //     // Documents
+  //     _panCardNumberController.text = vendor.documentNumbers.isNotEmpty
+  //         ? vendor.documentNumbers[0]
+  //         : '';
+  //     // Store document IDs and names for reference
+  //     if (vendor.docNames.isNotEmpty) {
+  //       _businessRegistrationNumberController.text = vendor.docNames[0];
+  //     }
+  //     if (vendor.docNames.length > 1) {
+  //       _gstCertificateNumberController.text = vendor.docNames[1];
+  //     }
+  //   });
 
-    // Update categories mapping after prefilling
-    if (_categoriesLoaded) {
-      _updateCategoryMappings();
-    }
-  }
+  //   // Update categories mapping after prefilling
+  //   if (_categoriesLoaded) {
+  //     _updateCategoryMappings();
+  //   }
+  // }
 
   void _updateCategoryMappings() {
     // Update the category name to ID mappings
