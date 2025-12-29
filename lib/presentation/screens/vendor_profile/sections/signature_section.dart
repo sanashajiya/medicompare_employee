@@ -1,8 +1,11 @@
 import 'dart:typed_data';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:signature/signature.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../widgets/custom_text_field.dart';
+import 'package:url_launcher/url_launcher.dart';
+
 
 class SignatureSection extends StatefulWidget {
   final SignatureController signatureController;
@@ -28,6 +31,13 @@ class SignatureSection extends StatefulWidget {
 
   @override
   State<SignatureSection> createState() => _SignatureSectionState();
+}
+
+Future<void> _openUrl(String url) async {
+  final uri = Uri.parse(url);
+  if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+    throw 'Could not launch $url';
+  }
 }
 
 class _SignatureSectionState extends State<SignatureSection> {
@@ -128,6 +138,80 @@ class _SignatureSectionState extends State<SignatureSection> {
           ),
         ),
         const SizedBox(height: 8),
+        // Show saved signature preview if available
+        if (widget.signatureBytes != null) ...[
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.success.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: AppColors.success.withOpacity(0.3),
+                width: 1.5,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.check_circle,
+                      color: AppColors.success,
+                      size: 18,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Saved Signature (Restored from draft)',
+                      style: TextStyle(
+                        color: AppColors.success,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  height: 100,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: AppColors.border.withOpacity(0.5),
+                    ),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.memory(
+                      widget.signatureBytes!,
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Center(
+                          child: Icon(
+                            Icons.error_outline,
+                            color: AppColors.error,
+                            size: 32,
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'You can clear and redraw if needed',
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 12,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
         // Signature Pad
         Container(
           height: 150,
@@ -189,24 +273,8 @@ class _SignatureSectionState extends State<SignatureSection> {
               style: const TextStyle(color: AppColors.error, fontSize: 12),
             ),
           ),
-        if (widget.signatureBytes != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 12),
-            child: Row(
-              children: [
-                Icon(Icons.check_circle, color: AppColors.success, size: 18),
-                const SizedBox(width: 8),
-                Text(
-                  'Signature saved successfully',
-                  style: TextStyle(
-                    color: AppColors.success,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
+        // Show success indicator only if signature was just saved (not restored)
+        // The preview above already shows the restored signature
         const SizedBox(height: 32),
         // Terms and Conditions
         Container(
@@ -245,29 +313,43 @@ class _SignatureSectionState extends State<SignatureSection> {
                   Expanded(
                     child: RichText(
                       text: TextSpan(
-                        style: TextStyle(
-                          color: AppColors.textPrimary,
+                        style: const TextStyle(
+                          color: Colors.black,
                           fontSize: 14,
-                          height: 1.4,
                         ),
                         children: [
                           const TextSpan(text: 'I agree to the '),
+
                           TextSpan(
                             text: 'Terms and Conditions',
-                            style: TextStyle(
+                            style: const TextStyle(
                               color: AppColors.primary,
                               decoration: TextDecoration.underline,
                               fontWeight: FontWeight.w600,
                             ),
+                            recognizer: TapGestureRecognizer()
+                              ..onTap = () {
+                                _openUrl(
+                                  'https://medicompares.com/policies/terms-and-conditions',
+                                );
+                              },
                           ),
+
                           const TextSpan(text: ' and '),
+
                           TextSpan(
                             text: 'Privacy Policy',
-                            style: TextStyle(
+                            style: const TextStyle(
                               color: AppColors.primary,
                               decoration: TextDecoration.underline,
                               fontWeight: FontWeight.w600,
                             ),
+                            recognizer: TapGestureRecognizer()
+                              ..onTap = () {
+                                _openUrl(
+                                  'https://medicompares.com/policies/privacy-policy',
+                                );
+                              },
                           ),
                         ],
                       ),
@@ -293,3 +375,6 @@ class _SignatureSectionState extends State<SignatureSection> {
     );
   }
 }
+
+
+

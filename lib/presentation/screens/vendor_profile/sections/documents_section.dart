@@ -397,7 +397,14 @@ class _DocumentsSectionState extends State<DocumentsSection> {
           'Upload required documents',
           style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 20),
+        CustomTextField(
+          controller: widget.businessRegistrationNumberController,
+          label: 'Business Registration Number',
+          hint: 'Enter registration number',
+          enabled: widget.enabled,
+        ),
+        const SizedBox(height: 20),
         FileUploadField(
           label: 'Business Registration Certificate',
           fileName: widget.businessRegistrationFileName,
@@ -408,11 +415,12 @@ class _DocumentsSectionState extends State<DocumentsSection> {
           onTap: () => _showUploadOptions('business_registration'),
           onRemove: () => _removeFile('business_registration'),
         ),
-        const SizedBox(height: 12),
+
+        const SizedBox(height: 20),
         CustomTextField(
-          controller: widget.businessRegistrationNumberController,
-          label: 'Business Registration Number',
-          hint: 'Enter registration number',
+          controller: widget.gstCertificateNumberController,
+          label: 'GST Certificate Number',
+          hint: 'Enter GST number',
           enabled: widget.enabled,
         ),
         const SizedBox(height: 20),
@@ -426,12 +434,24 @@ class _DocumentsSectionState extends State<DocumentsSection> {
           onTap: () => _showUploadOptions('gst_certificate'),
           onRemove: () => _removeFile('gst_certificate'),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 20),
         CustomTextField(
-          controller: widget.gstCertificateNumberController,
-          label: 'GST Certificate Number',
-          hint: 'Enter GST number',
+          controller: widget.panCardNumberController,
+          label: 'PAN Card Number',
+          hint: 'Enter PAN number (e.g., ABCDE1234F)',
           enabled: widget.enabled,
+          inputFormatters: [
+            // Allow both lowercase & uppercase letters + numbers
+            FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9]')),
+
+            // Convert input to uppercase automatically
+            TextInputFormatter.withFunction((oldValue, newValue) {
+              return newValue.copyWith(
+                text: newValue.text.toUpperCase(),
+                selection: newValue.selection,
+              );
+            }),
+          ],
         ),
         const SizedBox(height: 20),
         FileUploadField(
@@ -444,18 +464,12 @@ class _DocumentsSectionState extends State<DocumentsSection> {
           onTap: () => _showUploadOptions('pan_card'),
           onRemove: () => _removeFile('pan_card'),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 20),
         CustomTextField(
-          controller: widget.panCardNumberController,
-          label: 'PAN Card Number',
-          hint: 'Enter PAN number (e.g., ABCDE1234F)',
+          controller: widget.professionalLicenseNumberController,
+          label: 'Professional License Number',
+          hint: 'Enter license number',
           enabled: widget.enabled,
-          inputFormatters: [
-            FilteringTextInputFormatter.allow(RegExp(r'[A-Z0-9]')),
-            TextInputFormatter.withFunction((oldValue, newValue) {
-              return newValue.copyWith(text: newValue.text.toUpperCase());
-            }),
-          ],
         ),
         const SizedBox(height: 20),
         FileUploadField(
@@ -467,13 +481,6 @@ class _DocumentsSectionState extends State<DocumentsSection> {
           enabled: widget.enabled,
           onTap: () => _showUploadOptions('professional_license'),
           onRemove: () => _removeFile('professional_license'),
-        ),
-        const SizedBox(height: 12),
-        CustomTextField(
-          controller: widget.professionalLicenseNumberController,
-          label: 'Professional License Number',
-          hint: 'Enter license number',
-          enabled: widget.enabled,
         ),
         // Additional Document Section
         const SizedBox(height: 28),
@@ -538,3 +545,6 @@ class _DocumentsSectionState extends State<DocumentsSection> {
     );
   }
 }
+
+
+

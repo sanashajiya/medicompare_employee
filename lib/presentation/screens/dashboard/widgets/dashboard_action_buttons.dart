@@ -4,11 +4,13 @@ import '../../../../core/theme/app_colors.dart';
 class DashboardActionButtons extends StatelessWidget {
   final VoidCallback onNewVendorTap;
   final VoidCallback onDraftTap;
+  final int draftCount;
 
   const DashboardActionButtons({
     super.key,
     required this.onNewVendorTap,
     required this.onDraftTap,
+    this.draftCount = 0,
   });
 
   @override
@@ -42,7 +44,7 @@ class DashboardActionButtons extends StatelessWidget {
             Expanded(
               child: _ActionButton(
                 icon: Icons.drafts_rounded,
-                label: 'Draft',
+                label: draftCount > 0 ? 'Draft ($draftCount)' : 'Draft',
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
@@ -79,7 +81,7 @@ class _ActionButton extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(16),
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
           decoration: BoxDecoration(
             gradient: gradient,
             borderRadius: BorderRadius.circular(16),
@@ -94,12 +96,12 @@ class _ActionButton extends StatelessWidget {
           child: Column(
             children: [
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.2),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(icon, color: Colors.white, size: 32),
+                child: Icon(icon, color: Colors.white, size: 28),
               ),
               const SizedBox(height: 12),
               Text(
@@ -119,4 +121,3 @@ class _ActionButton extends StatelessWidget {
     );
   }
 }
-

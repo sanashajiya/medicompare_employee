@@ -16,3 +16,22 @@ class VendorStepperSectionValidated extends VendorStepperEvent {
 }
 
 class VendorStepperReset extends VendorStepperEvent {}
+
+class VendorStepperRestoreState extends VendorStepperEvent {
+  final int currentSection;
+  final List<bool> sectionValidations;
+  final List<bool> sectionCompleted;
+  final List<bool> sectionExpanded;
+
+  VendorStepperRestoreState({
+    required this.currentSection,
+    required this.sectionValidations,
+    required this.sectionCompleted,
+    required this.sectionExpanded,
+  });
+}
+
+
+
+
+

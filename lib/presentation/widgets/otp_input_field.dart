@@ -9,7 +9,7 @@ class OtpInputField extends StatefulWidget {
   
   const OtpInputField({
     super.key,
-    this.length = 6,
+    this.length = 4,
     required this.onCompleted,
     this.onChanged,
   });
@@ -76,8 +76,8 @@ class _OtpInputFieldState extends State<OtpInputField> {
   
   Widget _buildOtpBox(int index) {
     return SizedBox(
-      width: 50,
-      height: 60,
+      width: 40,
+      height: 40,
       child: TextField(
         controller: _controllers[index],
         focusNode: _focusNodes[index],
@@ -85,7 +85,7 @@ class _OtpInputFieldState extends State<OtpInputField> {
         keyboardType: TextInputType.number,
         maxLength: 1,
         style: const TextStyle(
-          fontSize: 24,
+          fontSize: 14,
           fontWeight: FontWeight.bold,
         ),
         inputFormatters: [

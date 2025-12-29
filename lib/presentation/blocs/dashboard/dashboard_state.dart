@@ -19,3 +19,8 @@ class DashboardError extends DashboardState {
 
   DashboardError({required this.message});
 }
+
+
+
+
+

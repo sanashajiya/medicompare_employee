@@ -15,9 +15,11 @@ class PersonalDetailsSection extends StatefulWidget {
   final TextEditingController confirmPasswordController;
   final TextEditingController aadhaarNumberController;
   final TextEditingController residentialAddressController;
-  final File? aadhaarPhoto;
+  final File? aadhaarFrontImage;
+  final File? aadhaarBackImage;
   final bool enabled;
-  final Function(File?) onAadhaarPhotoChanged;
+  final Function(File?) onAadhaarFrontImageChanged;
+  final Function(File?) onAadhaarBackImageChanged;
   final Function(bool isValid) onValidationChanged;
 
   const PersonalDetailsSection({
@@ -30,9 +32,11 @@ class PersonalDetailsSection extends StatefulWidget {
     required this.confirmPasswordController,
     required this.aadhaarNumberController,
     required this.residentialAddressController,
-    required this.aadhaarPhoto,
+    required this.aadhaarFrontImage,
+    required this.aadhaarBackImage,
     required this.enabled,
-    required this.onAadhaarPhotoChanged,
+    required this.onAadhaarFrontImageChanged,
+    required this.onAadhaarBackImageChanged,
     required this.onValidationChanged,
   });
 
@@ -50,7 +54,8 @@ class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
   String? _passwordError;
   String? _confirmPasswordError;
   String? _aadhaarNumberError;
-  String? _aadhaarPhotoError;
+  String? _aadhaarFrontImageError;
+  String? _aadhaarBackImageError;
   String? _residentialAddressError;
   bool _showErrors = false;
 
@@ -74,7 +79,8 @@ class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
   @override
   void didUpdateWidget(PersonalDetailsSection oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.aadhaarPhoto != widget.aadhaarPhoto) {
+    if (oldWidget.aadhaarFrontImage != widget.aadhaarFrontImage ||
+        oldWidget.aadhaarBackImage != widget.aadhaarBackImage) {
       _validate();
     }
   }
@@ -102,8 +108,11 @@ class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
     final aadhaarNumberError = Validators.validateAadhaarNumber(
       widget.aadhaarNumberController.text,
     );
-    final aadhaarPhotoError = widget.aadhaarPhoto == null
-        ? 'Aadhaar photo is required'
+    final aadhaarFrontImageError = widget.aadhaarFrontImage == null
+        ? 'Govt Id Proof Image is required'
+        : null;
+    final aadhaarBackImageError = widget.aadhaarBackImage == null
+        ? 'Govt Id Proof Back Image is required'
         : null;
     final residentialAddressError = Validators.validateAddress(
       widget.residentialAddressController.text,
@@ -117,7 +126,8 @@ class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
         passwordError == null &&
         confirmPasswordError == null &&
         aadhaarNumberError == null &&
-        aadhaarPhotoError == null &&
+        aadhaarFrontImageError == null &&
+        aadhaarBackImageError == null &&
         residentialAddressError == null &&
         widget.firstNameController.text.isNotEmpty &&
         widget.lastNameController.text.isNotEmpty &&
@@ -126,7 +136,8 @@ class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
         widget.passwordController.text.isNotEmpty &&
         widget.confirmPasswordController.text.isNotEmpty &&
         widget.aadhaarNumberController.text.isNotEmpty &&
-        widget.aadhaarPhoto != null &&
+        widget.aadhaarFrontImage != null &&
+        widget.aadhaarBackImage != null &&
         widget.residentialAddressController.text.isNotEmpty;
 
     widget.onValidationChanged(isValid);
@@ -140,83 +151,14 @@ class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
         _passwordError = passwordError;
         _confirmPasswordError = confirmPasswordError;
         _aadhaarNumberError = aadhaarNumberError;
-        _aadhaarPhotoError = aadhaarPhotoError;
+        _aadhaarFrontImageError = aadhaarFrontImageError;
+        _aadhaarBackImageError = aadhaarBackImageError;
         _residentialAddressError = residentialAddressError;
       });
     }
   }
 
-  Future<void> _pickAadhaarPhoto() async {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (context) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppColors.border,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Upload Aadhaar Photo',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 16),
-              ListTile(
-                leading: Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(Icons.camera_alt, color: AppColors.primary),
-                ),
-                title: const Text('Take Photo'),
-                subtitle: const Text('Use camera to capture'),
-                onTap: () {
-                  Navigator.pop(context);
-                  _captureImage(ImageSource.camera);
-                },
-              ),
-              ListTile(
-                leading: Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: AppColors.secondary.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(Icons.photo_library, color: AppColors.secondary),
-                ),
-                title: const Text('Choose from Gallery'),
-                subtitle: const Text('Select from device'),
-                onTap: () {
-                  Navigator.pop(context);
-                  _captureImage(ImageSource.gallery);
-                },
-              ),
-              const SizedBox(height: 8),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _captureImage(ImageSource source) async {
+  Future<void> _pickAadhaarImage(ImageSource source, bool isFront) async {
     try {
       final XFile? pickedFile = await _imagePicker.pickImage(
         source: source,
@@ -243,7 +185,11 @@ class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
         return;
       }
 
-      widget.onAadhaarPhotoChanged(file);
+      if (isFront) {
+        widget.onAadhaarFrontImageChanged(file);
+      } else {
+        widget.onAadhaarBackImageChanged(file);
+      }
       if (!_showErrors) setState(() => _showErrors = true);
       _validate();
     } catch (e) {
@@ -251,8 +197,82 @@ class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
     }
   }
 
-  void _removeAadhaarPhoto() {
-    widget.onAadhaarPhotoChanged(null);
+  Future<void> _showImagePickerBottomSheet(bool isFront) async {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.border,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Upload Aadhaar ${isFront ? "Front" : "Back"} Image',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 16),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(Icons.camera_alt, color: AppColors.primary),
+                ),
+                title: const Text('Take Photo'),
+                subtitle: const Text('Use camera to capture'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickAadhaarImage(ImageSource.camera, isFront);
+                },
+              ),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppColors.secondary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(Icons.photo_library, color: AppColors.secondary),
+                ),
+                title: const Text('Choose from Gallery'),
+                subtitle: const Text('Select from device'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickAadhaarImage(ImageSource.gallery, isFront);
+                },
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _removeAadhaarImage(bool isFront) {
+    if (isFront) {
+      widget.onAadhaarFrontImageChanged(null);
+    } else {
+      widget.onAadhaarBackImageChanged(null);
+    }
     _validate();
   }
 
@@ -316,7 +336,25 @@ class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
           keyboardType: TextInputType.phone,
           maxLength: 10,
           enabled: widget.enabled,
-          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          inputFormatters: [
+            FilteringTextInputFormatter.digitsOnly,
+            TextInputFormatter.withFunction((oldValue, newValue) {
+              // Allow backspace / clear
+              if (newValue.text.isEmpty) {
+                return newValue;
+              }
+
+              // Block first digit if it is 0–5
+              if (newValue.text.length == 1) {
+                final firstDigit = int.tryParse(newValue.text);
+                if (firstDigit != null && firstDigit < 6) {
+                  return oldValue;
+                }
+              }
+
+              return newValue;
+            }),
+          ],
           onChanged: (_) {
             if (!_showErrors) setState(() => _showErrors = true);
           },
@@ -361,8 +399,11 @@ class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
           },
         ),
         const SizedBox(height: 20),
-        // Aadhaar Photo Upload
-        _buildAadhaarPhotoUpload(),
+        // Govt Id Proof Image Upload
+        _buildAadhaarImageUpload(true),
+        const SizedBox(height: 20),
+        // Govt Id Proof Back Image Upload
+        _buildAadhaarImageUpload(false),
         const SizedBox(height: 20),
         // Residential Address
         CustomTextField(
@@ -380,12 +421,21 @@ class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
     );
   }
 
-  Widget _buildAadhaarPhotoUpload() {
+  Widget _buildAadhaarImageUpload(bool isFront) {
+    final image = isFront ? widget.aadhaarFrontImage : widget.aadhaarBackImage;
+    final error = isFront ? _aadhaarFrontImageError : _aadhaarBackImageError;
+    final label = isFront
+        ? 'Govt Id Proof Image *'
+        : 'Govt Id Proof Back Image *';
+    final uploadText = isFront
+        ? 'Upload Govt Id Proof Image'
+        : 'Upload Govt Id Proof Back Image';
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Aadhaar Photo *',
+          label,
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w500,
@@ -393,7 +443,7 @@ class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
           ),
         ),
         const SizedBox(height: 8),
-        if (widget.aadhaarPhoto != null)
+        if (image != null)
           // Photo Preview
           Container(
             width: double.infinity,
@@ -408,10 +458,44 @@ class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
                     top: Radius.circular(11),
                   ),
                   child: Image.file(
-                    widget.aadhaarPhoto!,
+                    image,
                     width: double.infinity,
                     height: 150,
                     fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      // Handle image loading errors gracefully
+                      return Container(
+                        width: double.infinity,
+                        height: 150,
+                        color: AppColors.error.withOpacity(0.1),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.broken_image_outlined,
+                              color: AppColors.error,
+                              size: 48,
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Image cannot be loaded',
+                              style: TextStyle(
+                                color: AppColors.error,
+                                fontSize: 12,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Please upload again',
+                              style: TextStyle(
+                                color: AppColors.textSecondary,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
                   ),
                 ),
                 Container(
@@ -432,7 +516,7 @@ class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'Aadhaar photo uploaded',
+                          '${isFront ? "Front" : "Back"} image uploaded',
                           style: TextStyle(
                             color: AppColors.success,
                             fontSize: 13,
@@ -441,7 +525,9 @@ class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
                         ),
                       ),
                       TextButton.icon(
-                        onPressed: widget.enabled ? _pickAadhaarPhoto : null,
+                        onPressed: widget.enabled
+                            ? () => _showImagePickerBottomSheet(isFront)
+                            : null,
                         icon: const Icon(Icons.refresh, size: 18),
                         label: const Text('Replace'),
                         style: TextButton.styleFrom(
@@ -450,7 +536,9 @@ class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
                         ),
                       ),
                       IconButton(
-                        onPressed: widget.enabled ? _removeAadhaarPhoto : null,
+                        onPressed: widget.enabled
+                            ? () => _removeAadhaarImage(isFront)
+                            : null,
                         icon: const Icon(Icons.delete_outline, size: 20),
                         color: AppColors.error,
                         padding: EdgeInsets.zero,
@@ -465,7 +553,9 @@ class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
         else
           // Upload Button
           InkWell(
-            onTap: widget.enabled ? _pickAadhaarPhoto : null,
+            onTap: widget.enabled
+                ? () => _showImagePickerBottomSheet(isFront)
+                : null,
             borderRadius: BorderRadius.circular(12),
             child: Container(
               width: double.infinity,
@@ -474,7 +564,7 @@ class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
                 color: AppColors.background,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: _showErrors && _aadhaarPhotoError != null
+                  color: _showErrors && error != null
                       ? AppColors.error
                       : AppColors.border,
                   style: BorderStyle.solid,
@@ -496,7 +586,7 @@ class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    'Upload Aadhaar Photo',
+                    uploadText,
                     style: TextStyle(
                       color: AppColors.textPrimary,
                       fontSize: 14,
@@ -515,11 +605,11 @@ class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
               ),
             ),
           ),
-        if (_showErrors && _aadhaarPhotoError != null)
+        if (_showErrors && error != null)
           Padding(
             padding: const EdgeInsets.only(top: 6, left: 4),
             child: Text(
-              _aadhaarPhotoError!,
+              error,
               style: const TextStyle(color: AppColors.error, fontSize: 12),
             ),
           ),
@@ -527,3 +617,6 @@ class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
     );
   }
 }
+
+
+

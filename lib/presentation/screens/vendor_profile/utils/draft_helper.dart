@@ -1,0 +1,363 @@
+import 'dart:io';
+import 'dart:typed_data';
+
+import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
+
+import '../../../../domain/entities/draft_vendor_entity.dart';
+import '../../../../presentation/blocs/vendor_stepper/vendor_stepper_state.dart';
+
+class DraftHelper {
+  /// Helper function to safely copy file with proper handling
+  /// Reads file into memory first to avoid file handle issues
+  /// Returns the path of the saved file (either copied or original if already in draft dir)
+  static Future<String?> _copySafeFile(
+    File sourceFile,
+    String destinationPath,
+  ) async {
+    try {
+      // Check if source file exists and is not empty
+      if (!await sourceFile.exists()) {
+        print('⚠️ Source file does not exist: ${sourceFile.path}');
+        return null;
+      }
+
+      final fileSize = await sourceFile.length();
+      if (fileSize == 0) {
+        print('⚠️ Source file is empty: ${sourceFile.path}');
+        return null;
+      }
+
+      // Normalize paths for comparison (handle Windows/Unix path differences)
+      final sourcePath = sourceFile.absolute.path.replaceAll('\\', '/');
+      final destPath = File(
+        destinationPath,
+      ).absolute.path.replaceAll('\\', '/');
+
+      if (sourcePath == destPath) {
+        // File is already in the destination, no need to copy
+        print(
+          '✅ File already in draft directory: $destinationPath (${fileSize} bytes)',
+        );
+        return destinationPath;
+      }
+
+      // Delete the destination file if it exists to prevent copy issues
+      final destFile = File(destinationPath);
+      if (await destFile.exists()) {
+        try {
+          await destFile.delete();
+          print('✅ Deleted old destination file: $destinationPath');
+        } catch (e) {
+          print('⚠️ Could not delete existing destination file: $e');
+        }
+      }
+
+      // Read the source file into memory to avoid file handle issues
+      print(
+        '📖 Reading source file into memory: ${sourceFile.path} (${fileSize} bytes)',
+      );
+      final bytes = await sourceFile.readAsBytes();
+
+      if (bytes.isEmpty) {
+        print('❌ Source file read resulted in empty bytes: ${sourceFile.path}');
+        return null;
+      }
+
+      // Write bytes to destination
+      print(
+        '✍️ Writing ${bytes.length} bytes to destination: $destinationPath',
+      );
+      await destFile.writeAsBytes(bytes);
+
+      // Verify the write was successful
+      final writtenSize = await destFile.length();
+      if (writtenSize == 0) {
+        print('❌ Destination file is empty after write: $destinationPath');
+        // Try to delete the empty file
+        try {
+          await destFile.delete();
+        } catch (e) {
+          print('⚠️ Could not delete empty file: $e');
+        }
+        return null;
+      }
+
+      if (writtenSize != bytes.length) {
+        print(
+          '⚠️ Written size (${writtenSize}) does not match source size (${bytes.length}): $destinationPath',
+        );
+      }
+
+      print(
+        '✅ File copied successfully: $destinationPath (${writtenSize} bytes)',
+      );
+      return destFile.path;
+    } catch (e) {
+      print('❌ Error copying file: $e');
+      return null;
+    }
+  }
+
+  /// Convert form data to draft entity
+  static Future<DraftVendorEntity?> createDraftFromFormData({
+    required String draftId,
+    required VendorStepperState stepperState,
+    required Map<String, dynamic> formData,
+  }) async {
+    try {
+      // Save files to temporary storage and get paths
+      final tempDir = await getApplicationDocumentsDirectory();
+      final draftDir = Directory('${tempDir.path}/drafts/$draftId');
+      if (!await draftDir.exists()) {
+        await draftDir.create(recursive: true);
+      }
+
+      // Save Govt Id Proof Image
+      String? aadhaarFrontImagePath;
+      if (formData['aadhaarFrontImage'] != null &&
+          formData['aadhaarFrontImage'] is File) {
+        final file = formData['aadhaarFrontImage'] as File;
+        final extension = file.path.split('.').last;
+        aadhaarFrontImagePath = await _copySafeFile(
+          file,
+          '${draftDir.path}/aadhaar_front.$extension',
+        );
+      }
+
+      // Save Govt Id Proof Back Image
+      String? aadhaarBackImagePath;
+      if (formData['aadhaarBackImage'] != null &&
+          formData['aadhaarBackImage'] is File) {
+        final file = formData['aadhaarBackImage'] as File;
+        final extension = file.path.split('.').last;
+        aadhaarBackImagePath = await _copySafeFile(
+          file,
+          '${draftDir.path}/aadhaar_back.$extension',
+        );
+      }
+
+      // Save document files
+      String? panCardFilePath;
+      String? gstCertificateFilePath;
+      String? businessRegistrationFilePath;
+      String? professionalLicenseFilePath;
+      String? additionalDocumentFilePath;
+
+      if (formData['panCardFile'] != null && formData['panCardFile'] is File) {
+        final file = formData['panCardFile'] as File;
+        final extension = file.path.split('.').last;
+        panCardFilePath = await _copySafeFile(
+          file,
+          '${draftDir.path}/pan_card.$extension',
+        );
+      }
+
+      if (formData['gstCertificateFile'] != null &&
+          formData['gstCertificateFile'] is File) {
+        final file = formData['gstCertificateFile'] as File;
+        final extension = file.path.split('.').last;
+        gstCertificateFilePath = await _copySafeFile(
+          file,
+          '${draftDir.path}/gst_certificate.$extension',
+        );
+      }
+
+      if (formData['businessRegistrationFile'] != null &&
+          formData['businessRegistrationFile'] is File) {
+        final file = formData['businessRegistrationFile'] as File;
+        final extension = file.path.split('.').last;
+        businessRegistrationFilePath = await _copySafeFile(
+          file,
+          '${draftDir.path}/business_registration.$extension',
+        );
+      }
+
+      if (formData['professionalLicenseFile'] != null &&
+          formData['professionalLicenseFile'] is File) {
+        final file = formData['professionalLicenseFile'] as File;
+        final extension = file.path.split('.').last;
+        professionalLicenseFilePath = await _copySafeFile(
+          file,
+          '${draftDir.path}/professional_license.$extension',
+        );
+      }
+
+      if (formData['additionalDocumentFile'] != null &&
+          formData['additionalDocumentFile'] is File) {
+        final file = formData['additionalDocumentFile'] as File;
+        final extension = file.path.split('.').last;
+        additionalDocumentFilePath = await _copySafeFile(
+          file,
+          '${draftDir.path}/additional_document.$extension',
+        );
+      }
+
+      // Save front store images
+      List<String> frontStoreImagePaths = [];
+      if (formData['frontStoreImages'] != null &&
+          formData['frontStoreImages'] is List<File>) {
+        final images = formData['frontStoreImages'] as List<File>;
+        for (int i = 0; i < images.length; i++) {
+          final file = images[i];
+          final extension = file.path.split('.').last;
+          final savedPath = await _copySafeFile(
+            file,
+            '${draftDir.path}/front_image_$i.$extension',
+          );
+          if (savedPath != null) {
+            frontStoreImagePaths.add(savedPath);
+          }
+        }
+      }
+
+      // Save signature
+      String? signatureImagePath;
+      if (formData['signatureBytes'] != null &&
+          formData['signatureBytes'] is Uint8List) {
+        final bytes = formData['signatureBytes'] as Uint8List;
+        try {
+          final signatureFile = File('${draftDir.path}/signature.png');
+          // Delete old signature file if it exists
+          if (await signatureFile.exists()) {
+            try {
+              await signatureFile.delete();
+            } catch (e) {
+              print('⚠️ Could not delete existing signature: $e');
+            }
+          }
+          await signatureFile.writeAsBytes(bytes);
+          // Verify signature was written
+          final sigSize = await signatureFile.length();
+          if (sigSize > 0) {
+            signatureImagePath = signatureFile.path;
+            print(
+              '✅ Signature saved successfully: $signatureImagePath (${sigSize} bytes)',
+            );
+          } else {
+            print('❌ Signature file is empty after write');
+          }
+        } catch (e) {
+          print('❌ Error saving signature: $e');
+        }
+      }
+
+      final draft = DraftVendorEntity(
+        id: draftId,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+        currentSectionIndex: stepperState.currentSection,
+        firstName: formData['firstName'] ?? '',
+        lastName: formData['lastName'] ?? '',
+        email: formData['email'] ?? '',
+        password: formData['password'] ?? '',
+        mobile: formData['mobile'] ?? '',
+        aadhaarNumber: formData['aadhaarNumber'] ?? '',
+        residentialAddress: formData['residentialAddress'] ?? '',
+        aadhaarFrontImagePath: aadhaarFrontImagePath,
+        aadhaarBackImagePath: aadhaarBackImagePath,
+        businessName: formData['businessName'] ?? '',
+        businessLegalName: formData['businessLegalName'] ?? '',
+        businessEmail: formData['businessEmail'] ?? '',
+        businessMobile: formData['businessMobile'] ?? '',
+        altBusinessMobile: formData['altBusinessMobile'] ?? '',
+        businessAddress: formData['businessAddress'] ?? '',
+        categories: formData['categories'] is List
+            ? List<String>.from(formData['categories'])
+            : [],
+        accountNumber: formData['accountNumber'] ?? '',
+        accountHolderName: formData['accountHolderName'] ?? '',
+        ifscCode: formData['ifscCode'] ?? '',
+        bankName: formData['bankName'] ?? '',
+        bankBranch: formData['bankBranch'] ?? '',
+        panCardNumber: formData['panCardNumber'] ?? '',
+        panCardFilePath: panCardFilePath,
+        gstCertificateNumber: formData['gstCertificateNumber'] ?? '',
+        gstCertificateFilePath: gstCertificateFilePath,
+        businessRegistrationNumber:
+            formData['businessRegistrationNumber'] ?? '',
+        businessRegistrationFilePath: businessRegistrationFilePath,
+        professionalLicenseNumber: formData['professionalLicenseNumber'] ?? '',
+        professionalLicenseFilePath: professionalLicenseFilePath,
+        additionalDocumentName: formData['additionalDocumentName'] ?? '',
+        additionalDocumentFilePath: additionalDocumentFilePath,
+        frontStoreImagePaths: frontStoreImagePaths,
+        signatureImagePath: signatureImagePath,
+        signerName: formData['signerName'] ?? '',
+        acceptedTerms: formData['acceptedTerms'] ?? false,
+        sectionCompleted: List<bool>.from(stepperState.sectionCompleted),
+        sectionValidations: List<bool>.from(stepperState.sectionValidations),
+      );
+
+      // Only return draft if it has any data
+      if (draft.hasAnyData) {
+        return draft;
+      }
+      return null;
+    } catch (e) {
+      print('Error creating draft: $e');
+      return null;
+    }
+  }
+
+  /// Extract form data from vendor profile screen state
+  static Map<String, dynamic> extractFormData({
+    required Map<String, TextEditingController> controllers,
+    File? aadhaarFrontImage,
+    File? aadhaarBackImage,
+    File? panCardFile,
+    File? gstCertificateFile,
+    File? businessRegistrationFile,
+    File? professionalLicenseFile,
+    File? additionalDocumentFile,
+    List<File>? frontStoreImages,
+    Uint8List? signatureBytes,
+    List<String>? categories,
+    String? signerName,
+    bool? acceptedTerms,
+  }) {
+    return {
+      'firstName': controllers['firstName']?.text ?? '',
+      'lastName': controllers['lastName']?.text ?? '',
+      'email': controllers['email']?.text ?? '',
+      'password': controllers['password']?.text ?? '',
+      'mobile': controllers['mobile']?.text ?? '',
+      'aadhaarNumber': controllers['aadhaarNumber']?.text ?? '',
+      'residentialAddress': controllers['residentialAddress']?.text ?? '',
+      'aadhaarFrontImage': aadhaarFrontImage,
+      'aadhaarBackImage': aadhaarBackImage,
+      'businessName': controllers['businessName']?.text ?? '',
+      'businessLegalName': controllers['businessLegalName']?.text ?? '',
+      'businessEmail': controllers['businessEmail']?.text ?? '',
+      'businessMobile': controllers['businessMobile']?.text ?? '',
+      'altBusinessMobile': controllers['altBusinessMobile']?.text ?? '',
+      'businessAddress': controllers['businessAddress']?.text ?? '',
+      'categories': categories ?? [],
+      'accountNumber': controllers['accountNumber']?.text ?? '',
+      'accountHolderName': controllers['accountHolderName']?.text ?? '',
+      'ifscCode': controllers['ifscCode']?.text ?? '',
+      'bankName': controllers['bankName']?.text ?? '',
+      'bankBranch': controllers['bankBranch']?.text ?? '',
+      'panCardNumber': controllers['panCardNumber']?.text ?? '',
+      'panCardFile': panCardFile,
+      'gstCertificateNumber': controllers['gstCertificateNumber']?.text ?? '',
+      'gstCertificateFile': gstCertificateFile,
+      'businessRegistrationNumber':
+          controllers['businessRegistrationNumber']?.text ?? '',
+      'businessRegistrationFile': businessRegistrationFile,
+      'professionalLicenseNumber':
+          controllers['professionalLicenseNumber']?.text ?? '',
+      'professionalLicenseFile': professionalLicenseFile,
+      'additionalDocumentName':
+          controllers['additionalDocumentName']?.text ?? '',
+      'additionalDocumentFile': additionalDocumentFile,
+      'frontStoreImages': frontStoreImages ?? [],
+      'signatureBytes': signatureBytes,
+      'signerName': signerName ?? '',
+      'acceptedTerms': acceptedTerms ?? false,
+    };
+  }
+}
+
+
+

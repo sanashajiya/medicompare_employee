@@ -1,8 +1,12 @@
 import '../../core/constants/api_endpoints.dart';
+import '../../domain/entities/dashboard_stats_entity.dart';
 import '../../domain/entities/vendor_entity.dart';
+import '../../domain/entities/vendor_list_item_entity.dart';
 import '../../domain/repositories/vendor_repository.dart';
 import '../datasources/remote/api_service.dart';
+import '../models/dashboard_stats_model.dart';
 import '../models/vendor_model.dart';
+import '../models/vendor_list_item_model.dart';
 
 class VendorRepositoryImpl implements VendorRepository {
   final ApiService apiService;
@@ -27,7 +31,10 @@ class VendorRepositoryImpl implements VendorRepository {
       print('   signature: ${vendor.signature.length}');
 
       // 🔹 Entity → Model
+      print('🔍 DEBUG: Converting VendorEntity to VendorModel');
+      print('   Entity OTP: ${vendor.otp}');
       final vendorModel = VendorModel.fromEntity(vendor);
+      print('   Model OTP: ${vendorModel.otp}');
 
       // 🔹 Multipart fields & files
       final fields = vendorModel.toMultipartFields();
@@ -35,6 +42,10 @@ class VendorRepositoryImpl implements VendorRepository {
       final files = await vendorModel.toMultipartFiles();
 
       print('\n📝 Multipart Fields: ${fields.length} fields');
+      print('   Mobile: ${fields['mobile']}');
+      print('   OTP: ${fields['otp'] ?? 'NOT PROVIDED'}');
+      print('   Type: ${fields['type'] ?? 'NOT PROVIDED'}');
+      print('   Usertype: ${fields['usertype'] ?? 'NOT PROVIDED'}');
       print('📋 Array Fields: ${arrayFields.length} array types');
       for (final entry in arrayFields.entries) {
         print('   ${entry.key}: ${entry.value.length} items');
@@ -94,5 +105,230 @@ class VendorRepositoryImpl implements VendorRepository {
       throw Exception('An unexpected error occurred: ${e.toString()}');
     }
   }
-}
 
+  @override
+  Future<DashboardStatsEntity> getDashboardStats(String token) async {
+    try {
+      print(
+        '\n╔══════════════════════════════════════════════════════════════╗',
+      );
+      print('║        📊 VENDOR REPOSITORY - GET DASHBOARD STATS          ║');
+      print('╚══════════════════════════════════════════════════════════════╝');
+
+      final response = await apiService.get(
+        ApiEndpoints.getDashboard,
+        token: token,
+      );
+
+      print(
+        '\n═══════════════════════════════════════════════════════════════',
+      );
+      print('✅ DASHBOARD STATS RESPONSE:');
+      print('═══════════════════════════════════════════════════════════════');
+      print('Success: ${response['success']}');
+      print('Message: ${response['message']}');
+      print(
+        '═══════════════════════════════════════════════════════════════\n',
+      );
+
+      // Parse and return dashboard stats
+      return DashboardStatsModel.fromJson(response);
+    } on Exception catch (e) {
+      final errorString = e.toString();
+
+      if (errorString.contains('SocketException') ||
+          errorString.contains('Failed host lookup')) {
+        throw Exception(
+          'Unable to connect to server. Please check your internet connection.',
+        );
+      } else if (errorString.contains('TimeoutException')) {
+        throw Exception('Connection timed out. Please try again.');
+      } else if (errorString.contains('FormatException')) {
+        throw Exception('Invalid server response. Please try again later.');
+      } else if (errorString.contains('API Error: 401')) {
+        throw Exception('Unauthorized. Please login again.');
+      } else if (errorString.contains('API Error: 404')) {
+        throw Exception('Service not found. Please contact support.');
+      } else if (errorString.contains('API Error: 500') ||
+          errorString.contains('API Error: 502') ||
+          errorString.contains('API Error: 503')) {
+        throw Exception('Server error. Please try again later.');
+      } else {
+        throw Exception(
+          errorString.startsWith('Exception: ')
+              ? errorString.replaceFirst('Exception: ', '')
+              : 'Failed to fetch dashboard stats. Please try again.',
+        );
+      }
+    } catch (e) {
+      throw Exception('An unexpected error occurred: ${e.toString()}');
+    }
+  }
+
+  @override
+  Future<List<VendorListItemEntity>> getVendorList(String token) async {
+    try {
+      print(
+        '\n╔══════════════════════════════════════════════════════════════╗',
+      );
+      print('║        📋 VENDOR REPOSITORY - GET VENDOR LIST              ║');
+      print('╚══════════════════════════════════════════════════════════════╝');
+
+      final response = await apiService.get(
+        ApiEndpoints.getVendorList,
+        token: token,
+      );
+
+      print(
+        '\n═══════════════════════════════════════════════════════════════',
+      );
+      print('✅ VENDOR LIST RESPONSE:');
+      print('═══════════════════════════════════════════════════════════════');
+      print('Success: ${response['success']}');
+      print('Message: ${response['message']}');
+
+      // Parse the response structure: { "success": true, "message": "...", "data": { "vendors": [...] } }
+      final data = response['data'] as Map<String, dynamic>?;
+      final vendorsJson = data?['vendors'] as List<dynamic>? ?? [];
+
+      print('Vendors Count: ${vendorsJson.length}');
+      print(
+        '═══════════════════════════════════════════════════════════════\n',
+      );
+
+      // Convert JSON list to VendorListItemModel list
+      final vendors = vendorsJson
+          .map(
+            (json) =>
+                VendorListItemModel.fromJson(json as Map<String, dynamic>),
+          )
+          .toList();
+
+      return vendors;
+    } on Exception catch (e) {
+      final errorString = e.toString();
+
+      if (errorString.contains('SocketException') ||
+          errorString.contains('Failed host lookup')) {
+        throw Exception(
+          'Unable to connect to server. Please check your internet connection.',
+        );
+      } else if (errorString.contains('TimeoutException')) {
+        throw Exception('Connection timed out. Please try again.');
+      } else if (errorString.contains('FormatException')) {
+        throw Exception('Invalid server response. Please try again later.');
+      } else if (errorString.contains('API Error: 401')) {
+        throw Exception('Unauthorized. Please login again.');
+      } else if (errorString.contains('API Error: 404')) {
+        throw Exception('Service not found. Please contact support.');
+      } else if (errorString.contains('API Error: 500') ||
+          errorString.contains('API Error: 502') ||
+          errorString.contains('API Error: 503')) {
+        throw Exception('Server error. Please try again later.');
+      } else {
+        throw Exception(
+          errorString.startsWith('Exception: ')
+              ? errorString.replaceFirst('Exception: ', '')
+              : 'Failed to fetch vendor list. Please try again.',
+        );
+      }
+    } catch (e) {
+      throw Exception('An unexpected error occurred: ${e.toString()}');
+    }
+  }
+
+  @override
+  Future<VendorEntity> getVendorDetails(String vendorId, String token) async {
+    try {
+      print(
+        '\n╔══════════════════════════════════════════════════════════════╗',
+      );
+      print('║        📋 VENDOR REPOSITORY - GET VENDOR DETAILS          ║');
+      print('╚══════════════════════════════════════════════════════════════╝');
+
+      // Try different endpoint formats
+      final endpoints = [
+        '${ApiEndpoints.getVendorDetails}/$vendorId', // Path parameter
+        '${ApiEndpoints.getVendorDetails}?vendorId=$vendorId', // Query with vendorId
+        '${ApiEndpoints.getVendorDetails}?id=$vendorId', // Query with id
+        '${ApiEndpoints.baseUrl}/employeevendor/vendor/$vendorId', // Direct path
+      ];
+
+      Exception? lastError;
+      for (final url in endpoints) {
+        try {
+          print('🔗 Trying URL: $url');
+          final response = await apiService.get(url, token: token);
+          
+          print(
+            '\n═══════════════════════════════════════════════════════════════',
+          );
+          print('✅ VENDOR DETAILS RESPONSE:');
+          print('═══════════════════════════════════════════════════════════════');
+          print('Success: ${response['success']}');
+          print('Message: ${response['message']}');
+          print(
+            '═══════════════════════════════════════════════════════════════\n',
+          );
+
+          // Parse the response structure: { "success": true, "message": "...", "data": { ... } }
+          final data = response['data'] as Map<String, dynamic>?;
+          if (data == null) {
+            // If data is null, try using the response itself
+            if (response['_id'] != null || response['vendorId'] != null) {
+              return VendorModel.fromJson(response);
+            }
+            throw Exception('No vendor data found in response');
+          }
+
+          // Convert to VendorModel
+          return VendorModel.fromJson(data);
+        } catch (e) {
+          lastError = e is Exception ? e : Exception(e.toString());
+          // If it's a 404 or route not found, try next endpoint
+          if (e.toString().contains('404') || 
+              e.toString().contains('Route not found') ||
+              e.toString().contains('API Error: 404')) {
+            print('⚠️ Endpoint failed, trying next...');
+            continue;
+          } else {
+            // For other errors, rethrow immediately
+            rethrow;
+          }
+        }
+      }
+      
+      // If all endpoints failed, throw the last error
+      throw lastError ?? Exception('All endpoint formats failed');
+    } on Exception catch (e) {
+      final errorString = e.toString();
+
+      if (errorString.contains('SocketException') ||
+          errorString.contains('Failed host lookup')) {
+        throw Exception(
+          'Unable to connect to server. Please check your internet connection.',
+        );
+      } else if (errorString.contains('TimeoutException')) {
+        throw Exception('Connection timed out. Please try again.');
+      } else if (errorString.contains('FormatException')) {
+        throw Exception('Invalid server response. Please try again later.');
+      } else if (errorString.contains('API Error: 401')) {
+        throw Exception('Unauthorized. Please login again.');
+      } else if (errorString.contains('API Error: 404')) {
+        throw Exception('Vendor not found.');
+      } else if (errorString.contains('API Error: 500') ||
+          errorString.contains('API Error: 502') ||
+          errorString.contains('API Error: 503')) {
+        throw Exception('Server error. Please try again later.');
+      } else {
+        throw Exception(
+          errorString.startsWith('Exception: ')
+              ? errorString.replaceFirst('Exception: ', '')
+              : 'Failed to fetch vendor details. Please try again.',
+        );
+      }
+    } catch (e) {
+      throw Exception('An unexpected error occurred: ${e.toString()}');
+    }
+  }
+}

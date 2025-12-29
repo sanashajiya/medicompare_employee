@@ -19,17 +19,18 @@ class DashboardDrawer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Drawer(
-      width: 280, // Reduced width from default 304
+      width: 280,
+      elevation: 16,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.only(
-          topRight: Radius.circular(0),
-          bottomRight: Radius.circular(0),
+          topLeft: Radius.circular(20),
+          bottomRight: Radius.circular(20),
         ),
       ),
       child: SafeArea(
         child: Column(
           children: [
-            // Header Section
+            // ───────────────── Header ─────────────────
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
@@ -39,9 +40,21 @@ class DashboardDrawer extends StatelessWidget {
                   end: Alignment.bottomRight,
                   colors: [AppColors.primary, AppColors.primaryDark],
                 ),
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(18),
+                  bottomRight: Radius.circular(18),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.08),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
               child: Row(
                 children: [
+                  // Avatar
                   Container(
                     width: 56,
                     height: 56,
@@ -49,48 +62,57 @@ class DashboardDrawer extends StatelessWidget {
                       color: Colors.white.withOpacity(0.25),
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: Colors.white.withOpacity(0.3),
+                        color: Colors.white.withOpacity(0.35),
                         width: 2,
                       ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.15),
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
                     ),
                     child: Center(
                       child: Text(
-                        user.name.isNotEmpty ? user.name[0].toUpperCase() : 'U',
+                        user.name.isNotEmpty
+                            ? user.name[0].toUpperCase()
+                            : 'U',
                         style: const TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
                           color: Colors.white,
-                          letterSpacing: 0.5,
                         ),
                       ),
                     ),
                   ),
+
                   const SizedBox(width: 16),
+
+                  // User Info
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           user.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
-                            letterSpacing: 0.2,
                           ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 4),
                         Text(
                           user.email,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             color: Colors.white.withOpacity(0.85),
                             fontSize: 12,
-                            fontWeight: FontWeight.w400,
                           ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
                         ),
                       ],
                     ),
@@ -99,84 +121,87 @@ class DashboardDrawer extends StatelessWidget {
               ),
             ),
 
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
 
-            // Menu Items
+            // ───────────────── Menu Items ─────────────────
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              child: Column(
-                children: [
-                  _DrawerItem(
-                    icon: Icons.privacy_tip_outlined,
-                    label: 'Privacy Policy',
-                    onTap: () {
-                      Navigator.pop(context);
-                      onPrivacyPolicy();
-                    },
-                  ),
-                  const SizedBox(height: 4),
-                  _DrawerItem(
-                    icon: Icons.info_outline,
-                    label: 'About Us',
-                    onTap: () {
-                      Navigator.pop(context);
-                      onAboutUs();
-                    },
-                  ),
-                ],
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                decoration: BoxDecoration(
+                  color: AppColors.background.withOpacity(0.6),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  children: [
+                    _DrawerItem(
+                      icon: Icons.privacy_tip_outlined,
+                      label: 'Privacy Policy',
+                      onTap: () {
+                        Navigator.pop(context);
+                        onPrivacyPolicy();
+                      },
+                    ),
+                    const SizedBox(height: 4),
+                    _DrawerItem(
+                      icon: Icons.info_outline,
+                      label: 'Terms & Conditions',
+                      onTap: () {
+                        Navigator.pop(context);
+                        onAboutUs();
+                      },
+                    ),
+                  ],
+                ),
               ),
             ),
 
             const Spacer(),
 
-            // Logout Button
+            // ───────────────── Logout Button ─────────────────
             Padding(
               padding: const EdgeInsets.all(16),
-              child: Container(
-                decoration: BoxDecoration(
+              child: Material(
+                borderRadius: BorderRadius.circular(12),
+                child: InkWell(
+                  onTap: () {
+                    Navigator.pop(context);
+                    onLogout();
+                  },
                   borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.error.withOpacity(0.2),
-                      blurRadius: 8,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Material(
-                  color: AppColors.error,
-                  borderRadius: BorderRadius.circular(12),
-                  child: InkWell(
-                    onTap: () {
-                      Navigator.pop(context);
-                      onLogout();
-                    },
-                    borderRadius: BorderRadius.circular(12),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 14,
-                        horizontal: 16,
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: const [
-                          Icon(
-                            Icons.logout_rounded,
-                            color: Colors.white,
-                            size: 20,
-                          ),
-                          SizedBox(width: 8),
-                          Text(
-                            'Logout',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: 0.3,
-                            ),
-                          ),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          AppColors.error,
+                          AppColors.error.withOpacity(0.85),
                         ],
                       ),
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.error.withOpacity(0.25),
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: const [
+                        Icon(Icons.logout_rounded,
+                            color: Colors.white, size: 20),
+                        SizedBox(width: 8),
+                        Text(
+                          'Logout',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -235,19 +260,19 @@ class _DrawerItemState extends State<_DrawerItem> {
                         : AppColors.primary.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Icon(widget.icon, color: AppColors.primary, size: 20),
+                  child: Icon(widget.icon,
+                      color: AppColors.primary, size: 20),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     widget.label,
                     style: TextStyle(
-                      fontWeight: FontWeight.w500,
                       fontSize: 14,
+                      fontWeight: FontWeight.w500,
                       color: _isHovered
                           ? AppColors.textPrimary
                           : AppColors.textSecondary,
-                      letterSpacing: 0.2,
                     ),
                   ),
                 ),

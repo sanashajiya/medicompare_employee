@@ -41,7 +41,7 @@ class ApiService {
       // Add array fields (multiple entries with the same key)
       // The http package's MultipartRequest.fields is a Map<String, String>,
       // which doesn't support duplicate keys. We need to manually add array fields.
-      // 
+      //
       // Solution: Use MultipartFile.fromString() which creates a file-like object
       // that can be sent as a form field. The backend should accept these as form fields.
       if (arrayFields != null && arrayFields.isNotEmpty) {
@@ -50,16 +50,15 @@ class ApiService {
           final key = entry.key; // e.g., 'categories[]'
           print('   $key: ${entry.value.length} value(s)');
           for (final value in entry.value) {
-            if (value.isNotEmpty) {
-              // Create a multipart file from string for each array value
-              // This creates a form field (not a file) that the backend can parse
-              final arrayField = http.MultipartFile.fromString(
-                key, // Keep the [] in the key name
-                value,
-              );
-              request.files.add(arrayField);
-              print('     - Added: $value');
-            }
+            // IMPORTANT: Always send array values, even if empty, to maintain array alignment
+            // The backend expects arrays like documentNumber[] to match the length of doc_name[]
+            // Skipping empty values causes array misalignment and backend errors
+            final arrayField = http.MultipartFile.fromString(
+              key, // Keep the [] in the key name
+              value, // Send empty string if needed to maintain array alignment
+            );
+            request.files.add(arrayField);
+            print('     - Added: ${value.isEmpty ? "(empty)" : value}');
           }
         }
       }
@@ -108,20 +107,29 @@ class ApiService {
 
   Future<Map<String, dynamic>> post(
     String url,
-    Map<String, dynamic> body,
-  ) async {
+    Map<String, dynamic> body, {
+    String? token,
+  }) async {
     print('');
     print('═══════════════════════════════════════════════════════');
     print('📡 API POST REQUEST');
     print('═══════════════════════════════════════════════════════');
     print('🔗 URL: $url');
     print('📦 Body: ${jsonEncode(body)}');
+    if (token != null) {
+      print('🔑 Token: ${token.substring(0, 20)}...');
+    }
     print('═══════════════════════════════════════════════════════');
 
     try {
+      final headers = <String, String>{'Content-Type': 'application/json'};
+      if (token != null) {
+        headers['Authorization'] = 'Bearer $token';
+      }
+
       final response = await client.post(
         Uri.parse(url),
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
         body: jsonEncode(body),
       );
 
@@ -156,19 +164,53 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> get(String url) async {
+  Future<Map<String, dynamic>> get(String url, {String? token}) async {
     try {
-      final response = await client.get(
-        Uri.parse(url),
-        headers: {'Content-Type': 'application/json'},
-      );
+      final headers = <String, String>{'Content-Type': 'application/json'};
+
+      if (token != null) {
+        headers['Authorization'] = 'Bearer $token';
+      }
+
+      print('');
+      print('═══════════════════════════════════════════════════════');
+      print('📡 API GET REQUEST');
+      print('═══════════════════════════════════════════════════════');
+      print('🔗 URL: $url');
+      if (token != null) {
+        print('🔑 Token: ${token.substring(0, 20)}...');
+      }
+      print('═══════════════════════════════════════════════════════');
+
+      final response = await client.get(Uri.parse(url), headers: headers);
+
+      print('');
+      print('═══════════════════════════════════════════════════════');
+      print('📡 API RESPONSE');
+      print('═══════════════════════════════════════════════════════');
+      print('📊 Status Code: ${response.statusCode}');
+      print('📦 Response Body: ${response.body}');
+      print('═══════════════════════════════════════════════════════');
+      print('');
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
-        return jsonDecode(response.body) as Map<String, dynamic>;
+        final jsonResponse = jsonDecode(response.body) as Map<String, dynamic>;
+        print('✅ JSON Parsed Successfully');
+        print('📄 Parsed Data: $jsonResponse');
+        return jsonResponse;
       } else {
-        throw Exception('API Error: ${response.statusCode} - ${response.body}');
+        final errorMsg = 'API Error: ${response.statusCode} - ${response.body}';
+        print('❌ $errorMsg');
+        throw Exception(errorMsg);
       }
     } catch (e) {
+      print('');
+      print('═══════════════════════════════════════════════════════');
+      print('❌ NETWORK ERROR');
+      print('═══════════════════════════════════════════════════════');
+      print('Error: $e');
+      print('═══════════════════════════════════════════════════════');
+      print('');
       throw Exception('Network error: $e');
     }
   }

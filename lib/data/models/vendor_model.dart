@@ -9,12 +9,18 @@ class VendorModel extends VendorEntity {
     required super.email,
     required super.password,
     required super.mobile,
+    super.aadhaarFrontImage,
+    super.aadhaarBackImage,
+    super.signname,
+    super.adharnumber,
+    super.residentaladdress,
     required super.businessName,
     required super.businessEmail,
     required super.altMobile,
     required super.address,
     required super.categories,
     required super.bussinessmobile,
+    super.bussinesslegalname,
     required super.docNames,
     required super.docIds,
     required super.documentNumbers,
@@ -27,19 +33,20 @@ class VendorModel extends VendorEntity {
     required super.accountNumber,
     required super.ifscCode,
     required super.branchName,
+    super.otp,
     super.vendorId,
     super.success,
     super.message,
   });
 
-  // 🔹 Backend → Entity
+  // 🔹 Backend → Entity (from vendor details endpoint)
   factory VendorModel.fromJson(Map<String, dynamic> json) {
     return VendorModel(
       firstName: json['firstName'] ?? '',
       lastName: json['lastName'] ?? '',
       email: json['email'] ?? '',
       password: json['password'] ?? '',
-      mobile: json['mobile'] ?? '',
+      mobile: json['mobile']?.toString() ?? '',
       businessName: json['businessName'] ?? '',
       businessEmail: json['businessEmail'] ?? '',
       altMobile: json['alt_mobile'] ?? '',
@@ -61,12 +68,76 @@ class VendorModel extends VendorEntity {
       signature: const [],
       bankName: json['bankName'] ?? '',
       accountName: json['accountName'] ?? '',
-      accountNumber: json['accountNumber'] ?? '',
+      accountNumber: json['accountNumber']?.toString() ?? '',
       ifscCode: json['ifscCode'] ?? '',
       branchName: json['branchName'] ?? '',
-      vendorId: json['vendorId'],
+      vendorId: json['vendorId'] ?? json['_id'],
       success: json['success'],
       message: json['message'],
+    );
+  }
+
+  // 🔹 Vendor List Response → Entity (from vendor list endpoint)
+  factory VendorModel.fromVendorListJson(Map<String, dynamic> json) {
+    // Extract bank data
+    final bank = json['bank'] as Map<String, dynamic>?;
+    final bankName = bank?['bank_name']?.toString() ?? '';
+    final accountName = bank?['account_holder_name']?.toString() ?? '';
+    final accountNumber = bank?['account_number']?.toString() ?? '';
+    final ifscCode = bank?['ifsc_code']?.toString() ?? '';
+    final branchName = bank?['branch']?.toString() ?? '';
+
+    // Extract documents data
+    final documents = json['documents'] as Map<String, dynamic>?;
+    final documentsDetails = documents?['documentsDetails'] as List<dynamic>? ?? [];
+    final signname = documents?['signname']?.toString() ?? '';
+
+    // Extract document arrays
+    final docNames = <String>[];
+    final docIds = <String>[];
+    final documentNumbers = <String>[];
+
+    for (final doc in documentsDetails) {
+      if (doc is Map<String, dynamic>) {
+        docNames.add(doc['name']?.toString() ?? '');
+        docIds.add(doc['doc_id']?.toString() ?? '');
+        documentNumbers.add(doc['documentNumber']?.toString() ?? '');
+      }
+    }
+
+    // Extract categories
+    final categoryIds = json['categoryIds'] as List<dynamic>? ?? [];
+    final categories = categoryIds.map((e) => e.toString()).toList();
+
+    return VendorModel(
+      firstName: json['firstName']?.toString() ?? '',
+      lastName: json['lastName']?.toString() ?? '',
+      email: json['email']?.toString() ?? '',
+      password: json['password']?.toString() ?? '',
+      mobile: json['mobile']?.toString() ?? '',
+      adharnumber: json['adharnumber']?.toString() ?? '',
+      residentaladdress: json['residentaladdress']?.toString() ?? '',
+      signname: signname,
+      businessName: json['businessName']?.toString() ?? '',
+      businessEmail: json['businessEmail']?.toString() ?? '',
+      altMobile: json['altMobile']?.toString() ?? '',
+      address: json['address']?.toString() ?? '',
+      categories: categories,
+      bussinessmobile: json['bussinessmobile']?.toString() ?? '',
+      bussinesslegalname: json['bussinesslegalname']?.toString() ?? '',
+      docNames: docNames,
+      docIds: docIds,
+      documentNumbers: documentNumbers,
+      files: const [],
+      frontimages: const [],
+      backimages: const [],
+      signature: const [],
+      bankName: bankName,
+      accountName: accountName,
+      accountNumber: accountNumber,
+      ifscCode: ifscCode,
+      branchName: branchName,
+      vendorId: json['_id']?.toString() ?? json['vendorsId']?.toString(),
     );
   }
 
@@ -78,12 +149,18 @@ class VendorModel extends VendorEntity {
       email: entity.email,
       password: entity.password,
       mobile: entity.mobile,
+      aadhaarFrontImage: entity.aadhaarFrontImage,
+      aadhaarBackImage: entity.aadhaarBackImage,
+      signname: entity.signname,
+      adharnumber: entity.adharnumber,
+      residentaladdress: entity.residentaladdress,
       businessName: entity.businessName,
       businessEmail: entity.businessEmail,
       altMobile: entity.altMobile,
       address: entity.address,
       categories: entity.categories,
       bussinessmobile: entity.bussinessmobile,
+      bussinesslegalname: entity.bussinesslegalname,
       docNames: entity.docNames,
       docIds: entity.docIds,
       documentNumbers: entity.documentNumbers,
@@ -96,6 +173,7 @@ class VendorModel extends VendorEntity {
       accountNumber: entity.accountNumber,
       ifscCode: entity.ifscCode,
       branchName: entity.branchName,
+      otp: entity.otp,
       vendorId: entity.vendorId,
       success: entity.success,
       message: entity.message,
@@ -120,18 +198,62 @@ class VendorModel extends VendorEntity {
       'ifscCode': ifscCode,
       'branchName': branchName,
       'bussinessmobile': bussinessmobile,
+      'signname': signname,
+      'bussinesslegalname': bussinesslegalname,
+      'adharnumber': adharnumber,
+      'residentaladdress': residentaladdress,
     };
+
+    // Add OTP if provided (ALWAYS add type and usertype when OTP is present)
+    final otpValue = otp;
+    print('🔍 DEBUG: Checking OTP in toMultipartFields()');
+    print('   otp field value: $otpValue');
+    print('   otp is null: ${otpValue == null}');
+    print('   otp is empty: ${otpValue?.isEmpty ?? true}');
+
+    if (otpValue != null && otpValue.isNotEmpty) {
+      fields['otp'] = otpValue;
+      // Add type and usertype when OTP is present (required for OTP verification)
+      // These must match the values used in send-otp API
+      fields['type'] = 'phone';
+      fields['usertype'] = 'app';
+      print('✅ Adding OTP fields: otp=$otpValue, type=phone, usertype=app');
+    } else {
+      print('❌ ERROR: OTP is null or empty! OTP verification will fail.');
+      print(
+        '   This means the OTP was not passed from VendorEntity to VendorModel',
+      );
+    }
 
     return fields;
   }
 
   /// 🔹 Array fields that need to be added multiple times with the same key
   Map<String, List<String>> toMultipartArrayFields() {
+    // Ensure documentNumber array has the same length as docNames/docIds
+    // and replace empty strings with a placeholder to prevent backend errors
+    final safeDocumentNumbers = <String>[];
+    final maxLength = [
+      docNames.length,
+      docIds.length,
+      documentNumbers.length,
+    ].reduce((a, b) => a > b ? a : b);
+
+    for (int i = 0; i < maxLength; i++) {
+      if (i < documentNumbers.length) {
+        // Use the actual value if it exists and is not empty, otherwise use empty string
+        safeDocumentNumbers.add(documentNumbers[i]);
+      } else {
+        // Pad with empty string to match array lengths
+        safeDocumentNumbers.add('');
+      }
+    }
+
     return {
       'categories[]': categories,
       'doc_name[]': docNames,
       'doc_id[]': docIds,
-      'documentNumber[]': documentNumbers,
+      'documentNumber[]': safeDocumentNumbers,
     };
   }
 
@@ -142,6 +264,10 @@ class VendorModel extends VendorEntity {
     print('\n═══════════════════════════════════════════════════════════════');
     print('📤 PREPARING MULTIPART FILES');
     print('═══════════════════════════════════════════════════════════════');
+    print('🆔 Govt Id Proof Image: ${aadhaarFrontImage != null ? "✅" : "❌"}');
+    print(
+      '🆔 Govt Id Proof Back Image: ${aadhaarBackImage != null ? "✅" : "❌"}',
+    );
     print('📸 Front Images: ${frontimages.length}');
     print('📷 Back Images: ${backimages.length}');
     print('✍️  signature: ${signature.length}');
@@ -159,6 +285,60 @@ class VendorModel extends VendorEntity {
           return MediaType('application', 'pdf');
         default:
           return MediaType('application', 'octet-stream');
+      }
+    }
+
+    // 🔹 Govt Id Proof Image - API expects 'adhaarfrontimage'
+    if (aadhaarFrontImage != null) {
+      final file = aadhaarFrontImage!;
+      final exists = await file.exists();
+      print('\n  🆔 Govt Id Proof Image:');
+      print('     Path: ${file.path}');
+      print('     Exists: $exists');
+      if (exists) {
+        try {
+          final size = await file.length();
+          print('     Size: $size bytes');
+          filesList.add(
+            await http.MultipartFile.fromPath(
+              'adhaarfrontimage',
+              file.path,
+              contentType: _mediaType(file.path),
+            ),
+          );
+          print('     ✅ Added to multipart');
+        } catch (e) {
+          print('     ❌ Error adding: $e');
+        }
+      } else {
+        print('     ❌ FILE NOT FOUND!');
+      }
+    }
+
+    // 🔹 Govt Id Proof Back Image - API expects 'adhaarbackimage'
+    if (aadhaarBackImage != null) {
+      final file = aadhaarBackImage!;
+      final exists = await file.exists();
+      print('\n  🆔 Govt Id Proof Back Image:');
+      print('     Path: ${file.path}');
+      print('     Exists: $exists');
+      if (exists) {
+        try {
+          final size = await file.length();
+          print('     Size: $size bytes');
+          filesList.add(
+            await http.MultipartFile.fromPath(
+              'adhaarbackimage',
+              file.path,
+              contentType: _mediaType(file.path),
+            ),
+          );
+          print('     ✅ Added to multipart');
+        } catch (e) {
+          print('     ❌ Error adding: $e');
+        }
+      } else {
+        print('     ❌ FILE NOT FOUND!');
       }
     }
 
@@ -279,4 +459,3 @@ class VendorModel extends VendorEntity {
     return filesList;
   }
 }
-
