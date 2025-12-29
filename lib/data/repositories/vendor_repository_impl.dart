@@ -236,4 +236,99 @@ class VendorRepositoryImpl implements VendorRepository {
       throw Exception('An unexpected error occurred: ${e.toString()}');
     }
   }
+
+  @override
+  Future<VendorEntity> getVendorDetails(String vendorId, String token) async {
+    try {
+      print(
+        '\n╔══════════════════════════════════════════════════════════════╗',
+      );
+      print('║        📋 VENDOR REPOSITORY - GET VENDOR DETAILS          ║');
+      print('╚══════════════════════════════════════════════════════════════╝');
+
+      // Try different endpoint formats
+      final endpoints = [
+        '${ApiEndpoints.getVendorDetails}/$vendorId', // Path parameter
+        '${ApiEndpoints.getVendorDetails}?vendorId=$vendorId', // Query with vendorId
+        '${ApiEndpoints.getVendorDetails}?id=$vendorId', // Query with id
+        '${ApiEndpoints.baseUrl}/employeevendor/vendor/$vendorId', // Direct path
+      ];
+
+      Exception? lastError;
+      for (final url in endpoints) {
+        try {
+          print('🔗 Trying URL: $url');
+          final response = await apiService.get(url, token: token);
+          
+          print(
+            '\n═══════════════════════════════════════════════════════════════',
+          );
+          print('✅ VENDOR DETAILS RESPONSE:');
+          print('═══════════════════════════════════════════════════════════════');
+          print('Success: ${response['success']}');
+          print('Message: ${response['message']}');
+          print(
+            '═══════════════════════════════════════════════════════════════\n',
+          );
+
+          // Parse the response structure: { "success": true, "message": "...", "data": { ... } }
+          final data = response['data'] as Map<String, dynamic>?;
+          if (data == null) {
+            // If data is null, try using the response itself
+            if (response['_id'] != null || response['vendorId'] != null) {
+              return VendorModel.fromJson(response);
+            }
+            throw Exception('No vendor data found in response');
+          }
+
+          // Convert to VendorModel
+          return VendorModel.fromJson(data);
+        } catch (e) {
+          lastError = e is Exception ? e : Exception(e.toString());
+          // If it's a 404 or route not found, try next endpoint
+          if (e.toString().contains('404') || 
+              e.toString().contains('Route not found') ||
+              e.toString().contains('API Error: 404')) {
+            print('⚠️ Endpoint failed, trying next...');
+            continue;
+          } else {
+            // For other errors, rethrow immediately
+            rethrow;
+          }
+        }
+      }
+      
+      // If all endpoints failed, throw the last error
+      throw lastError ?? Exception('All endpoint formats failed');
+    } on Exception catch (e) {
+      final errorString = e.toString();
+
+      if (errorString.contains('SocketException') ||
+          errorString.contains('Failed host lookup')) {
+        throw Exception(
+          'Unable to connect to server. Please check your internet connection.',
+        );
+      } else if (errorString.contains('TimeoutException')) {
+        throw Exception('Connection timed out. Please try again.');
+      } else if (errorString.contains('FormatException')) {
+        throw Exception('Invalid server response. Please try again later.');
+      } else if (errorString.contains('API Error: 401')) {
+        throw Exception('Unauthorized. Please login again.');
+      } else if (errorString.contains('API Error: 404')) {
+        throw Exception('Vendor not found.');
+      } else if (errorString.contains('API Error: 500') ||
+          errorString.contains('API Error: 502') ||
+          errorString.contains('API Error: 503')) {
+        throw Exception('Server error. Please try again later.');
+      } else {
+        throw Exception(
+          errorString.startsWith('Exception: ')
+              ? errorString.replaceFirst('Exception: ', '')
+              : 'Failed to fetch vendor details. Please try again.',
+        );
+      }
+    } catch (e) {
+      throw Exception('An unexpected error occurred: ${e.toString()}');
+    }
+  }
 }

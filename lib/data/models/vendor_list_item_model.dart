@@ -13,6 +13,7 @@ class VendorListItemModel extends VendorListItemEntity {
     super.businessEmail,
     super.createdAt,
     super.updatedAt,
+    super.rawData,
   });
 
   factory VendorListItemModel.fromJson(Map<String, dynamic> json) {
@@ -37,6 +38,7 @@ class VendorListItemModel extends VendorListItemEntity {
       businessEmail: json['businessEmail'] as String?,
       createdAt: parseDate(json['createdAt'] as String?),
       updatedAt: parseDate(json['updatedAt'] as String?),
+      rawData: json, // Store the full vendor JSON
     );
   }
 

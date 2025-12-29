@@ -4,10 +4,16 @@ import '../../../core/di/injection_container.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../domain/entities/user_entity.dart';
 import '../../../domain/entities/vendor_list_item_entity.dart';
+import '../../../data/models/vendor_model.dart';
 import '../../blocs/vendor_list/vendor_list_bloc.dart';
 import '../../blocs/vendor_list/vendor_list_event.dart';
 import '../../blocs/vendor_list/vendor_list_state.dart';
+import '../../blocs/vendor_form/vendor_form_bloc.dart';
+import '../../blocs/vendor_stepper/vendor_stepper_bloc.dart';
+import '../../blocs/draft/draft_bloc.dart';
 import '../../../core/constants/vendor_filter_type.dart';
+import '../vendor_profile/vendor_edit_screen.dart';
+import '../vendor_profile/vendor_profile_screen.dart';
 
 class VendorListScreen extends StatefulWidget {
   final UserEntity user;
@@ -219,7 +225,45 @@ class _VendorListScreenState extends State<VendorListScreen> {
                               itemCount: filteredVendors.length,
                               itemBuilder: (context, index) {
                                 final vendor = filteredVendors[index];
-                                return _VendorCard(vendor: vendor);
+                                return _VendorCard(
+                                  vendor: vendor,
+                                  onTap: () {
+                                    // Convert vendor list data to VendorEntity
+                                    final vendorEntity = vendor.rawData != null
+                                        ? VendorModel.fromVendorListJson(
+                                            vendor.rawData!,
+                                          )
+                                        : null;
+
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (_) => MultiBlocProvider(
+                                          providers: [
+                                            BlocProvider<VendorFormBloc>(
+                                              create: (_) => sl<VendorFormBloc>(),
+                                            ),
+                                            BlocProvider<VendorStepperBloc>(
+                                              create: (_) => sl<VendorStepperBloc>(),
+                                            ),
+                                            BlocProvider<DraftBloc>(
+                                              create: (_) => sl<DraftBloc>(),
+                                            ),
+                                          ],
+                                          child: vendorEntity != null
+                                              ? VendorProfileScreen(
+                                                  user: widget.user,
+                                                  vendorDetails: vendorEntity,
+                                                  isEditMode: true,
+                                                )
+                                              : VendorEditScreen(
+                                                  vendorId: vendor.id,
+                                                  user: widget.user,
+                                                ),
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                );
                               },
                             ),
                           ),
@@ -285,8 +329,9 @@ class _VendorListScreenState extends State<VendorListScreen> {
 
 class _VendorCard extends StatelessWidget {
   final VendorListItemEntity vendor;
+  final VoidCallback? onTap;
 
-  const _VendorCard({required this.vendor});
+  const _VendorCard({required this.vendor, this.onTap});
 
   Color _getStatusColor(String? status) {
     switch (status?.toLowerCase()) {
@@ -349,7 +394,10 @@ class _VendorCard extends StatelessWidget {
     final statusLabel = _getStatusLabel(vendor.verifyStatus);
     final statusIcon = _getStatusIcon(vendor.verifyStatus);
 
-    return Card(
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Card(
       margin: const EdgeInsets.only(bottom: 12),
       elevation: 2,
       shape: RoundedRectangleBorder(
@@ -477,6 +525,7 @@ class _VendorCard extends StatelessWidget {
             ],
           ],
         ),
+      ),
       ),
     );
   }

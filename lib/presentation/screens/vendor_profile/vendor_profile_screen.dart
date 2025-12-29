@@ -38,14 +38,14 @@ import 'widgets/vendor_otp_dialog.dart';
 class VendorProfileScreen extends StatefulWidget {
   final UserEntity user;
   final String? draftId;
-  // final VendorDetailsEntity? vendorDetails;
+  final VendorEntity? vendorDetails;
   final bool isEditMode;
 
   const VendorProfileScreen({
     super.key,
     required this.user,
     this.draftId,
-    // this.vendorDetails,
+    this.vendorDetails,
     this.isEditMode = false,
   });
 
@@ -152,8 +152,14 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
         widget.draftId ?? DateTime.now().millisecondsSinceEpoch.toString();
     _fetchCategories();
 
-    // If we are resuming an existing draft, load and restore its data
-    if (widget.draftId != null) {
+    // If we are in edit mode with vendor details, prefill the form
+    if (widget.isEditMode && widget.vendorDetails != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _prefillVendorDetails(widget.vendorDetails!);
+      });
+    }
+    // Otherwise, if we are resuming an existing draft, load and restore its data
+    else if (widget.draftId != null) {
       _loadDraft(widget.draftId!);
     }
   }
@@ -434,53 +440,83 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
     }
   }
 
-  // Future<void> _prefillVendorDetails(VendorDetailsEntity vendor) async {
-  //   if (!mounted) return;
+  Future<void> _prefillVendorDetails(VendorEntity vendor) async {
+    if (!mounted) return;
 
-  //   setState(() {
-  //     // Personal Details
-  //     _firstNameController.text = vendor.firstName;
-  //     _lastNameController.text = vendor.lastName;
-  //     _emailController.text = vendor.email;
-  //     _phoneController.text = vendor.mobile;
-  //     _aadhaarNumberController.text = vendor.aadhaarNumber ?? '';
-  //     _residentialAddressController.text = vendor.residentialAddress ?? '';
+    setState(() {
+      // Personal Details
+      _firstNameController.text = vendor.firstName;
+      _lastNameController.text = vendor.lastName;
+      _emailController.text = vendor.email;
+      _phoneController.text = vendor.mobile;
+      _aadhaarNumberController.text = vendor.adharnumber;
+      _residentialAddressController.text = vendor.residentaladdress;
+      _signerNameController.text = vendor.signname;
 
-  //     // Business Details
-  //     _businessNameController.text = vendor.businessName ?? '';
-  //     _businessLegalNameController.text = vendor.businessLegalName ?? '';
-  //     _businessEmailController.text = vendor.businessEmail ?? '';
-  //     _businessMobileController.text = vendor.businessMobile ?? '';
-  //     _altBusinessMobileController.text = vendor.altMobile ?? '';
-  //     _businessAddressController.text = vendor.businessAddress ?? '';
-  //     _selectedBusinessCategories = List<String>.from(vendor.categories);
+      // Business Details
+      _businessNameController.text = vendor.businessName;
+      _businessLegalNameController.text = vendor.bussinesslegalname;
+      _businessEmailController.text = vendor.businessEmail;
+      _businessMobileController.text = vendor.bussinessmobile;
+      _altBusinessMobileController.text = vendor.altMobile;
+      _businessAddressController.text = vendor.address;
+      _selectedBusinessCategories = List<String>.from(vendor.categories);
 
-  //     // Banking Details
-  //     _accountNumberController.text = vendor.accountNumber ?? '';
-  //     _confirmAccountNumberController.text = vendor.accountNumber ?? '';
-  //     _accountHolderNameController.text = vendor.accountName ?? '';
-  //     _ifscCodeController.text = vendor.ifscCode ?? '';
-  //     _bankNameController.text = vendor.bankName ?? '';
-  //     _bankBranchController.text = vendor.branchName ?? '';
+      // Banking Details
+      _accountNumberController.text = vendor.accountNumber;
+      _confirmAccountNumberController.text = vendor.accountNumber;
+      _accountHolderNameController.text = vendor.accountName;
+      _ifscCodeController.text = vendor.ifscCode;
+      _bankNameController.text = vendor.bankName;
+      _bankBranchController.text = vendor.branchName;
 
-  //     // Documents
-  //     _panCardNumberController.text = vendor.documentNumbers.isNotEmpty
-  //         ? vendor.documentNumbers[0]
-  //         : '';
-  //     // Store document IDs and names for reference
-  //     if (vendor.docNames.isNotEmpty) {
-  //       _businessRegistrationNumberController.text = vendor.docNames[0];
-  //     }
-  //     if (vendor.docNames.length > 1) {
-  //       _gstCertificateNumberController.text = vendor.docNames[1];
-  //     }
-  //   });
+      // Documents - Map document numbers based on docNames
+      // Assuming order: PAN Card, GST Certificate, Business Registration, Professional License
+      if (vendor.documentNumbers.isNotEmpty) {
+        // Find PAN Card
+        final panIndex = vendor.docNames.indexWhere(
+          (name) => name.toLowerCase().contains('pan'),
+        );
+        if (panIndex >= 0 && panIndex < vendor.documentNumbers.length) {
+          _panCardNumberController.text = vendor.documentNumbers[panIndex];
+        }
 
-  //   // Update categories mapping after prefilling
-  //   if (_categoriesLoaded) {
-  //     _updateCategoryMappings();
-  //   }
-  // }
+        // Find GST Certificate
+        final gstIndex = vendor.docNames.indexWhere(
+          (name) => name.toLowerCase().contains('gst'),
+        );
+        if (gstIndex >= 0 && gstIndex < vendor.documentNumbers.length) {
+          _gstCertificateNumberController.text =
+              vendor.documentNumbers[gstIndex];
+        }
+
+        // Find Business Registration
+        final brIndex = vendor.docNames.indexWhere(
+          (name) => name.toLowerCase().contains('business') ||
+              name.toLowerCase().contains('registration'),
+        );
+        if (brIndex >= 0 && brIndex < vendor.documentNumbers.length) {
+          _businessRegistrationNumberController.text =
+              vendor.documentNumbers[brIndex];
+        }
+
+        // Find Professional License
+        final plIndex = vendor.docNames.indexWhere(
+          (name) => name.toLowerCase().contains('professional') ||
+              name.toLowerCase().contains('license'),
+        );
+        if (plIndex >= 0 && plIndex < vendor.documentNumbers.length) {
+          _professionalLicenseNumberController.text =
+              vendor.documentNumbers[plIndex];
+        }
+      }
+    });
+
+    // Update categories mapping after prefilling
+    if (_categoriesLoaded) {
+      _updateCategoryMappings();
+    }
+  }
 
   void _updateCategoryMappings() {
     // Update the category name to ID mappings
@@ -890,6 +926,9 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
       ifscCode: _ifscCodeController.text,
       branchName: _bankBranchController.text,
       otp: _verifiedOtp, // Include verified OTP in vendor creation
+      vendorId: widget.isEditMode && widget.vendorDetails != null
+          ? widget.vendorDetails!.vendorId
+          : null, // Include vendorId when editing
     );
 
     List<File> signatureFiles = [];

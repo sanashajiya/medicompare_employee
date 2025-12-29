@@ -6,4 +6,5 @@ abstract class VendorRepository {
   Future<VendorEntity> createVendor(VendorEntity vendor, String token);
   Future<DashboardStatsEntity> getDashboardStats(String token);
   Future<List<VendorListItemEntity>> getVendorList(String token);
+  Future<VendorEntity> getVendorDetails(String vendorId, String token);
 }

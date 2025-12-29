@@ -12,6 +12,7 @@ class VendorListItemEntity extends Equatable {
   final String? businessEmail;
   final DateTime? createdAt;
   final DateTime? updatedAt;
+  final Map<String, dynamic>? rawData; // Store full vendor JSON for editing
 
   const VendorListItemEntity({
     required this.id,
@@ -25,6 +26,7 @@ class VendorListItemEntity extends Equatable {
     this.businessEmail,
     this.createdAt,
     this.updatedAt,
+    this.rawData,
   });
 
   String get fullName => '$firstName $lastName';
@@ -42,5 +44,6 @@ class VendorListItemEntity extends Equatable {
     businessEmail,
     createdAt,
     updatedAt,
+    rawData,
   ];
 }

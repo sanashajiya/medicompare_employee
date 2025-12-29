@@ -39,14 +39,14 @@ class VendorModel extends VendorEntity {
     super.message,
   });
 
-  // 🔹 Backend → Entity
+  // 🔹 Backend → Entity (from vendor details endpoint)
   factory VendorModel.fromJson(Map<String, dynamic> json) {
     return VendorModel(
       firstName: json['firstName'] ?? '',
       lastName: json['lastName'] ?? '',
       email: json['email'] ?? '',
       password: json['password'] ?? '',
-      mobile: json['mobile'] ?? '',
+      mobile: json['mobile']?.toString() ?? '',
       businessName: json['businessName'] ?? '',
       businessEmail: json['businessEmail'] ?? '',
       altMobile: json['alt_mobile'] ?? '',
@@ -68,12 +68,76 @@ class VendorModel extends VendorEntity {
       signature: const [],
       bankName: json['bankName'] ?? '',
       accountName: json['accountName'] ?? '',
-      accountNumber: json['accountNumber'] ?? '',
+      accountNumber: json['accountNumber']?.toString() ?? '',
       ifscCode: json['ifscCode'] ?? '',
       branchName: json['branchName'] ?? '',
-      vendorId: json['vendorId'],
+      vendorId: json['vendorId'] ?? json['_id'],
       success: json['success'],
       message: json['message'],
+    );
+  }
+
+  // 🔹 Vendor List Response → Entity (from vendor list endpoint)
+  factory VendorModel.fromVendorListJson(Map<String, dynamic> json) {
+    // Extract bank data
+    final bank = json['bank'] as Map<String, dynamic>?;
+    final bankName = bank?['bank_name']?.toString() ?? '';
+    final accountName = bank?['account_holder_name']?.toString() ?? '';
+    final accountNumber = bank?['account_number']?.toString() ?? '';
+    final ifscCode = bank?['ifsc_code']?.toString() ?? '';
+    final branchName = bank?['branch']?.toString() ?? '';
+
+    // Extract documents data
+    final documents = json['documents'] as Map<String, dynamic>?;
+    final documentsDetails = documents?['documentsDetails'] as List<dynamic>? ?? [];
+    final signname = documents?['signname']?.toString() ?? '';
+
+    // Extract document arrays
+    final docNames = <String>[];
+    final docIds = <String>[];
+    final documentNumbers = <String>[];
+
+    for (final doc in documentsDetails) {
+      if (doc is Map<String, dynamic>) {
+        docNames.add(doc['name']?.toString() ?? '');
+        docIds.add(doc['doc_id']?.toString() ?? '');
+        documentNumbers.add(doc['documentNumber']?.toString() ?? '');
+      }
+    }
+
+    // Extract categories
+    final categoryIds = json['categoryIds'] as List<dynamic>? ?? [];
+    final categories = categoryIds.map((e) => e.toString()).toList();
+
+    return VendorModel(
+      firstName: json['firstName']?.toString() ?? '',
+      lastName: json['lastName']?.toString() ?? '',
+      email: json['email']?.toString() ?? '',
+      password: json['password']?.toString() ?? '',
+      mobile: json['mobile']?.toString() ?? '',
+      adharnumber: json['adharnumber']?.toString() ?? '',
+      residentaladdress: json['residentaladdress']?.toString() ?? '',
+      signname: signname,
+      businessName: json['businessName']?.toString() ?? '',
+      businessEmail: json['businessEmail']?.toString() ?? '',
+      altMobile: json['altMobile']?.toString() ?? '',
+      address: json['address']?.toString() ?? '',
+      categories: categories,
+      bussinessmobile: json['bussinessmobile']?.toString() ?? '',
+      bussinesslegalname: json['bussinesslegalname']?.toString() ?? '',
+      docNames: docNames,
+      docIds: docIds,
+      documentNumbers: documentNumbers,
+      files: const [],
+      frontimages: const [],
+      backimages: const [],
+      signature: const [],
+      bankName: bankName,
+      accountName: accountName,
+      accountNumber: accountNumber,
+      ifscCode: ifscCode,
+      branchName: branchName,
+      vendorId: json['_id']?.toString() ?? json['vendorsId']?.toString(),
     );
   }
 

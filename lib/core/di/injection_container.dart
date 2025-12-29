@@ -20,6 +20,7 @@ import '../../domain/usecases/get_all_drafts_usecase.dart';
 import '../../domain/usecases/get_dashboard_stats_usecase.dart';
 import '../../domain/usecases/get_draft_by_id_usecase.dart';
 import '../../domain/usecases/get_draft_count_usecase.dart';
+import '../../domain/usecases/get_vendor_details_usecase.dart';
 import '../../domain/usecases/get_vendor_list_usecase.dart';
 import '../../domain/usecases/login_usecase.dart';
 import '../../domain/usecases/save_draft_usecase.dart';
@@ -68,6 +69,7 @@ Future<void> initializeDependencies() async {
   sl.registerLazySingleton(() => CreateVendorUseCase(sl()));
   sl.registerLazySingleton(() => GetDashboardStatsUseCase(sl()));
   sl.registerLazySingleton(() => GetVendorListUseCase(sl()));
+  sl.registerLazySingleton(() => GetVendorDetailsUseCase(sl()));
 
   // Draft Use cases
   sl.registerLazySingleton(() => SaveDraftUseCase(sl<DraftRepository>()));
