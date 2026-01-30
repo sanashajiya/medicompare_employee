@@ -393,7 +393,7 @@ class DraftHelper {
           controllers['businessRegistrationExpiryDate']?.text ?? '',
       'professionalLicenseNumber':
           controllers['professionalLicenseNumber']?.text ?? '',
-      'professionalLicenseFilePath': professionalLicenseFile,
+      'professionalLicenseFile': professionalLicenseFile,
       'professionalLicenseExpiryDate':
           controllers['professionalLicenseExpiryDate']?.text ?? '',
       'additionalDocumentName':

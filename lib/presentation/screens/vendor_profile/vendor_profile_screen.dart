@@ -198,6 +198,8 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
     File? restoredAdditionalDocumentFile;
     String? restoredAdditionalDocumentFileName;
     List<File> restoredFrontStoreImages = [];
+    File? restoredStoreLogo;
+    File? restoredProfileBanner;
     Uint8List? restoredSignatureBytes;
 
     // Helper function to restore files
@@ -328,6 +330,16 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
         );
       }
 
+      // Restore Store Logo
+      await restoreFile(draft.storeLogoPath, (file, fileName) {
+        restoredStoreLogo = file;
+      });
+
+      // Restore Profile Banner
+      await restoreFile(draft.profileBannerPath, (file, fileName) {
+        restoredProfileBanner = file;
+      });
+
       // Restore signature
       if (draft.signatureImagePath != null) {
         try {
@@ -358,7 +370,7 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
         _emailController.text = draft.email;
         _phoneController.text = draft.mobile;
         _aadhaarNumberController.text = draft.aadhaarNumber;
-        _selectedIdProofType = draft.idProofType;
+        _selectedIdProofType = draft.idProofType ?? 'Aadhar';
         _residentialAddressController.text = draft.residentialAddress;
 
         // Business Details
@@ -409,6 +421,8 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
         _additionalDocumentFile = restoredAdditionalDocumentFile;
         _additionalDocumentFileName = restoredAdditionalDocumentFileName;
         _frontStoreImages = restoredFrontStoreImages;
+        _storeLogo = restoredStoreLogo;
+        _profileBanner = restoredProfileBanner;
         _signatureBytes = restoredSignatureBytes;
 
         // Signature
