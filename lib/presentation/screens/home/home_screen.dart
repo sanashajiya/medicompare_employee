@@ -1,10 +1,13 @@
 import 'dart:io';
-import 'dart:typed_data';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:file_picker/file_picker.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:signature/signature.dart';
+
 import '../../../core/constants/api_endpoints.dart';
 import '../../../core/di/injection_container.dart';
 import '../../../core/theme/app_colors.dart';
@@ -22,8 +25,6 @@ import '../../widgets/custom_text_field.dart';
 import '../../widgets/file_upload_field.dart';
 import '../../widgets/multi_select_dropdown.dart';
 import '../auth/login_screen.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:signature/signature.dart';
 
 class HomeScreen extends StatefulWidget {
   final UserEntity user;
@@ -120,8 +121,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // Category management
   List<CategoryModel> _availableCategories = [];
-  List<File> _frontendImages = [];
-  List<File> _backendImages = [];
+  final List<File> _frontendImages = [];
+  final List<File> _backendImages = [];
 
   String? _frontendImagesError;
   String? _backendImagesError;
@@ -571,6 +572,7 @@ class _HomeScreenState extends State<HomeScreen> {
           _businessRegistrationNumberController.text,
           _professionalLicenseNumberController.text,
         ],
+        expiryDates: ['', '', '', ''],
         files: [
           _panCardFile,
           _gstCertificateFile,

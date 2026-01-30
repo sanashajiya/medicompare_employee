@@ -1,5 +1,6 @@
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
+
 import '../../domain/entities/vendor_entity.dart';
 
 class VendorModel extends VendorEntity {
@@ -24,10 +25,13 @@ class VendorModel extends VendorEntity {
     required super.docNames,
     required super.docIds,
     required super.documentNumbers,
+    required super.expiryDates,
     required super.files,
     required super.frontimages,
     required super.backimages,
     required super.signature,
+    super.storeLogo,
+    super.profileBanner,
     required super.bankName,
     required super.accountName,
     required super.accountNumber,
@@ -35,6 +39,9 @@ class VendorModel extends VendorEntity {
     required super.branchName,
     super.otp,
     super.vendorId,
+    super.consentAccepted,
+    super.pricingAgreementAccepted,
+    super.slvAgreementAccepted,
     super.success,
     super.message,
   });
@@ -62,6 +69,9 @@ class VendorModel extends VendorEntity {
       documentNumbers: json['documentNumber'] != null
           ? List<String>.from(json['documentNumber'])
           : [],
+      expiryDates: json['expiryDate'] != null
+          ? List<String>.from(json['expiryDate'])
+          : [],
       files: const [],
       frontimages: const [],
       backimages: const [],
@@ -72,6 +82,9 @@ class VendorModel extends VendorEntity {
       ifscCode: json['ifscCode'] ?? '',
       branchName: json['branchName'] ?? '',
       vendorId: json['vendorId'] ?? json['_id'],
+      consentAccepted: json['consentAccepted'] ?? false,
+      pricingAgreementAccepted: json['pricingAgreementAccepted'] ?? false,
+      slvAgreementAccepted: json['slvAgreementAccepted'] ?? false,
       success: json['success'],
       message: json['message'],
     );
@@ -89,19 +102,22 @@ class VendorModel extends VendorEntity {
 
     // Extract documents data
     final documents = json['documents'] as Map<String, dynamic>?;
-    final documentsDetails = documents?['documentsDetails'] as List<dynamic>? ?? [];
+    final documentsDetails =
+        documents?['documentsDetails'] as List<dynamic>? ?? [];
     final signname = documents?['signname']?.toString() ?? '';
 
     // Extract document arrays
     final docNames = <String>[];
     final docIds = <String>[];
     final documentNumbers = <String>[];
+    final expiryDates = <String>[];
 
     for (final doc in documentsDetails) {
       if (doc is Map<String, dynamic>) {
         docNames.add(doc['name']?.toString() ?? '');
         docIds.add(doc['doc_id']?.toString() ?? '');
         documentNumbers.add(doc['documentNumber']?.toString() ?? '');
+        expiryDates.add(doc['expiryDate']?.toString() ?? '');
       }
     }
 
@@ -128,10 +144,13 @@ class VendorModel extends VendorEntity {
       docNames: docNames,
       docIds: docIds,
       documentNumbers: documentNumbers,
+      expiryDates: expiryDates,
       files: const [],
       frontimages: const [],
       backimages: const [],
       signature: const [],
+      storeLogo: null,
+      profileBanner: null,
       bankName: bankName,
       accountName: accountName,
       accountNumber: accountNumber,
@@ -164,10 +183,13 @@ class VendorModel extends VendorEntity {
       docNames: entity.docNames,
       docIds: entity.docIds,
       documentNumbers: entity.documentNumbers,
+      expiryDates: entity.expiryDates,
       files: entity.files,
       frontimages: entity.frontimages,
       backimages: entity.backimages,
       signature: entity.signature,
+      storeLogo: entity.storeLogo,
+      profileBanner: entity.profileBanner,
       bankName: entity.bankName,
       accountName: entity.accountName,
       accountNumber: entity.accountNumber,
@@ -175,6 +197,9 @@ class VendorModel extends VendorEntity {
       branchName: entity.branchName,
       otp: entity.otp,
       vendorId: entity.vendorId,
+      consentAccepted: entity.consentAccepted,
+      pricingAgreementAccepted: entity.pricingAgreementAccepted,
+      slvAgreementAccepted: entity.slvAgreementAccepted,
       success: entity.success,
       message: entity.message,
     );
@@ -202,6 +227,9 @@ class VendorModel extends VendorEntity {
       'bussinesslegalname': bussinesslegalname,
       'adharnumber': adharnumber,
       'residentaladdress': residentaladdress,
+      'consent_accepted': consentAccepted.toString(),
+      'pricing_agreement_accepted': pricingAgreementAccepted.toString(),
+      'slv_agreement_accepted': slvAgreementAccepted.toString(),
     };
 
     // Add OTP if provided (ALWAYS add type and usertype when OTP is present)
@@ -249,11 +277,21 @@ class VendorModel extends VendorEntity {
       }
     }
 
+    final safeExpiryDates = <String>[];
+    for (int i = 0; i < maxLength; i++) {
+      if (i < expiryDates.length) {
+        safeExpiryDates.add(expiryDates[i]);
+      } else {
+        safeExpiryDates.add('');
+      }
+    }
+
     return {
       'categories[]': categories,
       'doc_name[]': docNames,
       'doc_id[]': docIds,
       'documentNumber[]': safeDocumentNumbers,
+      'expiryDate[]': safeExpiryDates,
     };
   }
 
@@ -273,7 +311,7 @@ class VendorModel extends VendorEntity {
     print('✍️  signature: ${signature.length}');
     print('📄 Documents: ${files.length}');
 
-    MediaType _mediaType(String path) {
+    MediaType mediaType(String path) {
       final ext = path.split('.').last.toLowerCase();
       switch (ext) {
         case 'jpg':
@@ -303,7 +341,7 @@ class VendorModel extends VendorEntity {
             await http.MultipartFile.fromPath(
               'adhaarfrontimage',
               file.path,
-              contentType: _mediaType(file.path),
+              contentType: mediaType(file.path),
             ),
           );
           print('     ✅ Added to multipart');
@@ -330,7 +368,7 @@ class VendorModel extends VendorEntity {
             await http.MultipartFile.fromPath(
               'adhaarbackimage',
               file.path,
-              contentType: _mediaType(file.path),
+              contentType: mediaType(file.path),
             ),
           );
           print('     ✅ Added to multipart');
@@ -357,7 +395,7 @@ class VendorModel extends VendorEntity {
             await http.MultipartFile.fromPath(
               'frontimage',
               file.path,
-              contentType: _mediaType(file.path),
+              contentType: mediaType(file.path),
             ),
           );
           print('     ✅ Added to multipart');
@@ -384,7 +422,7 @@ class VendorModel extends VendorEntity {
             await http.MultipartFile.fromPath(
               'backimage',
               file.path,
-              contentType: _mediaType(file.path),
+              contentType: mediaType(file.path),
             ),
           );
           print('     ✅ Added to multipart');
@@ -411,7 +449,61 @@ class VendorModel extends VendorEntity {
             await http.MultipartFile.fromPath(
               'signature',
               file.path,
-              contentType: _mediaType(file.path),
+              contentType: mediaType(file.path),
+            ),
+          );
+          print('     ✅ Added to multipart');
+        } catch (e) {
+          print('     ❌ Error adding: $e');
+        }
+      } else {
+        print('     ❌ FILE NOT FOUND!');
+      }
+    }
+
+    // 🔹 Store Logo - API expects 'store_logo'
+    if (storeLogo != null) {
+      final file = storeLogo!;
+      final exists = await file.exists();
+      print('\n  🏪 Store Logo:');
+      print('     Path: ${file.path}');
+      print('     Exists: $exists');
+      if (exists) {
+        try {
+          final size = await file.length();
+          print('     Size: $size bytes');
+          filesList.add(
+            await http.MultipartFile.fromPath(
+              'store_logo',
+              file.path,
+              contentType: mediaType(file.path),
+            ),
+          );
+          print('     ✅ Added to multipart');
+        } catch (e) {
+          print('     ❌ Error adding: $e');
+        }
+      } else {
+        print('     ❌ FILE NOT FOUND!');
+      }
+    }
+
+    // 🔹 Profile Banner - API expects 'profile_banner'
+    if (profileBanner != null) {
+      final file = profileBanner!;
+      final exists = await file.exists();
+      print('\n  🖼️ Profile Banner:');
+      print('     Path: ${file.path}');
+      print('     Exists: $exists');
+      if (exists) {
+        try {
+          final size = await file.length();
+          print('     Size: $size bytes');
+          filesList.add(
+            await http.MultipartFile.fromPath(
+              'profile_banner',
+              file.path,
+              contentType: mediaType(file.path),
             ),
           );
           print('     ✅ Added to multipart');
@@ -439,7 +531,7 @@ class VendorModel extends VendorEntity {
               await http.MultipartFile.fromPath(
                 'file',
                 file.path,
-                contentType: _mediaType(file.path),
+                contentType: mediaType(file.path),
               ),
             );
             print('     ✅ Added to multipart');

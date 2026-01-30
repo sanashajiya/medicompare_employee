@@ -1,19 +1,29 @@
 import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+
 import '../../../../core/theme/app_colors.dart';
 
 class PhotosSection extends StatefulWidget {
   final List<File> frontStoreImages;
+  final File? storeLogo;
+  final File? profileBanner;
   final bool enabled;
   final Function(List<File>) onFrontStoreImagesChanged;
+  final Function(File?) onStoreLogoChanged;
+  final Function(File?) onProfileBannerChanged;
   final Function(bool isValid) onValidationChanged;
 
   const PhotosSection({
     super.key,
     required this.frontStoreImages,
+    required this.storeLogo,
+    required this.profileBanner,
     required this.enabled,
     required this.onFrontStoreImagesChanged,
+    required this.onStoreLogoChanged,
+    required this.onProfileBannerChanged,
     required this.onValidationChanged,
   });
 
@@ -23,11 +33,14 @@ class PhotosSection extends StatefulWidget {
 
 class _PhotosSectionState extends State<PhotosSection> {
   final ImagePicker _imagePicker = ImagePicker();
+
+  String? _storeLogoError;
+  String? _profileBannerError;
   String? _frontStoreImagesError;
   bool _showErrors = false;
 
   static const int _maxImages = 5;
-  static const int _maxSizeMB = 3;
+  static const int _maxSizeMB = 5;
   static const int _maxSizeBytes = _maxSizeMB * 1024 * 1024;
 
   @override
@@ -37,16 +50,37 @@ class _PhotosSectionState extends State<PhotosSection> {
   }
 
   void _validate() {
-    final error = widget.frontStoreImages.isEmpty
-        ? 'Please upload at least one store image'
-        : null;
+    String? storeLogoError;
+    if (widget.storeLogo == null) {
+      storeLogoError = 'Store Logo is required';
+    }
 
-    final isValid = widget.frontStoreImages.isNotEmpty;
-    widget.onValidationChanged(isValid);
+    String? profileBannerError;
+    if (widget.profileBanner == null) {
+      profileBannerError = 'Profile Banner is required';
+    }
+
+    String? frontStoreImagesError;
+    if (widget.frontStoreImages.isEmpty) {
+      frontStoreImagesError = 'Please upload at least one store image';
+    }
+
+    final isValid =
+        widget.storeLogo != null &&
+        widget.profileBanner != null &&
+        widget.frontStoreImages.isNotEmpty;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        widget.onValidationChanged(isValid);
+      }
+    });
 
     if (_showErrors) {
       setState(() {
-        _frontStoreImagesError = error;
+        _storeLogoError = storeLogoError;
+        _profileBannerError = profileBannerError;
+        _frontStoreImagesError = frontStoreImagesError;
       });
     }
   }
@@ -57,14 +91,53 @@ class _PhotosSectionState extends State<PhotosSection> {
     _validate();
   }
 
-  void _showUploadOptions() {
-    if (widget.frontStoreImages.length >= _maxImages) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Maximum $_maxImages images allowed'),
-          backgroundColor: AppColors.error,
-        ),
+  Future<void> _pickStoreLogo() async {
+    try {
+      final XFile? pickedFile = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 85,
+        maxWidth: 800,
+        maxHeight: 800,
       );
+
+      if (pickedFile == null) return;
+
+      final file = File(pickedFile.path);
+      if (!_validateFile(file, 'Store Logo')) return;
+
+      widget.onStoreLogoChanged(file);
+      if (!_showErrors) setState(() => _showErrors = true);
+      _validate();
+    } catch (e) {
+      _showErrorSnackbar('Failed to pick store logo');
+    }
+  }
+
+  Future<void> _pickProfileBanner() async {
+    try {
+      final XFile? pickedFile = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 85,
+        maxWidth: 1920,
+        maxHeight: 480,
+      );
+
+      if (pickedFile == null) return;
+
+      final file = File(pickedFile.path);
+      if (!_validateFile(file, 'Profile Banner')) return;
+
+      widget.onProfileBannerChanged(file);
+      if (!_showErrors) setState(() => _showErrors = true);
+      _validate();
+    } catch (e) {
+      _showErrorSnackbar('Failed to pick profile banner');
+    }
+  }
+
+  void _showStoreImagesUploadOptions() {
+    if (widget.frontStoreImages.length >= _maxImages) {
+      _showErrorSnackbar('Maximum $_maxImages images allowed');
       return;
     }
 
@@ -96,11 +169,6 @@ class _PhotosSectionState extends State<PhotosSection> {
                   color: AppColors.textPrimary,
                 ),
               ),
-              const SizedBox(height: 8),
-              Text(
-                'Choose how you want to upload',
-                style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
-              ),
               const SizedBox(height: 24),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 40),
@@ -113,7 +181,7 @@ class _PhotosSectionState extends State<PhotosSection> {
                         color: AppColors.primary,
                         onTap: () {
                           Navigator.pop(context);
-                          _pickFromCamera();
+                          _pickStoreImageFromCamera();
                         },
                       ),
                     ),
@@ -125,17 +193,443 @@ class _PhotosSectionState extends State<PhotosSection> {
                         color: AppColors.success,
                         onTap: () {
                           Navigator.pop(context);
-                          _pickFromGallery();
+                          _pickStoreImageFromGallery();
                         },
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 16),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Future<void> _pickStoreImageFromCamera() async {
+    try {
+      final XFile? pickedFile = await _imagePicker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 85,
+        maxWidth: 1500,
+        maxHeight: 1500,
+      );
+
+      if (pickedFile == null) return;
+      final file = File(pickedFile.path);
+      if (!_validateFile(file, 'Store Image')) return;
+
+      final newImages = [...widget.frontStoreImages, file];
+      widget.onFrontStoreImagesChanged(newImages);
+      if (!_showErrors) setState(() => _showErrors = true);
+      _validate();
+    } catch (e) {
+      _showErrorSnackbar('Failed to capture image');
+    }
+  }
+
+  Future<void> _pickStoreImageFromGallery() async {
+    try {
+      final remainingSlots = _maxImages - widget.frontStoreImages.length;
+      final List<XFile> pickedImages = await _imagePicker.pickMultiImage(
+        imageQuality: 85,
+        maxWidth: 1500,
+        maxHeight: 1500,
+      );
+
+      if (pickedImages.isEmpty) return;
+
+      List<File> validImages = [];
+      for (final xFile in pickedImages) {
+        if (validImages.length >= remainingSlots) {
+          _showErrorSnackbar('Maximum $_maxImages images allowed');
+          break;
+        }
+        final file = File(xFile.path);
+        if (_validateFile(file, 'Store Image', showSnackbar: false)) {
+          validImages.add(file);
+        }
+      }
+
+      if (validImages.isNotEmpty) {
+        final newImages = [...widget.frontStoreImages, ...validImages];
+        widget.onFrontStoreImagesChanged(newImages);
+        if (!_showErrors) setState(() => _showErrors = true);
+        _validate();
+      }
+    } catch (e) {
+      _showErrorSnackbar('Failed to pick images');
+    }
+  }
+
+  bool _validateFile(File file, String fieldName, {bool showSnackbar = true}) {
+    if (file.lengthSync() > _maxSizeBytes) {
+      if (showSnackbar) {
+        _showErrorSnackbar('$fieldName must be less than $_maxSizeMB MB');
+      }
+      return false;
+    }
+
+    // Check extension
+    final ext = file.path.split('.').last.toLowerCase();
+    if (!['jpg', 'jpeg', 'png', 'webp', 'gif'].contains(ext)) {
+      if (showSnackbar) {
+        _showErrorSnackbar('Unsupported format. Use JPG, PNG, WebP, GIF');
+      }
+      return false;
+    }
+
+    return true;
+  }
+
+  void _showErrorSnackbar(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: AppColors.error),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 1. Store Logo
+        _buildUploadSection(
+          title: 'Store Logo',
+          isRequired: true,
+          errorText: _showErrors ? _storeLogoError : null,
+          content: _buildSingleUploadCard(
+            file: widget.storeLogo,
+            label: 'Tap to upload logo',
+            successLabel: 'Logo uploaded successfully',
+            onTap: widget.enabled ? _pickStoreLogo : null,
+            onRemove: widget.enabled && widget.storeLogo != null
+                ? () {
+                    widget.onStoreLogoChanged(null);
+                    _validate();
+                  }
+                : null,
+            isWide: false,
+          ),
+          guidelines: [
+            'Shape: Square (1:1 aspect ratio)',
+            'Min: 200x200px, Max: 800x800px',
+            'Formats: JPG, PNG • Max: 5MB',
+          ],
+        ),
+
+        const SizedBox(height: 24),
+
+        // 2. Profile Banner
+        _buildUploadSection(
+          title: 'Profile Banner',
+          isRequired: true,
+          errorText: _showErrors ? _profileBannerError : null,
+          content: _buildSingleUploadCard(
+            file: widget.profileBanner,
+            label: 'Tap to upload banner',
+            successLabel: 'Banner uploaded successfully',
+            onTap: widget.enabled ? _pickProfileBanner : null,
+            onRemove: widget.enabled && widget.profileBanner != null
+                ? () {
+                    widget.onProfileBannerChanged(null);
+                    _validate();
+                  }
+                : null,
+            isWide: true,
+          ),
+          guidelines: [
+            'Ratio: 4:1 (Landscape)',
+            'Min: 800x200px, Max: 1920x480px',
+            'Formats: JPG, PNG • Max: 5MB',
+          ],
+        ),
+
+        const SizedBox(height: 24),
+
+        // 3. Store Gallery Images
+        _buildUploadSection(
+          title: 'Store Gallery Images',
+          isRequired: true,
+          countLabel: '${widget.frontStoreImages.length}/$_maxImages uploaded',
+          errorText: _showErrors ? _frontStoreImagesError : null,
+          content: Column(
+            children: [
+              InkWell(
+                onTap: widget.enabled ? _showStoreImagesUploadOptions : null,
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 20),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withOpacity(0.05),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: AppColors.primary.withOpacity(0.3),
+                      style: BorderStyle.solid,
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      Icon(
+                        Icons.add_photo_alternate_rounded,
+                        color: AppColors.primary,
+                        size: 32,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Tap to upload store images',
+                        style: TextStyle(
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              if (widget.frontStoreImages.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: List.generate(
+                      widget.frontStoreImages.length,
+                      (index) => Padding(
+                        padding: EdgeInsets.only(
+                          right: index < widget.frontStoreImages.length - 1
+                              ? 12
+                              : 0,
+                        ),
+                        child: _buildImageThumbnail(
+                          widget.frontStoreImages[index],
+                          () {
+                            final newImages = List<File>.from(
+                              widget.frontStoreImages,
+                            );
+                            newImages.removeAt(index);
+                            widget.onFrontStoreImagesChanged(newImages);
+                            _validate();
+                          },
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          guidelines: [
+            'Max 5 images',
+            'Formats: JPG, PNG, WebP, GIF • Max: 5MB per image',
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildUploadSection({
+    required String title,
+    required bool isRequired,
+    required Widget content,
+    String? errorText,
+    String? countLabel,
+    List<String>? guidelines,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              isRequired ? '$title *' : title,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            if (countLabel != null)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  countLabel,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        content,
+        if (errorText != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              errorText,
+              style: const TextStyle(color: AppColors.error, fontSize: 12),
+            ),
+          ),
+        if (guidelines != null) ...[
+          const SizedBox(height: 12),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.grey[50],
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: guidelines
+                  .map(
+                    (g) => Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            '• ',
+                            style: TextStyle(color: AppColors.textSecondary),
+                          ),
+                          Expanded(
+                            child: Text(
+                              g,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                  .toList(),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildSingleUploadCard({
+    required File? file,
+    required String label,
+    required String successLabel,
+    required VoidCallback? onTap,
+    required VoidCallback? onRemove,
+    required bool isWide,
+  }) {
+    final bool hasFile = file != null;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        width: double.infinity,
+        height: isWide ? 150 : 150, // Keep height consistent or responsive
+        decoration: BoxDecoration(
+          color: hasFile ? Colors.white : AppColors.primary.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: hasFile
+                ? AppColors.success
+                : AppColors.primary.withOpacity(0.3),
+            width: hasFile ? 1.5 : 1,
+            style: hasFile
+                ? BorderStyle.solid
+                : BorderStyle
+                      .none, // Removed dashed border helper dependency for now, simpler
+          ),
+          image: hasFile
+              ? DecorationImage(image: FileImage(file), fit: BoxFit.cover)
+              : null,
+        ),
+        child: hasFile
+            ? Stack(
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(11),
+                    ),
+                  ),
+                  Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.check_circle,
+                          color: Colors.white,
+                          size: 32,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          successLabel,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (onRemove != null)
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: GestureDetector(
+                        onTap: onRemove,
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.5),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.close,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              )
+            : Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    isWide
+                        ? Icons.image_aspect_ratio_rounded
+                        : Icons.add_a_photo_outlined,
+                    color: AppColors.primary,
+                    size: 40,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      color: AppColors.primary,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
       ),
     );
   }
@@ -172,253 +666,6 @@ class _PhotosSectionState extends State<PhotosSection> {
           ],
         ),
       ),
-    );
-  }
-
-  Future<void> _pickFromCamera() async {
-    try {
-      final XFile? pickedFile = await _imagePicker.pickImage(
-        source: ImageSource.camera,
-        imageQuality: 85,
-        maxWidth: 1500,
-        maxHeight: 1500,
-      );
-
-      if (pickedFile == null) return;
-
-      final file = File(pickedFile.path);
-
-      if (!_validateImage(file)) return;
-
-      final newImages = [...widget.frontStoreImages, file];
-      widget.onFrontStoreImagesChanged(newImages);
-      if (!_showErrors) setState(() => _showErrors = true);
-      _validate();
-    } catch (e) {
-      _showErrorSnackbar('Failed to capture image');
-    }
-  }
-
-  Future<void> _pickFromGallery() async {
-    try {
-      final remainingSlots = _maxImages - widget.frontStoreImages.length;
-
-      final List<XFile> pickedImages = await _imagePicker.pickMultiImage(
-        imageQuality: 85,
-        maxWidth: 1500,
-        maxHeight: 1500,
-      );
-
-      if (pickedImages.isEmpty) return;
-
-      List<File> validImages = [];
-
-      for (final xFile in pickedImages) {
-        if (validImages.length >= remainingSlots) {
-          _showErrorSnackbar('Maximum $_maxImages images allowed');
-          break;
-        }
-
-        final file = File(xFile.path);
-
-        if (file.lengthSync() > _maxSizeBytes) {
-          _showErrorSnackbar('Each image must be less than $_maxSizeMB MB');
-          continue;
-        }
-
-        // Check extension
-        final ext = xFile.name.split('.').last.toLowerCase();
-        if (!['jpg', 'jpeg', 'png'].contains(ext)) {
-          _showErrorSnackbar('Only JPG, JPEG, PNG formats allowed');
-          continue;
-        }
-
-        validImages.add(file);
-      }
-
-      if (validImages.isNotEmpty) {
-        final newImages = [...widget.frontStoreImages, ...validImages];
-        widget.onFrontStoreImagesChanged(newImages);
-        if (!_showErrors) setState(() => _showErrors = true);
-        _validate();
-      }
-    } catch (e) {
-      _showErrorSnackbar('Failed to pick images');
-    }
-  }
-
-  bool _validateImage(File file) {
-    if (widget.frontStoreImages.length >= _maxImages) {
-      _showErrorSnackbar('Maximum $_maxImages images allowed');
-      return false;
-    }
-
-    if (file.lengthSync() > _maxSizeBytes) {
-      _showErrorSnackbar('Image must be less than $_maxSizeMB MB');
-      return false;
-    }
-
-    return true;
-  }
-
-  void _showErrorSnackbar(String message) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: AppColors.error),
-    );
-  }
-
-  void _removeImage(int index) {
-    final newImages = List<File>.from(widget.frontStoreImages);
-    newImages.removeAt(index);
-    widget.onFrontStoreImagesChanged(newImages);
-    _validate();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Upload store images',
-          style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
-        ),
-        const SizedBox(height: 24),
-        // Front Store Images
-        Container(
-          decoration: BoxDecoration(
-            border: Border(
-              left: BorderSide(color: AppColors.primary, width: 4),
-            ),
-            color: AppColors.primary.withOpacity(0.05),
-            borderRadius: const BorderRadius.horizontal(
-              right: Radius.circular(8),
-            ),
-          ),
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(
-                    Icons.storefront_rounded,
-                    color: AppColors.primary,
-                    size: 24,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Front Store Images *',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.primary,
-                            fontSize: 15,
-                          ),
-                        ),
-                        Text(
-                          'Max $_maxImages images (JPG, PNG)',
-                          style: TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      '${widget.frontStoreImages.length}/$_maxImages',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              InkWell(
-                onTap: widget.enabled ? _showUploadOptions : null,
-                borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: const [
-                      Icon(
-                        Icons.add_photo_alternate_rounded,
-                        color: Colors.white,
-                        size: 20,
-                      ),
-                      SizedBox(width: 8),
-                      Text(
-                        'Add Images',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              if (_showErrors && _frontStoreImagesError != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Text(
-                    _frontStoreImagesError!,
-                    style: const TextStyle(
-                      color: AppColors.error,
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-              if (widget.frontStoreImages.isNotEmpty) ...[
-                const SizedBox(height: 16),
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: List.generate(
-                      widget.frontStoreImages.length,
-                      (index) => Padding(
-                        padding: EdgeInsets.only(
-                          right: index < widget.frontStoreImages.length - 1
-                              ? 12
-                              : 0,
-                        ),
-                        child: _buildImageThumbnail(
-                          widget.frontStoreImages[index],
-                          () => _removeImage(index),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ],
     );
   }
 
@@ -475,8 +722,3 @@ class _PhotosSectionState extends State<PhotosSection> {
     );
   }
 }
-
-
-
-
-

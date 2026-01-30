@@ -37,7 +37,7 @@ class DraftHelper {
       if (sourcePath == destPath) {
         // File is already in the destination, no need to copy
         print(
-          '✅ File already in draft directory: $destinationPath (${fileSize} bytes)',
+          '✅ File already in draft directory: $destinationPath ($fileSize bytes)',
         );
         return destinationPath;
       }
@@ -55,7 +55,7 @@ class DraftHelper {
 
       // Read the source file into memory to avoid file handle issues
       print(
-        '📖 Reading source file into memory: ${sourceFile.path} (${fileSize} bytes)',
+        '📖 Reading source file into memory: ${sourceFile.path} ($fileSize bytes)',
       );
       final bytes = await sourceFile.readAsBytes();
 
@@ -85,12 +85,12 @@ class DraftHelper {
 
       if (writtenSize != bytes.length) {
         print(
-          '⚠️ Written size (${writtenSize}) does not match source size (${bytes.length}): $destinationPath',
+          '⚠️ Written size ($writtenSize) does not match source size (${bytes.length}): $destinationPath',
         );
       }
 
       print(
-        '✅ File copied successfully: $destinationPath (${writtenSize} bytes)',
+        '✅ File copied successfully: $destinationPath ($writtenSize bytes)',
       );
       return destFile.path;
     } catch (e) {
@@ -113,7 +113,7 @@ class DraftHelper {
         await draftDir.create(recursive: true);
       }
 
-      // Save Govt Id Proof Image
+      // Save Id Proof Image
       String? aadhaarFrontImagePath;
       if (formData['aadhaarFrontImage'] != null &&
           formData['aadhaarFrontImage'] is File) {
@@ -211,6 +211,29 @@ class DraftHelper {
         }
       }
 
+      // Save Store Logo
+      String? storeLogoPath;
+      if (formData['storeLogo'] != null && formData['storeLogo'] is File) {
+        final file = formData['storeLogo'] as File;
+        final extension = file.path.split('.').last;
+        storeLogoPath = await _copySafeFile(
+          file,
+          '${draftDir.path}/store_logo.$extension',
+        );
+      }
+
+      // Save Profile Banner
+      String? profileBannerPath;
+      if (formData['profileBanner'] != null &&
+          formData['profileBanner'] is File) {
+        final file = formData['profileBanner'] as File;
+        final extension = file.path.split('.').last;
+        profileBannerPath = await _copySafeFile(
+          file,
+          '${draftDir.path}/profile_banner.$extension',
+        );
+      }
+
       // Save signature
       String? signatureImagePath;
       if (formData['signatureBytes'] != null &&
@@ -232,7 +255,7 @@ class DraftHelper {
           if (sigSize > 0) {
             signatureImagePath = signatureFile.path;
             print(
-              '✅ Signature saved successfully: $signatureImagePath (${sigSize} bytes)',
+              '✅ Signature saved successfully: $signatureImagePath ($sigSize bytes)',
             );
           } else {
             print('❌ Signature file is empty after write');
@@ -250,9 +273,9 @@ class DraftHelper {
         firstName: formData['firstName'] ?? '',
         lastName: formData['lastName'] ?? '',
         email: formData['email'] ?? '',
-        password: formData['password'] ?? '',
         mobile: formData['mobile'] ?? '',
         aadhaarNumber: formData['aadhaarNumber'] ?? '',
+        idProofType: formData['idProofType'],
         residentialAddress: formData['residentialAddress'] ?? '',
         aadhaarFrontImagePath: aadhaarFrontImagePath,
         aadhaarBackImagePath: aadhaarBackImagePath,
@@ -272,19 +295,32 @@ class DraftHelper {
         bankBranch: formData['bankBranch'] ?? '',
         panCardNumber: formData['panCardNumber'] ?? '',
         panCardFilePath: panCardFilePath,
+        panCardExpiryDate: formData['panCardExpiryDate'] ?? '',
         gstCertificateNumber: formData['gstCertificateNumber'] ?? '',
         gstCertificateFilePath: gstCertificateFilePath,
+        gstExpiryDate: formData['gstExpiryDate'] ?? '',
         businessRegistrationNumber:
             formData['businessRegistrationNumber'] ?? '',
         businessRegistrationFilePath: businessRegistrationFilePath,
+        businessRegistrationExpiryDate:
+            formData['businessRegistrationExpiryDate'] ?? '',
         professionalLicenseNumber: formData['professionalLicenseNumber'] ?? '',
         professionalLicenseFilePath: professionalLicenseFilePath,
+        professionalLicenseExpiryDate:
+            formData['professionalLicenseExpiryDate'] ?? '',
         additionalDocumentName: formData['additionalDocumentName'] ?? '',
         additionalDocumentFilePath: additionalDocumentFilePath,
+        additionalDocumentExpiryDate:
+            formData['additionalDocumentExpiryDate'] ?? '',
         frontStoreImagePaths: frontStoreImagePaths,
+        storeLogoPath: storeLogoPath,
+        profileBannerPath: profileBannerPath,
         signatureImagePath: signatureImagePath,
         signerName: formData['signerName'] ?? '',
         acceptedTerms: formData['acceptedTerms'] ?? false,
+        consentAccepted: formData['consentAccepted'] ?? false,
+        pricingAgreementAccepted: formData['pricingAgreementAccepted'] ?? false,
+        slvAgreementAccepted: formData['slvAgreementAccepted'] ?? false,
         sectionCompleted: List<bool>.from(stepperState.sectionCompleted),
         sectionValidations: List<bool>.from(stepperState.sectionValidations),
       );
@@ -303,6 +339,7 @@ class DraftHelper {
   /// Extract form data from vendor profile screen state
   static Map<String, dynamic> extractFormData({
     required Map<String, TextEditingController> controllers,
+    String? idProofType,
     File? aadhaarFrontImage,
     File? aadhaarBackImage,
     File? panCardFile,
@@ -311,18 +348,23 @@ class DraftHelper {
     File? professionalLicenseFile,
     File? additionalDocumentFile,
     List<File>? frontStoreImages,
+    File? storeLogo,
+    File? profileBanner,
     Uint8List? signatureBytes,
     List<String>? categories,
     String? signerName,
     bool? acceptedTerms,
+    bool? consentAccepted,
+    bool? pricingAgreementAccepted,
+    bool? slvAgreementAccepted,
   }) {
     return {
       'firstName': controllers['firstName']?.text ?? '',
       'lastName': controllers['lastName']?.text ?? '',
       'email': controllers['email']?.text ?? '',
-      'password': controllers['password']?.text ?? '',
       'mobile': controllers['mobile']?.text ?? '',
       'aadhaarNumber': controllers['aadhaarNumber']?.text ?? '',
+      'idProofType': idProofType,
       'residentialAddress': controllers['residentialAddress']?.text ?? '',
       'aadhaarFrontImage': aadhaarFrontImage,
       'aadhaarBackImage': aadhaarBackImage,
@@ -340,24 +382,34 @@ class DraftHelper {
       'bankBranch': controllers['bankBranch']?.text ?? '',
       'panCardNumber': controllers['panCardNumber']?.text ?? '',
       'panCardFile': panCardFile,
+      'panCardExpiryDate': controllers['panCardExpiryDate']?.text ?? '',
       'gstCertificateNumber': controllers['gstCertificateNumber']?.text ?? '',
       'gstCertificateFile': gstCertificateFile,
+      'gstExpiryDate': controllers['gstExpiryDate']?.text ?? '',
       'businessRegistrationNumber':
           controllers['businessRegistrationNumber']?.text ?? '',
       'businessRegistrationFile': businessRegistrationFile,
+      'businessRegistrationExpiryDate':
+          controllers['businessRegistrationExpiryDate']?.text ?? '',
       'professionalLicenseNumber':
           controllers['professionalLicenseNumber']?.text ?? '',
-      'professionalLicenseFile': professionalLicenseFile,
+      'professionalLicenseFilePath': professionalLicenseFile,
+      'professionalLicenseExpiryDate':
+          controllers['professionalLicenseExpiryDate']?.text ?? '',
       'additionalDocumentName':
           controllers['additionalDocumentName']?.text ?? '',
       'additionalDocumentFile': additionalDocumentFile,
+      'additionalDocumentExpiryDate':
+          controllers['additionalDocumentExpiryDate']?.text ?? '',
       'frontStoreImages': frontStoreImages ?? [],
+      'storeLogo': storeLogo,
+      'profileBanner': profileBanner,
       'signatureBytes': signatureBytes,
       'signerName': signerName ?? '',
       'acceptedTerms': acceptedTerms ?? false,
+      'consentAccepted': consentAccepted ?? false,
+      'pricingAgreementAccepted': pricingAgreementAccepted ?? false,
+      'slvAgreementAccepted': slvAgreementAccepted ?? false,
     };
   }
 }
-
-
-

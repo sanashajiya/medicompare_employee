@@ -1,7 +1,9 @@
 import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
+
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/validators.dart';
 import '../../../widgets/custom_text_field.dart';
@@ -11,8 +13,6 @@ class PersonalDetailsSection extends StatefulWidget {
   final TextEditingController lastNameController;
   final TextEditingController emailController;
   final TextEditingController phoneController;
-  final TextEditingController passwordController;
-  final TextEditingController confirmPasswordController;
   final TextEditingController aadhaarNumberController;
   final TextEditingController residentialAddressController;
   final File? aadhaarFrontImage;
@@ -21,6 +21,8 @@ class PersonalDetailsSection extends StatefulWidget {
   final Function(File?) onAadhaarFrontImageChanged;
   final Function(File?) onAadhaarBackImageChanged;
   final Function(bool isValid) onValidationChanged;
+  final String? selectedIdProofType;
+  final Function(String?) onIdProofTypeChanged;
 
   const PersonalDetailsSection({
     super.key,
@@ -28,8 +30,6 @@ class PersonalDetailsSection extends StatefulWidget {
     required this.lastNameController,
     required this.emailController,
     required this.phoneController,
-    required this.passwordController,
-    required this.confirmPasswordController,
     required this.aadhaarNumberController,
     required this.residentialAddressController,
     required this.aadhaarFrontImage,
@@ -38,6 +38,8 @@ class PersonalDetailsSection extends StatefulWidget {
     required this.onAadhaarFrontImageChanged,
     required this.onAadhaarBackImageChanged,
     required this.onValidationChanged,
+    required this.selectedIdProofType,
+    required this.onIdProofTypeChanged,
   });
 
   @override
@@ -51,12 +53,11 @@ class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
   String? _lastNameError;
   String? _emailError;
   String? _phoneError;
-  String? _passwordError;
-  String? _confirmPasswordError;
   String? _aadhaarNumberError;
   String? _aadhaarFrontImageError;
   String? _aadhaarBackImageError;
   String? _residentialAddressError;
+  String? _idProofTypeError;
   bool _showErrors = false;
 
   @override
@@ -70,8 +71,6 @@ class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
     widget.lastNameController.addListener(_validate);
     widget.emailController.addListener(_validate);
     widget.phoneController.addListener(_validate);
-    widget.passwordController.addListener(_validate);
-    widget.confirmPasswordController.addListener(_validate);
     widget.aadhaarNumberController.addListener(_validate);
     widget.residentialAddressController.addListener(_validate);
   }
@@ -98,21 +97,44 @@ class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
     final phoneError = Validators.validateMobileNumber(
       widget.phoneController.text,
     );
-    final passwordError = Validators.validatePassword(
-      widget.passwordController.text,
-    );
-    final confirmPasswordError = Validators.validateConfirmPassword(
-      widget.passwordController.text,
-      widget.confirmPasswordController.text,
-    );
-    final aadhaarNumberError = Validators.validateAadhaarNumber(
-      widget.aadhaarNumberController.text,
-    );
+
+    // Validate ID Proof Number based on type
+    String? aadhaarNumberError;
+    final idProofNumber = widget.aadhaarNumberController.text;
+
+    switch (widget.selectedIdProofType) {
+      case 'Aadhar':
+        aadhaarNumberError = Validators.validateAadhaarNumber(idProofNumber);
+        break;
+      case 'Passport':
+        aadhaarNumberError = Validators.validatePassportNumber(idProofNumber);
+        break;
+      case 'PAN Card':
+        aadhaarNumberError = Validators.validatePanCardNumber(idProofNumber);
+        break;
+      case 'Driving License':
+        aadhaarNumberError = Validators.validateDrivingLicenseNumber(
+          idProofNumber,
+        );
+        break;
+      case 'Voter ID':
+        aadhaarNumberError = Validators.validateVoterIdNumber(idProofNumber);
+        break;
+      default:
+        aadhaarNumberError = Validators.validateRequired(
+          idProofNumber,
+          'ID Proof Number',
+        );
+    }
+
+    final idProofTypeError = widget.selectedIdProofType == null
+        ? 'ID Proof Type is mandatory'
+        : null;
     final aadhaarFrontImageError = widget.aadhaarFrontImage == null
-        ? 'Govt Id Proof Image is required'
+        ? 'Id Proof Front Image is required'
         : null;
     final aadhaarBackImageError = widget.aadhaarBackImage == null
-        ? 'Govt Id Proof Back Image is required'
+        ? 'Id Proof Back Image is required'
         : null;
     final residentialAddressError = Validators.validateAddress(
       widget.residentialAddressController.text,
@@ -123,9 +145,8 @@ class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
         lastNameError == null &&
         emailError == null &&
         phoneError == null &&
-        passwordError == null &&
-        confirmPasswordError == null &&
         aadhaarNumberError == null &&
+        idProofTypeError == null &&
         aadhaarFrontImageError == null &&
         aadhaarBackImageError == null &&
         residentialAddressError == null &&
@@ -133,9 +154,8 @@ class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
         widget.lastNameController.text.isNotEmpty &&
         widget.emailController.text.isNotEmpty &&
         widget.phoneController.text.isNotEmpty &&
-        widget.passwordController.text.isNotEmpty &&
-        widget.confirmPasswordController.text.isNotEmpty &&
         widget.aadhaarNumberController.text.isNotEmpty &&
+        widget.selectedIdProofType != null &&
         widget.aadhaarFrontImage != null &&
         widget.aadhaarBackImage != null &&
         widget.residentialAddressController.text.isNotEmpty;
@@ -148,9 +168,8 @@ class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
         _lastNameError = lastNameError;
         _emailError = emailError;
         _phoneError = phoneError;
-        _passwordError = passwordError;
-        _confirmPasswordError = confirmPasswordError;
         _aadhaarNumberError = aadhaarNumberError;
+        _idProofTypeError = idProofTypeError;
         _aadhaarFrontImageError = aadhaarFrontImageError;
         _aadhaarBackImageError = aadhaarBackImageError;
         _residentialAddressError = residentialAddressError;
@@ -360,46 +379,102 @@ class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
           },
         ),
         const SizedBox(height: 20),
-        CustomTextField(
-          controller: widget.passwordController,
-          label: 'Password *',
-          hint: 'Enter password',
-          errorText: _passwordError,
-          obscureText: true,
-          enabled: widget.enabled,
-          onChanged: (_) {
-            if (!_showErrors) setState(() => _showErrors = true);
-          },
+        const SizedBox(height: 20),
+        // ID Proof Type Dropdown
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'ID Proof Type *',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: _showErrors && _idProofTypeError != null
+                      ? AppColors.error
+                      : AppColors.border,
+                ),
+                color: widget.enabled ? Colors.white : Colors.grey.shade100,
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: widget.selectedIdProofType,
+                  hint: Text(
+                    'Select ID Proof Type',
+                    style: TextStyle(color: AppColors.textSecondary),
+                  ),
+                  isExpanded: true,
+                  icon: const Icon(Icons.arrow_drop_down),
+                  items:
+                      [
+                        'Aadhar',
+                        'Passport',
+                        'Driving License',
+                        'Voter ID',
+                        'PAN Card',
+                      ].map((String value) {
+                        return DropdownMenuItem<String>(
+                          value: value,
+                          child: Text(value),
+                        );
+                      }).toList(),
+                  onChanged: widget.enabled
+                      ? (String? newValue) {
+                          widget.onIdProofTypeChanged(newValue);
+                          // Create a dummy mismatch check to trigger revalidation
+                          if (!_showErrors) setState(() => _showErrors = true);
+                        }
+                      : null,
+                ),
+              ),
+            ),
+            if (_showErrors && _idProofTypeError != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 6, left: 4),
+                child: Text(
+                  _idProofTypeError!,
+                  style: const TextStyle(color: AppColors.error, fontSize: 12),
+                ),
+              ),
+          ],
         ),
         const SizedBox(height: 20),
-        CustomTextField(
-          controller: widget.confirmPasswordController,
-          label: 'Confirm Password *',
-          hint: 'Re-enter password',
-          errorText: _confirmPasswordError,
-          obscureText: true,
-          enabled: widget.enabled,
-          onChanged: (_) {
-            if (!_showErrors) setState(() => _showErrors = true);
-          },
-        ),
-        const SizedBox(height: 20),
-        // Aadhaar Number
+        // ID Proof Number (Renamed from Aadhaar Number)
         CustomTextField(
           controller: widget.aadhaarNumberController,
-          label: 'Aadhaar Number *',
-          hint: 'Enter 12 digit Aadhaar number',
+          label: 'ID Proof Number *',
+          hint: 'Enter ID Proof Number',
           errorText: _aadhaarNumberError,
-          keyboardType: TextInputType.number,
-          maxLength: 12,
+          keyboardType: widget.selectedIdProofType == 'Aadhar'
+              ? TextInputType.number
+              : TextInputType.text,
+          maxLength: _getIdProofMaxLength(widget.selectedIdProofType),
           enabled: widget.enabled,
-          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+
+          inputFormatters: [
+            if (widget.selectedIdProofType == 'Aadhar')
+              FilteringTextInputFormatter.digitsOnly,
+            if (widget.selectedIdProofType != 'Aadhar')
+              FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9]')),
+            if (widget.selectedIdProofType == 'PAN Card')
+              TextInputFormatter.withFunction((oldValue, newValue) {
+                return newValue.copyWith(text: newValue.text.toUpperCase());
+              }),
+          ],
           onChanged: (_) {
             if (!_showErrors) setState(() => _showErrors = true);
           },
         ),
         const SizedBox(height: 20),
-        // Govt Id Proof Image Upload
+        // Id Proof Image Upload
         _buildAadhaarImageUpload(true),
         const SizedBox(height: 20),
         // Govt Id Proof Back Image Upload
@@ -424,12 +499,10 @@ class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
   Widget _buildAadhaarImageUpload(bool isFront) {
     final image = isFront ? widget.aadhaarFrontImage : widget.aadhaarBackImage;
     final error = isFront ? _aadhaarFrontImageError : _aadhaarBackImageError;
-    final label = isFront
-        ? 'Govt Id Proof Image *'
-        : 'Govt Id Proof Back Image *';
+    final label = isFront ? 'Id Proof Front Image *' : 'Id Proof Back Image *';
     final uploadText = isFront
-        ? 'Upload Govt Id Proof Image'
-        : 'Upload Govt Id Proof Back Image';
+        ? 'Upload  Id Proof Front Image'
+        : 'Upload  Id Proof Back Image';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -616,7 +689,21 @@ class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
       ],
     );
   }
+
+  int _getIdProofMaxLength(String? type) {
+    switch (type) {
+      case 'Aadhar':
+        return 12;
+      case 'Passport':
+        return 8;
+      case 'PAN Card':
+        return 10;
+      case 'Driving License':
+        return 16;
+      case 'Voter ID':
+        return 10;
+      default:
+        return 20;
+    }
+  }
 }
-
-
-

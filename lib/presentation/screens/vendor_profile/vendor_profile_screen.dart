@@ -66,8 +66,6 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
   final _lastNameController = TextEditingController();
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
-  final _passwordController = TextEditingController();
-  final _confirmPasswordController = TextEditingController();
   final _aadhaarNumberController = TextEditingController();
   final _residentialAddressController = TextEditingController();
   File? _aadhaarFrontImage;
@@ -95,6 +93,12 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
   final _businessRegistrationNumberController = TextEditingController();
   final _professionalLicenseNumberController = TextEditingController();
   final _additionalDocumentNameController = TextEditingController();
+  // Expiry Date Controllers
+  final _panCardExpiryDateController = TextEditingController();
+  final _gstExpiryDateController = TextEditingController();
+  final _businessRegistrationExpiryDateController = TextEditingController();
+  final _professionalLicenseExpiryDateController = TextEditingController();
+  final _additionalDocumentExpiryDateController = TextEditingController();
 
   // Signature
   final SignatureController _signatureController = SignatureController(
@@ -116,17 +120,21 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
   File? _panCardFile;
   File? _professionalLicenseFile;
   File? _additionalDocumentFile;
+  File? _storeLogo;
+  File? _profileBanner;
   String? _businessRegistrationFileName;
   String? _gstCertificateFileName;
   String? _panCardFileName;
   String? _professionalLicenseFileName;
   String? _additionalDocumentFileName;
-
   // Images
   List<File> _frontStoreImages = [];
 
   // Terms
   bool _acceptedTerms = false;
+  bool _consentAccepted = false;
+  bool _pricingAgreementAccepted = false;
+  bool _slvAgreementAccepted = false;
 
   // OTP verification state
   bool _isOtpVerificationInProgress = false;
@@ -134,6 +142,9 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
   String?
   _mobileNumberForOtp; // Store mobile number used for OTP (must match in vendor creation)
   final ApiService _apiService = ApiService();
+
+  // ID Proof Type
+  String? _selectedIdProofType;
 
   // Section data
   final List<_SectionData> _sections = [
@@ -215,7 +226,7 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
     }
 
     try {
-      // Restore Govt ID Proof Images
+      // Restore ID Proof Images
       if (draft.aadhaarFrontImagePath != null &&
           draft.aadhaarFrontImagePath!.isNotEmpty) {
         try {
@@ -345,10 +356,9 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
         _firstNameController.text = draft.firstName;
         _lastNameController.text = draft.lastName;
         _emailController.text = draft.email;
-        _passwordController.text = draft.password;
-        _confirmPasswordController.text = draft.password;
         _phoneController.text = draft.mobile;
         _aadhaarNumberController.text = draft.aadhaarNumber;
+        _selectedIdProofType = draft.idProofType;
         _residentialAddressController.text = draft.residentialAddress;
 
         // Business Details
@@ -376,6 +386,14 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
         _professionalLicenseNumberController.text =
             draft.professionalLicenseNumber;
         _additionalDocumentNameController.text = draft.additionalDocumentName;
+        _panCardExpiryDateController.text = draft.panCardExpiryDate ?? '';
+        _gstExpiryDateController.text = draft.gstExpiryDate ?? '';
+        _businessRegistrationExpiryDateController.text =
+            draft.businessRegistrationExpiryDate ?? '';
+        _professionalLicenseExpiryDateController.text =
+            draft.professionalLicenseExpiryDate ?? '';
+        _additionalDocumentExpiryDateController.text =
+            draft.additionalDocumentExpiryDate ?? '';
 
         // Images and Files
         _aadhaarFrontImage = restoredAadhaarFrontImage;
@@ -396,6 +414,9 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
         // Signature
         _signerNameController.text = draft.signerName ?? '';
         _acceptedTerms = draft.acceptedTerms;
+        _consentAccepted = draft.consentAccepted;
+        _pricingAgreementAccepted = draft.pricingAgreementAccepted;
+        _slvAgreementAccepted = draft.slvAgreementAccepted;
       });
     }
 
@@ -450,6 +471,8 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
       _emailController.text = vendor.email;
       _phoneController.text = vendor.mobile;
       _aadhaarNumberController.text = vendor.adharnumber;
+      _selectedIdProofType =
+          'Aadhar'; // Default to Aadhar for existing vendors until we have a field for it
       _residentialAddressController.text = vendor.residentaladdress;
       _signerNameController.text = vendor.signname;
 
@@ -492,7 +515,8 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
 
         // Find Business Registration
         final brIndex = vendor.docNames.indexWhere(
-          (name) => name.toLowerCase().contains('business') ||
+          (name) =>
+              name.toLowerCase().contains('business') ||
               name.toLowerCase().contains('registration'),
         );
         if (brIndex >= 0 && brIndex < vendor.documentNumbers.length) {
@@ -502,7 +526,8 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
 
         // Find Professional License
         final plIndex = vendor.docNames.indexWhere(
-          (name) => name.toLowerCase().contains('professional') ||
+          (name) =>
+              name.toLowerCase().contains('professional') ||
               name.toLowerCase().contains('license'),
         );
         if (plIndex >= 0 && plIndex < vendor.documentNumbers.length) {
@@ -570,7 +595,6 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
           'firstName': _firstNameController,
           'lastName': _lastNameController,
           'email': _emailController,
-          'password': _passwordController,
           'mobile': _phoneController,
           'aadhaarNumber': _aadhaarNumberController,
           'residentialAddress': _residentialAddressController,
@@ -590,6 +614,14 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
           'businessRegistrationNumber': _businessRegistrationNumberController,
           'professionalLicenseNumber': _professionalLicenseNumberController,
           'additionalDocumentName': _additionalDocumentNameController,
+          'panCardExpiryDate': _panCardExpiryDateController,
+          'gstExpiryDate': _gstExpiryDateController,
+          'businessRegistrationExpiryDate':
+              _businessRegistrationExpiryDateController,
+          'professionalLicenseExpiryDate':
+              _professionalLicenseExpiryDateController,
+          'additionalDocumentExpiryDate':
+              _additionalDocumentExpiryDateController,
         },
         aadhaarFrontImage: _aadhaarFrontImage,
         aadhaarBackImage: _aadhaarBackImage,
@@ -599,10 +631,16 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
         professionalLicenseFile: _professionalLicenseFile,
         additionalDocumentFile: _additionalDocumentFile,
         frontStoreImages: _frontStoreImages,
+        storeLogo: _storeLogo,
+        profileBanner: _profileBanner,
         signatureBytes: _signatureBytes,
         categories: _selectedBusinessCategories,
         signerName: _signerNameController.text,
         acceptedTerms: _acceptedTerms,
+        consentAccepted: _consentAccepted,
+        pricingAgreementAccepted: _pricingAgreementAccepted,
+        slvAgreementAccepted: _slvAgreementAccepted,
+        idProofType: _selectedIdProofType,
       );
 
       // Create draft entity
@@ -636,8 +674,6 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
     _lastNameController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
-    _passwordController.dispose();
-    _confirmPasswordController.dispose();
     _aadhaarNumberController.dispose();
     _residentialAddressController.dispose();
     _businessNameController.dispose();
@@ -657,6 +693,11 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
     _businessRegistrationNumberController.dispose();
     _professionalLicenseNumberController.dispose();
     _additionalDocumentNameController.dispose();
+    _panCardExpiryDateController.dispose();
+    _gstExpiryDateController.dispose();
+    _businessRegistrationExpiryDateController.dispose();
+    _professionalLicenseExpiryDateController.dispose();
+    _additionalDocumentExpiryDateController.dispose();
     _signatureController.dispose();
     _signerNameController.dispose();
     super.dispose();
@@ -842,9 +883,16 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
         .where((id) => id.isNotEmpty)
         .toList();
 
-    // Use the same mobile number that was used for OTP
-    // This ensures the identifier matches exactly between send-otp and create vendor APIs
-    final mobileForVendor = _mobileNumberForOtp ?? _phoneController.text.trim();
+    // Use the same mobile number that was used for OTP, but handle potential double-91 prefix
+    var mobileForVendor = _mobileNumberForOtp ?? _phoneController.text.trim();
+
+    // Fix: Backend functionality appears to automatically prepend '91' to the 'mobile' field
+    // when type='phone' (which is used for OTP verification).
+    // If the user entered a number starting with '91' (e.g. 9182028173), the backend
+    // would make it 919182028173. We strip the leading '91' here to prevent this duplication.
+    if (mobileForVendor.startsWith('91') && mobileForVendor.length > 2) {
+      mobileForVendor = mobileForVendor.substring(2);
+    }
 
     print('\n═══════════════════════════════════════════════════════');
     print('📱 STEP 2: Creating Vendor');
@@ -871,7 +919,7 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
       firstName: _firstNameController.text,
       lastName: _lastNameController.text,
       email: _emailController.text,
-      password: _passwordController.text,
+      password: '', // Password is not collected in this flow
       mobile: mobileForVendor,
       aadhaarFrontImage: _aadhaarFrontImage,
       aadhaarBackImage: _aadhaarBackImage,
@@ -890,6 +938,8 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
         'GST Certificate',
         'Business Registration',
         'Professional License',
+        if (_additionalDocumentNameController.text.isNotEmpty)
+          _additionalDocumentNameController.text,
       ],
       docIds: [
         _panCardNumberController.text.isNotEmpty
@@ -904,22 +954,37 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
         _professionalLicenseNumberController.text.isNotEmpty
             ? _professionalLicenseNumberController.text
             : 'PL',
+        if (_additionalDocumentNameController.text.isNotEmpty)
+          'ADDITIONAL', // ID for additional doc
       ],
       documentNumbers: [
         _panCardNumberController.text,
         _gstCertificateNumberController.text,
         _businessRegistrationNumberController.text,
         _professionalLicenseNumberController.text,
+        if (_additionalDocumentNameController.text.isNotEmpty) '',
+      ],
+      expiryDates: [
+        _panCardExpiryDateController.text,
+        _gstExpiryDateController.text,
+        _businessRegistrationExpiryDateController.text,
+        _professionalLicenseExpiryDateController.text,
+        if (_additionalDocumentNameController.text.isNotEmpty)
+          _additionalDocumentExpiryDateController.text,
       ],
       files: [
         _panCardFile,
         _gstCertificateFile,
         _businessRegistrationFile,
         _professionalLicenseFile,
+        if (_additionalDocumentNameController.text.isNotEmpty)
+          _additionalDocumentFile,
       ],
-      frontimages: [],
+      frontimages: _frontStoreImages,
       backimages: [],
       signature: [],
+      storeLogo: _storeLogo,
+      profileBanner: _profileBanner,
       bankName: _bankNameController.text,
       accountName: _accountHolderNameController.text,
       accountNumber: _accountNumberController.text,
@@ -969,9 +1034,8 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
       _lastNameController.clear();
       _emailController.clear();
       _phoneController.clear();
-      _passwordController.clear();
-      _confirmPasswordController.clear();
       _aadhaarNumberController.clear();
+      _selectedIdProofType = null;
       _residentialAddressController.clear();
       _aadhaarFrontImage = null;
       _aadhaarBackImage = null;
@@ -1004,6 +1068,8 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
       _professionalLicenseFileName = null;
       _additionalDocumentFileName = null;
       _frontStoreImages = [];
+      _storeLogo = null;
+      _profileBanner = null;
       _signatureController.clear();
       _signerNameController.clear();
       _signatureBytes = null;
@@ -1021,8 +1087,6 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
           lastNameController: _lastNameController,
           emailController: _emailController,
           phoneController: _phoneController,
-          passwordController: _passwordController,
-          confirmPasswordController: _confirmPasswordController,
           aadhaarNumberController: _aadhaarNumberController,
           residentialAddressController: _residentialAddressController,
           aadhaarFrontImage: _aadhaarFrontImage,
@@ -1038,6 +1102,10 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
             context.read<VendorStepperBloc>().add(
               VendorStepperSectionValidated(0, isValid),
             );
+          },
+          selectedIdProofType: _selectedIdProofType,
+          onIdProofTypeChanged: (value) {
+            setState(() => _selectedIdProofType = value);
           },
         );
       case 1:
@@ -1095,6 +1163,14 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
           professionalLicenseNumberController:
               _professionalLicenseNumberController,
           additionalDocumentNameController: _additionalDocumentNameController,
+          panCardExpiryDateController: _panCardExpiryDateController,
+          gstExpiryDateController: _gstExpiryDateController,
+          businessRegistrationExpiryDateController:
+              _businessRegistrationExpiryDateController,
+          professionalLicenseExpiryDateController:
+              _professionalLicenseExpiryDateController,
+          additionalDocumentExpiryDateController:
+              _additionalDocumentExpiryDateController,
           enabled: enabled,
           onFileSelected: _onFileSelected,
           onValidationChanged: (isValid) {
@@ -1106,10 +1182,26 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
       case 4:
         return PhotosSection(
           frontStoreImages: _frontStoreImages,
+          storeLogo: _storeLogo,
+          profileBanner: _profileBanner,
           enabled: enabled,
-          onFrontStoreImagesChanged: (images) =>
-              setState(() => _frontStoreImages = images),
+          onFrontStoreImagesChanged: (images) {
+            setState(() {
+              _frontStoreImages = images;
+            });
+          },
+          onStoreLogoChanged: (file) {
+            setState(() {
+              _storeLogo = file;
+            });
+          },
+          onProfileBannerChanged: (file) {
+            setState(() {
+              _profileBanner = file;
+            });
+          },
           onValidationChanged: (isValid) {
+            // Store Photos Validation
             context.read<VendorStepperBloc>().add(
               VendorStepperSectionValidated(4, isValid),
             );
@@ -1129,6 +1221,14 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
               VendorStepperSectionValidated(5, isValid),
             );
           },
+          onConsentChanged: (value) => setState(() => _consentAccepted = value),
+          onPricingAgreementChanged: (value) =>
+              setState(() => _pricingAgreementAccepted = value),
+          onSlvAgreementChanged: (value) =>
+              setState(() => _slvAgreementAccepted = value),
+          consentAccepted: _consentAccepted,
+          pricingAgreementAccepted: _pricingAgreementAccepted,
+          slvAgreementAccepted: _slvAgreementAccepted,
         );
       default:
         return const SizedBox();

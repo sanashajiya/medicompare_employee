@@ -11,7 +11,6 @@ class DraftVendorModel extends DraftVendorEntity {
     super.firstName,
     super.lastName,
     super.email,
-    super.password,
     super.mobile,
     super.aadhaarNumber,
     super.residentialAddress,
@@ -31,18 +30,28 @@ class DraftVendorModel extends DraftVendorEntity {
     super.bankBranch,
     super.panCardNumber,
     super.panCardFilePath,
+    super.panCardExpiryDate,
     super.gstCertificateNumber,
     super.gstCertificateFilePath,
+    super.gstExpiryDate,
     super.businessRegistrationNumber,
     super.businessRegistrationFilePath,
+    super.businessRegistrationExpiryDate,
     super.professionalLicenseNumber,
     super.professionalLicenseFilePath,
+    super.professionalLicenseExpiryDate,
     super.additionalDocumentName,
     super.additionalDocumentFilePath,
+    super.additionalDocumentExpiryDate,
     super.frontStoreImagePaths,
+    super.storeLogoPath,
+    super.profileBannerPath,
     super.signatureImagePath,
     super.signerName,
     super.acceptedTerms,
+    super.consentAccepted,
+    super.pricingAgreementAccepted,
+    super.slvAgreementAccepted,
     super.sectionCompleted,
     super.sectionValidations,
   });
@@ -57,7 +66,6 @@ class DraftVendorModel extends DraftVendorEntity {
       firstName: entity.firstName,
       lastName: entity.lastName,
       email: entity.email,
-      password: entity.password,
       mobile: entity.mobile,
       aadhaarNumber: entity.aadhaarNumber,
       residentialAddress: entity.residentialAddress,
@@ -77,18 +85,28 @@ class DraftVendorModel extends DraftVendorEntity {
       bankBranch: entity.bankBranch,
       panCardNumber: entity.panCardNumber,
       panCardFilePath: entity.panCardFilePath,
+      panCardExpiryDate: entity.panCardExpiryDate,
       gstCertificateNumber: entity.gstCertificateNumber,
       gstCertificateFilePath: entity.gstCertificateFilePath,
+      gstExpiryDate: entity.gstExpiryDate,
       businessRegistrationNumber: entity.businessRegistrationNumber,
       businessRegistrationFilePath: entity.businessRegistrationFilePath,
+      businessRegistrationExpiryDate: entity.businessRegistrationExpiryDate,
       professionalLicenseNumber: entity.professionalLicenseNumber,
       professionalLicenseFilePath: entity.professionalLicenseFilePath,
+      professionalLicenseExpiryDate: entity.professionalLicenseExpiryDate,
       additionalDocumentName: entity.additionalDocumentName,
       additionalDocumentFilePath: entity.additionalDocumentFilePath,
+      additionalDocumentExpiryDate: entity.additionalDocumentExpiryDate,
       frontStoreImagePaths: entity.frontStoreImagePaths,
+      storeLogoPath: entity.storeLogoPath,
+      profileBannerPath: entity.profileBannerPath,
       signatureImagePath: entity.signatureImagePath,
       signerName: entity.signerName,
       acceptedTerms: entity.acceptedTerms,
+      consentAccepted: entity.consentAccepted,
+      pricingAgreementAccepted: entity.pricingAgreementAccepted,
+      slvAgreementAccepted: entity.slvAgreementAccepted,
       sectionCompleted: entity.sectionCompleted,
       sectionValidations: entity.sectionValidations,
     );
@@ -104,7 +122,6 @@ class DraftVendorModel extends DraftVendorEntity {
       'firstName': firstName,
       'lastName': lastName,
       'email': email,
-      'password': password,
       'mobile': mobile,
       'aadhaarNumber': aadhaarNumber,
       'residentialAddress': residentialAddress,
@@ -124,18 +141,28 @@ class DraftVendorModel extends DraftVendorEntity {
       'bankBranch': bankBranch,
       'panCardNumber': panCardNumber,
       'panCardFilePath': panCardFilePath,
+      'panCardExpiryDate': panCardExpiryDate,
       'gstCertificateNumber': gstCertificateNumber,
       'gstCertificateFilePath': gstCertificateFilePath,
+      'gstExpiryDate': gstExpiryDate,
       'businessRegistrationNumber': businessRegistrationNumber,
       'businessRegistrationFilePath': businessRegistrationFilePath,
+      'businessRegistrationExpiryDate': businessRegistrationExpiryDate,
       'professionalLicenseNumber': professionalLicenseNumber,
       'professionalLicenseFilePath': professionalLicenseFilePath,
+      'professionalLicenseExpiryDate': professionalLicenseExpiryDate,
       'additionalDocumentName': additionalDocumentName,
       'additionalDocumentFilePath': additionalDocumentFilePath,
+      'additionalDocumentExpiryDate': additionalDocumentExpiryDate,
       'frontStoreImagePaths': frontStoreImagePaths,
+      'storeLogoPath': storeLogoPath,
+      'profileBannerPath': profileBannerPath,
       'signatureImagePath': signatureImagePath,
       'signerName': signerName,
       'acceptedTerms': acceptedTerms,
+      'consentAccepted': consentAccepted,
+      'pricingAgreementAccepted': pricingAgreementAccepted,
+      'slvAgreementAccepted': slvAgreementAccepted,
       'sectionCompleted': sectionCompleted,
       'sectionValidations': sectionValidations,
     };
@@ -151,7 +178,6 @@ class DraftVendorModel extends DraftVendorEntity {
       firstName: map['firstName'] as String? ?? '',
       lastName: map['lastName'] as String? ?? '',
       email: map['email'] as String? ?? '',
-      password: map['password'] as String? ?? '',
       mobile: map['mobile'] as String? ?? '',
       aadhaarNumber: map['aadhaarNumber'] as String? ?? '',
       residentialAddress: map['residentialAddress'] as String? ?? '',
@@ -178,26 +204,40 @@ class DraftVendorModel extends DraftVendorEntity {
       bankBranch: map['bankBranch'] as String? ?? '',
       panCardNumber: map['panCardNumber'] as String? ?? '',
       panCardFilePath: map['panCardFilePath'] as String?,
+      panCardExpiryDate: map['panCardExpiryDate'] as String?,
       gstCertificateNumber: map['gstCertificateNumber'] as String? ?? '',
       gstCertificateFilePath: map['gstCertificateFilePath'] as String?,
+      gstExpiryDate: map['gstExpiryDate'] as String?,
       businessRegistrationNumber:
           map['businessRegistrationNumber'] as String? ?? '',
       businessRegistrationFilePath:
           map['businessRegistrationFilePath'] as String?,
+      businessRegistrationExpiryDate:
+          map['businessRegistrationExpiryDate'] as String?,
       professionalLicenseNumber:
           map['professionalLicenseNumber'] as String? ?? '',
       professionalLicenseFilePath:
           map['professionalLicenseFilePath'] as String?,
+      professionalLicenseExpiryDate:
+          map['professionalLicenseExpiryDate'] as String?,
       additionalDocumentName: map['additionalDocumentName'] as String? ?? '',
       additionalDocumentFilePath: map['additionalDocumentFilePath'] as String?,
+      additionalDocumentExpiryDate:
+          map['additionalDocumentExpiryDate'] as String?,
       frontStoreImagePaths:
           (map['frontStoreImagePaths'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList() ??
           [],
+      storeLogoPath: map['storeLogoPath'] as String?,
+      profileBannerPath: map['profileBannerPath'] as String?,
       signatureImagePath: map['signatureImagePath'] as String?,
       signerName: map['signerName'] as String?,
       acceptedTerms: map['acceptedTerms'] as bool? ?? false,
+      consentAccepted: map['consentAccepted'] as bool? ?? false,
+      pricingAgreementAccepted:
+          map['pricingAgreementAccepted'] as bool? ?? false,
+      slvAgreementAccepted: map['slvAgreementAccepted'] as bool? ?? false,
       sectionCompleted:
           (map['sectionCompleted'] as List<dynamic>?)
               ?.map((e) => e as bool)
@@ -211,7 +251,3 @@ class DraftVendorModel extends DraftVendorEntity {
     );
   }
 }
-
-
-
-

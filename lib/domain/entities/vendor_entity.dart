@@ -1,4 +1,5 @@
 import 'dart:io';
+
 import 'package:equatable/equatable.dart';
 
 class VendorEntity extends Equatable {
@@ -8,8 +9,8 @@ class VendorEntity extends Equatable {
   final String email;
   final String password;
   final String mobile;
-  final File? aadhaarFrontImage; // Govt Id Proof Image file
-  final File? aadhaarBackImage; // Govt Id Proof Back Image file
+  final File? aadhaarFrontImage; // Id Proof Image file
+  final File? aadhaarBackImage; // Id Proof Back Image file
   final String signname; // Signature name
   final String adharnumber; // Aadhaar number
   final String residentaladdress; // Residential address
@@ -27,12 +28,15 @@ class VendorEntity extends Equatable {
   final List<String> docNames;
   final List<String> docIds;
   final List<String> documentNumbers;
+  final List<String> expiryDates;
   final List<File?> files;
 
   // Image Fields for Vendor Creation (Multipart Arrays)
   final List<File> frontimages; // frontImage[] array
   final List<File> backimages; // backImage[] array
   final List<File> signature; // signature[] array
+  final File? storeLogo;
+  final File? profileBanner;
 
   // Banking Information
   final String bankName;
@@ -46,6 +50,9 @@ class VendorEntity extends Equatable {
 
   // Response fields (optional, populated after creation)
   final String? vendorId;
+  final bool consentAccepted;
+  final bool pricingAgreementAccepted;
+  final bool slvAgreementAccepted;
   final bool? success;
   final String? message;
 
@@ -70,10 +77,13 @@ class VendorEntity extends Equatable {
     required this.docNames,
     required this.docIds,
     required this.documentNumbers,
+    required this.expiryDates,
     required this.files,
     required this.frontimages,
     required this.backimages,
     required this.signature,
+    this.storeLogo,
+    this.profileBanner,
     required this.bankName,
     required this.accountName,
     required this.accountNumber,
@@ -81,6 +91,9 @@ class VendorEntity extends Equatable {
     required this.branchName,
     this.otp,
     this.vendorId,
+    this.consentAccepted = false,
+    this.pricingAgreementAccepted = false,
+    this.slvAgreementAccepted = false,
     this.success,
     this.message,
   });
@@ -106,10 +119,13 @@ class VendorEntity extends Equatable {
     List<String>? docNames,
     List<String>? docIds,
     List<String>? documentNumbers,
+    List<String>? expiryDates,
     List<File?>? files,
     List<File>? frontimages,
     List<File>? backimages,
     List<File>? signature,
+    File? storeLogo,
+    File? profileBanner,
     String? bankName,
     String? accountName,
     String? accountNumber,
@@ -117,6 +133,9 @@ class VendorEntity extends Equatable {
     String? branchName,
     String? otp,
     String? vendorId,
+    bool? consentAccepted,
+    bool? pricingAgreementAccepted,
+    bool? slvAgreementAccepted,
     bool? success,
     String? message,
   }) {
@@ -141,10 +160,13 @@ class VendorEntity extends Equatable {
       docNames: docNames ?? this.docNames,
       docIds: docIds ?? this.docIds,
       documentNumbers: documentNumbers ?? this.documentNumbers,
+      expiryDates: expiryDates ?? this.expiryDates,
       files: files ?? this.files,
       frontimages: frontimages ?? this.frontimages,
       backimages: backimages ?? this.backimages,
       signature: signature ?? this.signature,
+      storeLogo: storeLogo ?? this.storeLogo,
+      profileBanner: profileBanner ?? this.profileBanner,
       bankName: bankName ?? this.bankName,
       accountName: accountName ?? this.accountName,
       accountNumber: accountNumber ?? this.accountNumber,
@@ -152,6 +174,10 @@ class VendorEntity extends Equatable {
       branchName: branchName ?? this.branchName,
       otp: otp ?? this.otp,
       vendorId: vendorId ?? this.vendorId,
+      consentAccepted: consentAccepted ?? this.consentAccepted,
+      pricingAgreementAccepted:
+          pricingAgreementAccepted ?? this.pricingAgreementAccepted,
+      slvAgreementAccepted: slvAgreementAccepted ?? this.slvAgreementAccepted,
       success: success ?? this.success,
       message: message ?? this.message,
     );
@@ -179,10 +205,13 @@ class VendorEntity extends Equatable {
     docNames,
     docIds,
     documentNumbers,
+    expiryDates,
     files,
     frontimages,
     backimages,
     signature,
+    storeLogo,
+    profileBanner,
     bankName,
     accountName,
     accountNumber,
@@ -194,6 +223,3 @@ class VendorEntity extends Equatable {
     message,
   ];
 }
-
-
-

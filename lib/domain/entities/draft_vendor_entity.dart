@@ -1,5 +1,4 @@
 import 'package:equatable/equatable.dart';
-import 'vendor_entity.dart';
 
 /// Entity representing a draft vendor form
 /// Stores serializable form data without File objects (uses file paths instead)
@@ -13,9 +12,9 @@ class DraftVendorEntity extends Equatable {
   final String firstName;
   final String lastName;
   final String email;
-  final String password;
   final String mobile;
   final String aadhaarNumber;
+  final String? idProofType;
   final String residentialAddress;
   final String? aadhaarFrontImagePath;
   final String? aadhaarBackImagePath;
@@ -39,22 +38,32 @@ class DraftVendorEntity extends Equatable {
   // Documents
   final String panCardNumber;
   final String? panCardFilePath;
+  final String? panCardExpiryDate;
   final String gstCertificateNumber;
   final String? gstCertificateFilePath;
+  final String? gstExpiryDate;
   final String businessRegistrationNumber;
   final String? businessRegistrationFilePath;
+  final String? businessRegistrationExpiryDate;
   final String professionalLicenseNumber;
   final String? professionalLicenseFilePath;
+  final String? professionalLicenseExpiryDate;
   final String additionalDocumentName;
   final String? additionalDocumentFilePath;
+  final String? additionalDocumentExpiryDate;
 
   // Photos - store paths as List<String>
   final List<String> frontStoreImagePaths;
+  final String? storeLogoPath;
+  final String? profileBannerPath;
 
   // Signature
   final String? signatureImagePath;
   final String? signerName;
   final bool acceptedTerms;
+  final bool consentAccepted;
+  final bool pricingAgreementAccepted;
+  final bool slvAgreementAccepted;
 
   // Section completion status
   final List<bool> sectionCompleted;
@@ -68,9 +77,9 @@ class DraftVendorEntity extends Equatable {
     this.firstName = '',
     this.lastName = '',
     this.email = '',
-    this.password = '',
     this.mobile = '',
     this.aadhaarNumber = '',
+    this.idProofType,
     this.residentialAddress = '',
     this.aadhaarFrontImagePath,
     this.aadhaarBackImagePath,
@@ -88,18 +97,28 @@ class DraftVendorEntity extends Equatable {
     this.bankBranch = '',
     this.panCardNumber = '',
     this.panCardFilePath,
+    this.panCardExpiryDate,
     this.gstCertificateNumber = '',
     this.gstCertificateFilePath,
+    this.gstExpiryDate,
     this.businessRegistrationNumber = '',
     this.businessRegistrationFilePath,
+    this.businessRegistrationExpiryDate,
     this.professionalLicenseNumber = '',
     this.professionalLicenseFilePath,
+    this.professionalLicenseExpiryDate,
     this.additionalDocumentName = '',
     this.additionalDocumentFilePath,
+    this.additionalDocumentExpiryDate,
     this.frontStoreImagePaths = const [],
+    this.storeLogoPath,
+    this.profileBannerPath,
     this.signatureImagePath,
     this.signerName,
     this.acceptedTerms = false,
+    this.consentAccepted = false,
+    this.pricingAgreementAccepted = false,
+    this.slvAgreementAccepted = false,
     this.sectionCompleted = const [false, false, false, false, false, false],
     this.sectionValidations = const [false, false, false, false, false, false],
   });
@@ -117,14 +136,17 @@ class DraftVendorEntity extends Equatable {
         accountHolderName.isNotEmpty ||
         panCardNumber.isNotEmpty ||
         gstCertificateNumber.isNotEmpty ||
-        frontStoreImagePaths.isNotEmpty;
+        frontStoreImagePaths.isNotEmpty ||
+        consentAccepted ||
+        pricingAgreementAccepted ||
+        slvAgreementAccepted;
   }
 
   /// Get a preview title for the draft (vendor name or mobile number)
   String get previewTitle {
     if (businessName.isNotEmpty) return businessName;
     if (firstName.isNotEmpty || lastName.isNotEmpty) {
-      return '${firstName} ${lastName}'.trim();
+      return '$firstName $lastName'.trim();
     }
     if (businessMobile.isNotEmpty) return businessMobile;
     if (mobile.isNotEmpty) return mobile;
@@ -148,9 +170,9 @@ class DraftVendorEntity extends Equatable {
     String? firstName,
     String? lastName,
     String? email,
-    String? password,
     String? mobile,
     String? aadhaarNumber,
+    String? idProofType,
     String? residentialAddress,
     String? aadhaarFrontImagePath,
     String? aadhaarBackImagePath,
@@ -168,18 +190,28 @@ class DraftVendorEntity extends Equatable {
     String? bankBranch,
     String? panCardNumber,
     String? panCardFilePath,
+    String? panCardExpiryDate,
     String? gstCertificateNumber,
     String? gstCertificateFilePath,
+    String? gstExpiryDate,
     String? businessRegistrationNumber,
     String? businessRegistrationFilePath,
+    String? businessRegistrationExpiryDate,
     String? professionalLicenseNumber,
     String? professionalLicenseFilePath,
+    String? professionalLicenseExpiryDate,
     String? additionalDocumentName,
     String? additionalDocumentFilePath,
+    String? additionalDocumentExpiryDate,
     List<String>? frontStoreImagePaths,
+    String? storeLogoPath,
+    String? profileBannerPath,
     String? signatureImagePath,
     String? signerName,
     bool? acceptedTerms,
+    bool? consentAccepted,
+    bool? pricingAgreementAccepted,
+    bool? slvAgreementAccepted,
     List<bool>? sectionCompleted,
     List<bool>? sectionValidations,
   }) {
@@ -191,9 +223,9 @@ class DraftVendorEntity extends Equatable {
       firstName: firstName ?? this.firstName,
       lastName: lastName ?? this.lastName,
       email: email ?? this.email,
-      password: password ?? this.password,
       mobile: mobile ?? this.mobile,
       aadhaarNumber: aadhaarNumber ?? this.aadhaarNumber,
+      idProofType: idProofType ?? this.idProofType,
       residentialAddress: residentialAddress ?? this.residentialAddress,
       aadhaarFrontImagePath:
           aadhaarFrontImagePath ?? this.aadhaarFrontImagePath,
@@ -212,25 +244,39 @@ class DraftVendorEntity extends Equatable {
       bankBranch: bankBranch ?? this.bankBranch,
       panCardNumber: panCardNumber ?? this.panCardNumber,
       panCardFilePath: panCardFilePath ?? this.panCardFilePath,
+      panCardExpiryDate: panCardExpiryDate ?? this.panCardExpiryDate,
       gstCertificateNumber: gstCertificateNumber ?? this.gstCertificateNumber,
       gstCertificateFilePath:
           gstCertificateFilePath ?? this.gstCertificateFilePath,
+      gstExpiryDate: gstExpiryDate ?? this.gstExpiryDate,
       businessRegistrationNumber:
           businessRegistrationNumber ?? this.businessRegistrationNumber,
       businessRegistrationFilePath:
           businessRegistrationFilePath ?? this.businessRegistrationFilePath,
+      businessRegistrationExpiryDate:
+          businessRegistrationExpiryDate ?? this.businessRegistrationExpiryDate,
       professionalLicenseNumber:
           professionalLicenseNumber ?? this.professionalLicenseNumber,
       professionalLicenseFilePath:
           professionalLicenseFilePath ?? this.professionalLicenseFilePath,
+      professionalLicenseExpiryDate:
+          professionalLicenseExpiryDate ?? this.professionalLicenseExpiryDate,
       additionalDocumentName:
           additionalDocumentName ?? this.additionalDocumentName,
       additionalDocumentFilePath:
           additionalDocumentFilePath ?? this.additionalDocumentFilePath,
+      additionalDocumentExpiryDate:
+          additionalDocumentExpiryDate ?? this.additionalDocumentExpiryDate,
       frontStoreImagePaths: frontStoreImagePaths ?? this.frontStoreImagePaths,
+      storeLogoPath: storeLogoPath ?? this.storeLogoPath,
+      profileBannerPath: profileBannerPath ?? this.profileBannerPath,
       signatureImagePath: signatureImagePath ?? this.signatureImagePath,
       signerName: signerName ?? this.signerName,
       acceptedTerms: acceptedTerms ?? this.acceptedTerms,
+      consentAccepted: consentAccepted ?? this.consentAccepted,
+      pricingAgreementAccepted:
+          pricingAgreementAccepted ?? this.pricingAgreementAccepted,
+      slvAgreementAccepted: slvAgreementAccepted ?? this.slvAgreementAccepted,
       sectionCompleted: sectionCompleted ?? this.sectionCompleted,
       sectionValidations: sectionValidations ?? this.sectionValidations,
     );
@@ -245,9 +291,9 @@ class DraftVendorEntity extends Equatable {
     firstName,
     lastName,
     email,
-    password,
     mobile,
     aadhaarNumber,
+    idProofType,
     residentialAddress,
     aadhaarFrontImagePath,
     aadhaarBackImagePath,
@@ -265,23 +311,29 @@ class DraftVendorEntity extends Equatable {
     bankBranch,
     panCardNumber,
     panCardFilePath,
+    panCardExpiryDate,
     gstCertificateNumber,
     gstCertificateFilePath,
+    gstExpiryDate,
     businessRegistrationNumber,
     businessRegistrationFilePath,
+    businessRegistrationExpiryDate,
     professionalLicenseNumber,
     professionalLicenseFilePath,
+    professionalLicenseExpiryDate,
     additionalDocumentName,
     additionalDocumentFilePath,
+    additionalDocumentExpiryDate,
     frontStoreImagePaths,
+    storeLogoPath,
+    profileBannerPath,
     signatureImagePath,
     signerName,
     acceptedTerms,
+    consentAccepted,
+    pricingAgreementAccepted,
+    slvAgreementAccepted,
     sectionCompleted,
     sectionValidations,
   ];
 }
-
-
-
-
