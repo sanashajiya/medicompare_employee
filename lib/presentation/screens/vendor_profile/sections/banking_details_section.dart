@@ -40,90 +40,10 @@ class _BankingDetailsSectionState extends State<BankingDetailsSection> {
   String? _bankBranchError;
   bool _showErrors = false;
 
-  static const List<String> _bankOptions = [
-    // Public Sector Banks
-    'State Bank of India',
-    'Punjab National Bank',
-    'Bank of Baroda',
-    'Canara Bank',
-    'Union Bank of India',
-    'Bank of India',
-    'Indian Bank',
-    'Central Bank of India',
-    'Indian Overseas Bank',
-    'UCO Bank',
-    'Bank of Maharashtra',
-    'Punjab & Sind Bank',
-    // Private Sector Banks
-    'HDFC Bank',
-    'ICICI Bank',
-    'Axis Bank',
-    'Kotak Mahindra Bank',
-    'Yes Bank',
-    'IndusInd Bank',
-    'RBL Bank',
-    'Federal Bank',
-    'IDFC First Bank',
-    'Bandhan Bank',
-    'Karur Vysya Bank',
-    'South Indian Bank',
-    'DCB Bank',
-    'Dhanlaxmi Bank',
-    'Tamilnad Mercantile Bank',
-    'Karnataka Bank',
-    'Catholic Syrian Bank',
-    // Small Finance Banks
-    'AU Small Finance Bank',
-    'Jana Small Finance Bank',
-    'North East Small Finance Bank',
-    'Shivalik Small Finance Bank',
-    'Unity Small Finance Bank',
-    'Suryoday Small Finance Bank',
-    'Ujjivan Small Finance Bank',
-    'Equitas Small Finance Bank',
-    'ESAF Small Finance Bank',
-    'Fincare Small Finance Bank',
-    // Payments Banks
-    'Airtel Payments Bank',
-    'India Post Payments Bank',
-    'Fino Payments Bank',
-    'Jio Payments Bank',
-    'Paytm Payments Bank',
-    'NSDL Payments Bank',
-    'Aditya Birla Idea Payments Bank',
-    // Foreign / International Banks
-    'Standard Chartered Bank',
-    'Citibank',
-    'HSBC Bank',
-    'Deutsche Bank',
-    'DBS Bank',
-    'BNP Paribas',
-    'Barclays Bank',
-    'Bank of America',
-    'MUFG Bank',
-    'ABN AMRO Bank',
-    // Other
-    'Other (Please specify below)',
-  ];
-
-  String? _selectedBankName;
-
   @override
   void initState() {
     super.initState();
-    _initializeSelectedBank();
     _addListeners();
-  }
-
-  void _initializeSelectedBank() {
-    final currentBank = widget.bankNameController.text;
-    if (currentBank.isNotEmpty) {
-      if (_bankOptions.contains(currentBank)) {
-        _selectedBankName = currentBank;
-      } else {
-        _selectedBankName = 'Other (Please specify below)';
-      }
-    }
   }
 
   void _addListeners() {
@@ -262,74 +182,18 @@ class _BankingDetailsSectionState extends State<BankingDetailsSection> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Bank Name *',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: _showErrors && _bankNameError != null
-                            ? AppColors.error
-                            : AppColors.border,
-                      ),
-                      color: widget.enabled
-                          ? Colors.white
-                          : Colors.grey.shade100,
-                    ),
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<String>(
-                        value: _selectedBankName,
-                        hint: Text(
-                          'Select Bank',
-                          style: TextStyle(color: AppColors.textSecondary),
-                        ),
-                        isExpanded: true,
-                        icon: const Icon(Icons.arrow_drop_down),
-                        items: _bankOptions.map((String value) {
-                          return DropdownMenuItem<String>(
-                            value: value,
-                            child: Text(value, overflow: TextOverflow.ellipsis),
-                          );
-                        }).toList(),
-                        onChanged: widget.enabled
-                            ? (String? newValue) {
-                                setState(() {
-                                  _selectedBankName = newValue;
-                                  if (newValue !=
-                                      'Other (Please specify below)') {
-                                    widget.bankNameController.text = newValue!;
-                                  } else {
-                                    widget.bankNameController.clear();
-                                  }
-                                });
-                              }
-                            : null,
-                      ),
-                    ),
-                  ),
-                  if (_showErrors && _bankNameError != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 6, left: 4),
-                      child: Text(
-                        _bankNameError!,
-                        style: const TextStyle(
-                          color: AppColors.error,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
+              child: CustomTextField(
+                controller: widget.bankNameController,
+                label: 'Bank Name *',
+                hint: 'e.g., State Bank of India',
+                errorText: _bankNameError,
+                enabled: widget.enabled,
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z ]')),
                 ],
+                onChanged: (_) {
+                  if (!_showErrors) setState(() => _showErrors = true);
+                },
               ),
             ),
             const SizedBox(width: 16),
@@ -350,22 +214,6 @@ class _BankingDetailsSectionState extends State<BankingDetailsSection> {
             ),
           ],
         ),
-        if (_selectedBankName == 'Other (Please specify below)') ...[
-          const SizedBox(height: 20),
-          CustomTextField(
-            controller: widget.bankNameController,
-            label: 'Enter Bank Name *',
-            hint: 'e.g., State Bank',
-            errorText: _bankNameError,
-            enabled: widget.enabled,
-            inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z ]')),
-            ],
-            onChanged: (_) {
-              if (!_showErrors) setState(() => _showErrors = true);
-            },
-          ),
-        ],
       ],
     );
   }
