@@ -38,6 +38,9 @@ class VendorModel extends VendorEntity {
     required super.ifscCode,
     required super.branchName,
     super.otp,
+    super.proofType,
+    super.latitude,
+    super.longitude,
     super.vendorId,
     super.consentAccepted,
     super.pricingAgreementAccepted,
@@ -173,10 +176,13 @@ class VendorModel extends VendorEntity {
       signname: entity.signname,
       adharnumber: entity.adharnumber,
       residentaladdress: entity.residentaladdress,
+      proofType: entity.proofType,
       businessName: entity.businessName,
       businessEmail: entity.businessEmail,
       altMobile: entity.altMobile,
       address: entity.address,
+      latitude: entity.latitude,
+      longitude: entity.longitude,
       categories: entity.categories,
       bussinessmobile: entity.bussinessmobile,
       bussinesslegalname: entity.bussinesslegalname,
@@ -231,6 +237,24 @@ class VendorModel extends VendorEntity {
       'pricing_agreement_accepted': pricingAgreementAccepted.toString(),
       'slv_agreement_accepted': slvAgreementAccepted.toString(),
     };
+
+    // New Fields Integration
+    if (proofType != null && proofType!.isNotEmpty) {
+      fields['proofType'] = proofType!;
+    }
+
+    if (latitude != null && longitude != null) {
+      // Backend expects: location: { "lat": <double>, "lng": <double> }
+      // This will be sent as a serialized JSON string in multipart field
+      // but we need to import dart:convert.
+      // Assuming outer scope has explicit import or we use string interpolation carefully?
+      // Better to use string construction to avoid dependency if not already there,
+      // but JSON is safer.
+      // Let's use simple string construction or add import.
+      // The file doesn't have dart:convert. I will add it in a separate step or just format manually if simple.
+      // Manual format: '{"lat": $latitude, "lng": $longitude}'
+      fields['location'] = '{"lat": $latitude, "lng": $longitude}';
+    }
 
     // Add OTP if provided (ALWAYS add type and usertype when OTP is present)
     final otpValue = otp;
@@ -291,7 +315,7 @@ class VendorModel extends VendorEntity {
       'doc_name[]': docNames,
       'doc_id[]': docIds,
       'documentNumber[]': safeDocumentNumbers,
-      'expiryDate[]': safeExpiryDates,
+      'expireDate[]': safeExpiryDates, // UPDATED KEY: expireDate[]
     };
   }
 
@@ -380,7 +404,7 @@ class VendorModel extends VendorEntity {
       }
     }
 
-    // 🔹 Front Images - API expects 'frontimage' (no brackets, singular)
+    // 🔹 Front Images - API expects 'frontimage[]'
     for (var i = 0; i < frontimages.length; i++) {
       final file = frontimages[i];
       final exists = await file.exists();
@@ -393,7 +417,7 @@ class VendorModel extends VendorEntity {
           print('     Size: $size bytes');
           filesList.add(
             await http.MultipartFile.fromPath(
-              'frontimage',
+              'frontimage[]', // Updated to array notation
               file.path,
               contentType: mediaType(file.path),
             ),
@@ -407,7 +431,7 @@ class VendorModel extends VendorEntity {
       }
     }
 
-    // 🔹 Back Images - API expects 'backimage' (no brackets, singular)
+    // 🔹 Back Images - API expects 'backimage[]'
     for (var i = 0; i < backimages.length; i++) {
       final file = backimages[i];
       final exists = await file.exists();
@@ -420,7 +444,7 @@ class VendorModel extends VendorEntity {
           print('     Size: $size bytes');
           filesList.add(
             await http.MultipartFile.fromPath(
-              'backimage',
+              'backimage[]', // Updated to array notation
               file.path,
               contentType: mediaType(file.path),
             ),
@@ -434,7 +458,7 @@ class VendorModel extends VendorEntity {
       }
     }
 
-    // 🔹 Signature - API expects 'signature' (no brackets)
+    // 🔹 Signature - API expects 'signature[]'
     for (var i = 0; i < signature.length; i++) {
       final file = signature[i];
       final exists = await file.exists();
@@ -447,7 +471,7 @@ class VendorModel extends VendorEntity {
           print('     Size: $size bytes');
           filesList.add(
             await http.MultipartFile.fromPath(
-              'signature',
+              'signature[]', // Updated to array notation
               file.path,
               contentType: mediaType(file.path),
             ),
@@ -461,7 +485,7 @@ class VendorModel extends VendorEntity {
       }
     }
 
-    // 🔹 Store Logo - API expects 'store_logo'
+    // 🔹 Store Logo - API expects 'logo'
     if (storeLogo != null) {
       final file = storeLogo!;
       final exists = await file.exists();
@@ -474,7 +498,7 @@ class VendorModel extends VendorEntity {
           print('     Size: $size bytes');
           filesList.add(
             await http.MultipartFile.fromPath(
-              'store_logo',
+              'logo', // UPDATED KEY: logo
               file.path,
               contentType: mediaType(file.path),
             ),
@@ -488,7 +512,7 @@ class VendorModel extends VendorEntity {
       }
     }
 
-    // 🔹 Profile Banner - API expects 'profile_banner'
+    // 🔹 Profile Banner - API expects 'banner'
     if (profileBanner != null) {
       final file = profileBanner!;
       final exists = await file.exists();
@@ -501,7 +525,7 @@ class VendorModel extends VendorEntity {
           print('     Size: $size bytes');
           filesList.add(
             await http.MultipartFile.fromPath(
-              'profile_banner',
+              'banner', // UPDATED KEY: banner
               file.path,
               contentType: mediaType(file.path),
             ),
@@ -515,7 +539,7 @@ class VendorModel extends VendorEntity {
       }
     }
 
-    // 🔹 Documents - API expects 'file' (no brackets, singular)
+    // 🔹 Documents - API expects 'file'
     for (var i = 0; i < files.length; i++) {
       final file = files[i];
       if (file != null) {
@@ -529,7 +553,7 @@ class VendorModel extends VendorEntity {
             print('     Size: $size bytes');
             filesList.add(
               await http.MultipartFile.fromPath(
-                'file',
+                'file[]',
                 file.path,
                 contentType: mediaType(file.path),
               ),

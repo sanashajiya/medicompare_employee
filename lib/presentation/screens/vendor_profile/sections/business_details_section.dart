@@ -24,6 +24,7 @@ class BusinessDetailsSection extends StatefulWidget {
   final bool enabled;
   final Function(List<String>) onCategoriesChanged;
   final Function(bool isValid) onValidationChanged;
+  final Function(double? lat, double? lng)? onLocationSelected;
 
   const BusinessDetailsSection({
     super.key,
@@ -39,6 +40,7 @@ class BusinessDetailsSection extends StatefulWidget {
     required this.enabled,
     required this.onCategoriesChanged,
     required this.onValidationChanged,
+    this.onLocationSelected,
   });
 
   @override
@@ -137,10 +139,6 @@ class _BusinessDetailsSectionState extends State<BusinessDetailsSection> {
     }
   }
 
- 
-
- 
-
   Future<List<PlaceSuggestion>> _getPlaceSuggestions(String query) async {
     if (query.isEmpty) return [];
 
@@ -206,6 +204,7 @@ class _BusinessDetailsSectionState extends State<BusinessDetailsSection> {
             // If the backend requires them, they can be exposed via a new callback
             // or by updating an entity passed to this widget.
             debugPrint('Selected Location: $_latitude, $_longitude');
+            widget.onLocationSelected?.call(_latitude, _longitude);
           }
         }
       }

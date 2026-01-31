@@ -26,6 +26,8 @@ class DraftVendorEntity extends Equatable {
   final String businessMobile;
   final String altBusinessMobile;
   final String businessAddress;
+  final double? latitude;
+  final double? longitude;
   final List<String> categories; // Category IDs or names
 
   // Banking Details
@@ -89,6 +91,8 @@ class DraftVendorEntity extends Equatable {
     this.businessMobile = '',
     this.altBusinessMobile = '',
     this.businessAddress = '',
+    this.latitude,
+    this.longitude,
     this.categories = const [],
     this.accountNumber = '',
     this.accountHolderName = '',
@@ -182,6 +186,8 @@ class DraftVendorEntity extends Equatable {
     String? businessMobile,
     String? altBusinessMobile,
     String? businessAddress,
+    double? latitude,
+    double? longitude,
     List<String>? categories,
     String? accountNumber,
     String? accountHolderName,
@@ -236,6 +242,8 @@ class DraftVendorEntity extends Equatable {
       businessMobile: businessMobile ?? this.businessMobile,
       altBusinessMobile: altBusinessMobile ?? this.altBusinessMobile,
       businessAddress: businessAddress ?? this.businessAddress,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
       categories: categories ?? this.categories,
       accountNumber: accountNumber ?? this.accountNumber,
       accountHolderName: accountHolderName ?? this.accountHolderName,
@@ -303,6 +311,8 @@ class DraftVendorEntity extends Equatable {
     businessMobile,
     altBusinessMobile,
     businessAddress,
+    latitude,
+    longitude,
     categories,
     accountNumber,
     accountHolderName,

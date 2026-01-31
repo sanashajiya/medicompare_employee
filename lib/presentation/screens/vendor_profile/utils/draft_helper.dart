@@ -285,6 +285,8 @@ class DraftHelper {
         businessMobile: formData['businessMobile'] ?? '',
         altBusinessMobile: formData['altBusinessMobile'] ?? '',
         businessAddress: formData['businessAddress'] ?? '',
+        latitude: formData['latitude'],
+        longitude: formData['longitude'],
         categories: formData['categories'] is List
             ? List<String>.from(formData['categories'])
             : [],
@@ -340,6 +342,8 @@ class DraftHelper {
   static Map<String, dynamic> extractFormData({
     required Map<String, TextEditingController> controllers,
     String? idProofType,
+    double? latitude,
+    double? longitude,
     File? aadhaarFrontImage,
     File? aadhaarBackImage,
     File? panCardFile,
@@ -374,6 +378,8 @@ class DraftHelper {
       'businessMobile': controllers['businessMobile']?.text ?? '',
       'altBusinessMobile': controllers['altBusinessMobile']?.text ?? '',
       'businessAddress': controllers['businessAddress']?.text ?? '',
+      'latitude': latitude,
+      'longitude': longitude,
       'categories': categories ?? [],
       'accountNumber': controllers['accountNumber']?.text ?? '',
       'accountHolderName': controllers['accountHolderName']?.text ?? '',

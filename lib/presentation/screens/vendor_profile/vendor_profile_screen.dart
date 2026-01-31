@@ -78,6 +78,8 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
   final _businessMobileController = TextEditingController();
   final _altBusinessMobileController = TextEditingController();
   final _businessAddressController = TextEditingController();
+  double? _businessLatitude;
+  double? _businessLongitude;
 
   // Controllers - Banking Details
   final _accountNumberController = TextEditingController();
@@ -380,6 +382,8 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
         _businessMobileController.text = draft.businessMobile;
         _altBusinessMobileController.text = draft.altBusinessMobile;
         _businessAddressController.text = draft.businessAddress;
+        _businessLatitude = draft.latitude;
+        _businessLongitude = draft.longitude;
         _selectedBusinessCategories = List<String>.from(draft.categories);
 
         // Banking Details
@@ -655,6 +659,8 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
         pricingAgreementAccepted: _pricingAgreementAccepted,
         slvAgreementAccepted: _slvAgreementAccepted,
         idProofType: _selectedIdProofType,
+        latitude: _businessLatitude,
+        longitude: _businessLongitude,
       );
 
       // Create draft entity
@@ -940,10 +946,13 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
       signname: _signerNameController.text,
       adharnumber: _aadhaarNumberController.text,
       residentaladdress: _residentialAddressController.text,
+      proofType: _selectedIdProofType,
       businessName: _businessNameController.text,
       businessEmail: _businessEmailController.text,
       altMobile: _altBusinessMobileController.text,
       address: _businessAddressController.text,
+      latitude: _businessLatitude,
+      longitude: _businessLongitude,
       categories: categoryIds,
       bussinessmobile: _businessMobileController.text,
       bussinesslegalname: _businessLegalNameController.text,
@@ -1141,6 +1150,12 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
             context.read<VendorStepperBloc>().add(
               VendorStepperSectionValidated(1, isValid),
             );
+          },
+          onLocationSelected: (lat, lng) {
+            setState(() {
+              _businessLatitude = lat;
+              _businessLongitude = lng;
+            });
           },
         );
       case 2:

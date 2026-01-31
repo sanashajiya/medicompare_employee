@@ -48,6 +48,13 @@ class VendorEntity extends Equatable {
   // OTP for verification
   final String? otp;
 
+  // ID Proof Type
+  final String? proofType;
+
+  // Location
+  final double? latitude;
+  final double? longitude;
+
   // Response fields (optional, populated after creation)
   final String? vendorId;
   final bool consentAccepted;
@@ -67,10 +74,13 @@ class VendorEntity extends Equatable {
     this.signname = '',
     this.adharnumber = '',
     this.residentaladdress = '',
+    this.proofType,
     required this.businessName,
     required this.businessEmail,
     required this.altMobile,
     required this.address,
+    this.latitude,
+    this.longitude,
     required this.categories,
     required this.bussinessmobile,
     this.bussinesslegalname = '',
@@ -109,10 +119,13 @@ class VendorEntity extends Equatable {
     String? signname,
     String? adharnumber,
     String? residentaladdress,
+    String? proofType,
     String? businessName,
     String? businessEmail,
     String? altMobile,
     String? address,
+    double? latitude,
+    double? longitude,
     List<String>? categories,
     String? bussinessmobile,
     String? bussinesslegalname,
@@ -150,10 +163,13 @@ class VendorEntity extends Equatable {
       signname: signname ?? this.signname,
       adharnumber: adharnumber ?? this.adharnumber,
       residentaladdress: residentaladdress ?? this.residentaladdress,
+      proofType: proofType ?? this.proofType,
       businessName: businessName ?? this.businessName,
       businessEmail: businessEmail ?? this.businessEmail,
       altMobile: altMobile ?? this.altMobile,
       address: address ?? this.address,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
       categories: categories ?? this.categories,
       bussinessmobile: bussinessmobile ?? this.bussinessmobile,
       bussinesslegalname: bussinesslegalname ?? this.bussinesslegalname,
@@ -195,10 +211,13 @@ class VendorEntity extends Equatable {
     signname,
     adharnumber,
     residentaladdress,
+    proofType,
     businessName,
     businessEmail,
     altMobile,
     address,
+    latitude,
+    longitude,
     categories,
     bussinessmobile,
     bussinesslegalname,
