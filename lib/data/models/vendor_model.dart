@@ -404,7 +404,7 @@ class VendorModel extends VendorEntity {
       }
     }
 
-    // 🔹 Front Images - API expects 'frontimage[]'
+    // 🔹 Front Images - API expects 'frontimage' (multiple keys allowed)
     for (var i = 0; i < frontimages.length; i++) {
       final file = frontimages[i];
       final exists = await file.exists();
@@ -417,7 +417,7 @@ class VendorModel extends VendorEntity {
           print('     Size: $size bytes');
           filesList.add(
             await http.MultipartFile.fromPath(
-              'frontimage[]', // Updated to array notation
+              'frontimage',
               file.path,
               contentType: mediaType(file.path),
             ),
@@ -431,7 +431,7 @@ class VendorModel extends VendorEntity {
       }
     }
 
-    // 🔹 Back Images - API expects 'backimage[]'
+    // 🔹 Back Images - API expects 'backimage'
     for (var i = 0; i < backimages.length; i++) {
       final file = backimages[i];
       final exists = await file.exists();
@@ -444,7 +444,7 @@ class VendorModel extends VendorEntity {
           print('     Size: $size bytes');
           filesList.add(
             await http.MultipartFile.fromPath(
-              'backimage[]', // Updated to array notation
+              'backimage',
               file.path,
               contentType: mediaType(file.path),
             ),
@@ -458,7 +458,7 @@ class VendorModel extends VendorEntity {
       }
     }
 
-    // 🔹 Signature - API expects 'signature[]'
+    // 🔹 Signature - API expects 'signature'
     for (var i = 0; i < signature.length; i++) {
       final file = signature[i];
       final exists = await file.exists();
@@ -471,7 +471,7 @@ class VendorModel extends VendorEntity {
           print('     Size: $size bytes');
           filesList.add(
             await http.MultipartFile.fromPath(
-              'signature[]', // Updated to array notation
+              'signature',
               file.path,
               contentType: mediaType(file.path),
             ),
@@ -498,7 +498,7 @@ class VendorModel extends VendorEntity {
           print('     Size: $size bytes');
           filesList.add(
             await http.MultipartFile.fromPath(
-              'logo', // UPDATED KEY: logo
+              'logo',
               file.path,
               contentType: mediaType(file.path),
             ),
@@ -525,7 +525,7 @@ class VendorModel extends VendorEntity {
           print('     Size: $size bytes');
           filesList.add(
             await http.MultipartFile.fromPath(
-              'banner', // UPDATED KEY: banner
+              'banner',
               file.path,
               contentType: mediaType(file.path),
             ),
@@ -553,7 +553,7 @@ class VendorModel extends VendorEntity {
             print('     Size: $size bytes');
             filesList.add(
               await http.MultipartFile.fromPath(
-                'file[]',
+                'file',
                 file.path,
                 contentType: mediaType(file.path),
               ),

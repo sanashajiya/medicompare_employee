@@ -910,9 +910,10 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
     // when type='phone' (which is used for OTP verification).
     // If the user entered a number starting with '91' (e.g. 9182028173), the backend
     // would make it 919182028173. We strip the leading '91' here to prevent this duplication.
-    if (mobileForVendor.startsWith('91') && mobileForVendor.length > 2) {
-      mobileForVendor = mobileForVendor.substring(2);
-    }
+    // UPDATE: Removed this stripping as it causes mismatch with OTP number.
+    // if (mobileForVendor.startsWith('91') && mobileForVendor.length > 2) {
+    //   mobileForVendor = mobileForVendor.substring(2);
+    // }
 
     print('\n═══════════════════════════════════════════════════════');
     print('📱 STEP 2: Creating Vendor');
