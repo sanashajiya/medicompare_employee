@@ -4,13 +4,13 @@ import 'dart:typed_data';
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:signature/signature.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:http/http.dart' as http;
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../widgets/custom_text_field.dart';
@@ -91,8 +91,15 @@ class _SignatureSectionState extends State<SignatureSection> {
   void didUpdateWidget(SignatureSection oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.signatureBytes != widget.signatureBytes ||
-        oldWidget.signatureImageUrl != widget.signatureImageUrl) {
-      _validate();
+        oldWidget.signatureImageUrl != widget.signatureImageUrl ||
+        oldWidget.acceptedTerms != widget.acceptedTerms ||
+        oldWidget.consentAccepted != widget.consentAccepted ||
+        oldWidget.pricingAgreementAccepted != widget.pricingAgreementAccepted ||
+        oldWidget.slvAgreementAccepted != widget.slvAgreementAccepted) {
+      // Defer validation to ensure new widget state is fully settled
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _validate();
+      });
     }
   }
 
@@ -765,6 +772,8 @@ class _SignatureSectionState extends State<SignatureSection> {
                               if (!_showErrors) {
                                 setState(() => _showErrors = true);
                               }
+                              // Immediately update error state
+                              _updateErrors();
                               _validate();
                             }
                           : null,
@@ -905,7 +914,10 @@ class _SignatureSectionState extends State<SignatureSection> {
             color: Colors.white,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: errorText != null ? AppColors.error : AppColors.border,
+              // Clear error border immediately when value is true
+              color: value
+                  ? AppColors.border
+                  : (errorText != null ? AppColors.error : AppColors.border),
             ),
           ),
           child: Row(
@@ -917,7 +929,13 @@ class _SignatureSectionState extends State<SignatureSection> {
                 child: Checkbox(
                   value: value,
                   onChanged: widget.enabled
-                      ? (v) => onChanged(v ?? false)
+                      ? (v) {
+                          onChanged(v ?? false);
+                          if (!_showErrors) setState(() => _showErrors = true);
+                          // Immediately update error state
+                          _updateErrors();
+                          _validate();
+                        }
                       : null,
                   activeColor: AppColors.primary,
                   shape: RoundedRectangleBorder(
@@ -935,7 +953,7 @@ class _SignatureSectionState extends State<SignatureSection> {
             ],
           ),
         ),
-        if (errorText != null)
+        if (errorText != null && !value)
           Padding(
             padding: const EdgeInsets.only(top: 6, left: 4),
             child: Text(
@@ -973,7 +991,10 @@ class _SignatureSectionState extends State<SignatureSection> {
             color: Colors.white,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: errorText != null ? AppColors.error : AppColors.border,
+              // Clear error border immediately when value is true
+              color: value
+                  ? AppColors.border
+                  : (errorText != null ? AppColors.error : AppColors.border),
             ),
           ),
           child: Column(
@@ -990,7 +1011,13 @@ class _SignatureSectionState extends State<SignatureSection> {
                     label: 'Yes, I Agree',
                     value: true,
                     groupValue: value,
-                    onChanged: onChanged,
+                    onChanged: (v) {
+                      onChanged(v);
+                      if (!_showErrors) setState(() => _showErrors = true);
+                      // Immediately update error state
+                      _updateErrors();
+                      _validate();
+                    },
                     color: AppColors.success,
                   ),
                   const SizedBox(width: 16),
@@ -998,7 +1025,13 @@ class _SignatureSectionState extends State<SignatureSection> {
                     label: 'No',
                     value: false,
                     groupValue: value,
-                    onChanged: onChanged,
+                    onChanged: (v) {
+                      onChanged(v);
+                      if (!_showErrors) setState(() => _showErrors = true);
+                      // Immediately update error state
+                      _updateErrors();
+                      _validate();
+                    },
                     color: AppColors.error,
                   ),
                 ],

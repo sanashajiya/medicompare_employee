@@ -74,11 +74,29 @@ class _BusinessDetailsSectionState extends State<BusinessDetailsSection> {
   }
 
   @override
+  void didUpdateWidget(BusinessDetailsSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.selectedCategories.length !=
+            widget.selectedCategories.length ||
+        oldWidget.initialLatitude != widget.initialLatitude ||
+        oldWidget.initialLongitude != widget.initialLongitude) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _validate();
+      });
+    }
+  }
+
+  @override
   void initState() {
     super.initState();
     _latitude = widget.initialLatitude;
     _longitude = widget.initialLongitude;
     _addListeners();
+
+    // Auto-validate prefilled data in edit/resume mode
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _validate();
+    });
   }
 
   void _addListeners() {
@@ -348,6 +366,12 @@ class _BusinessDetailsSectionState extends State<BusinessDetailsSection> {
           onChanged: (values) {
             widget.onCategoriesChanged(values);
             if (!_showErrors) setState(() => _showErrors = true);
+            // Immediately update error state when categories change
+            setState(() {
+              _businessCategoryError = values.isEmpty
+                  ? 'Please select at least one business category'
+                  : null;
+            });
             _validate();
           },
         ),

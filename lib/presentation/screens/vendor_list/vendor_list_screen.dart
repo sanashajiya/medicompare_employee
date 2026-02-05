@@ -331,16 +331,21 @@ class _VendorListScreenState extends State<VendorListScreen> {
     // First filter by status
     List<VendorListItemEntity> statusFiltered = vendors;
     if (widget.filterType != VendorFilterType.all) {
-      final statusMap = {
-        VendorFilterType.approved: 'approved',
-        VendorFilterType.pending: 'pending',
-        VendorFilterType.rejected: 'rejected',
-      };
-
-      final targetStatus = statusMap[widget.filterType]?.toLowerCase();
       statusFiltered = vendors.where((vendor) {
-        final vendorStatus = vendor.verifyStatus?.toLowerCase();
-        return vendorStatus == targetStatus;
+        final status = vendor.verifyStatus?.toLowerCase().trim() ?? '';
+
+        switch (widget.filterType) {
+          case VendorFilterType.approved:
+            return status == 'approved';
+          case VendorFilterType.rejected:
+            return status == 'rejected';
+          case VendorFilterType.pending:
+            // Match dashboard stats logic: Any non-approved/non-rejected status is Pending
+            // This includes 'pending', 'processing', and others
+            return status != 'approved' && status != 'rejected';
+          case VendorFilterType.all:
+            return true;
+        }
       }).toList();
     }
 

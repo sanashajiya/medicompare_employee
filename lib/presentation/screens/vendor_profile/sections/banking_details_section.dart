@@ -44,6 +44,11 @@ class _BankingDetailsSectionState extends State<BankingDetailsSection> {
   void initState() {
     super.initState();
     _addListeners();
+
+    // Auto-validate prefilled data in edit/resume mode
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _validate();
+    });
   }
 
   void _addListeners() {

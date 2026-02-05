@@ -115,6 +115,11 @@ class _DocumentsSectionState extends State<DocumentsSection> {
 
     // Initial validation without showing errors
     WidgetsBinding.instance.addPostFrameCallback((_) => _validate());
+
+    // Auto-validate prefilled data in edit/resume mode
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _validate();
+    });
   }
 
   void _onFocusChange() {
@@ -163,8 +168,15 @@ class _DocumentsSectionState extends State<DocumentsSection> {
         oldWidget.gstCertificateUrl != widget.gstCertificateUrl ||
         oldWidget.panCardUrl != widget.panCardUrl ||
         oldWidget.professionalLicenseUrl != widget.professionalLicenseUrl ||
-        oldWidget.additionalDocumentUrl != widget.additionalDocumentUrl) {
-      _validate();
+        oldWidget.additionalDocumentUrl != widget.additionalDocumentUrl ||
+        oldWidget.businessRegistrationFile != widget.businessRegistrationFile ||
+        oldWidget.gstCertificateFile != widget.gstCertificateFile ||
+        oldWidget.panCardFile != widget.panCardFile ||
+        oldWidget.professionalLicenseFile != widget.professionalLicenseFile ||
+        oldWidget.additionalDocumentFile != widget.additionalDocumentFile) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _validate();
+      });
     }
   }
 

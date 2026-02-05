@@ -54,7 +54,13 @@ class _PhotosSectionState extends State<PhotosSection> {
   @override
   void initState() {
     super.initState();
-    _validate();
+    // Initial validation
+    WidgetsBinding.instance.addPostFrameCallback((_) => _validate());
+
+    // Auto-validate prefilled data in edit/resume mode
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _validate();
+    });
   }
 
   @override
