@@ -25,6 +25,8 @@ class BusinessDetailsSection extends StatefulWidget {
   final Function(List<String>) onCategoriesChanged;
   final Function(bool isValid) onValidationChanged;
   final Function(double? lat, double? lng)? onLocationSelected;
+  final double? initialLatitude;
+  final double? initialLongitude;
 
   const BusinessDetailsSection({
     super.key,
@@ -41,6 +43,8 @@ class BusinessDetailsSection extends StatefulWidget {
     required this.onCategoriesChanged,
     required this.onValidationChanged,
     this.onLocationSelected,
+    this.initialLatitude,
+    this.initialLongitude,
   });
 
   @override
@@ -72,6 +76,8 @@ class _BusinessDetailsSectionState extends State<BusinessDetailsSection> {
   @override
   void initState() {
     super.initState();
+    _latitude = widget.initialLatitude;
+    _longitude = widget.initialLongitude;
     _addListeners();
   }
 
@@ -372,6 +378,9 @@ class _BusinessDetailsSectionState extends State<BusinessDetailsSection> {
             LayoutBuilder(
               builder: (context, constraints) {
                 return Autocomplete<PlaceSuggestion>(
+                  initialValue: TextEditingValue(
+                    text: widget.businessAddressController.text,
+                  ),
                   optionsBuilder: (TextEditingValue textEditingValue) async {
                     if (textEditingValue.text.isEmpty) {
                       return const Iterable<PlaceSuggestion>.empty();

@@ -1,12 +1,16 @@
 import 'dart:io';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:signature/signature.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:http/http.dart' as http;
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../widgets/custom_text_field.dart';
@@ -15,6 +19,7 @@ class SignatureSection extends StatefulWidget {
   final SignatureController signatureController;
   final TextEditingController signerNameController;
   final Uint8List? signatureBytes;
+  final String? signatureImageUrl;
   final bool acceptedTerms;
   final bool enabled;
   final Function(Uint8List?) onSignatureSaved;
@@ -32,6 +37,7 @@ class SignatureSection extends StatefulWidget {
     required this.signatureController,
     required this.signerNameController,
     required this.signatureBytes,
+    this.signatureImageUrl,
     required this.acceptedTerms,
     required this.enabled,
     required this.onSignatureSaved,
@@ -64,11 +70,12 @@ class _SignatureSectionState extends State<SignatureSection> {
   String? _pricingError;
   String? _slvError;
   bool _showErrors = false;
-  // bool _isEditingSignature = false; // Unused
+  late final String agreementId;
 
   @override
   void initState() {
     super.initState();
+    agreementId = _generateAgreementId();
     widget.signerNameController.addListener(_validate);
     // Initial validation check
     WidgetsBinding.instance.addPostFrameCallback((_) => _validate());
@@ -80,10 +87,29 @@ class _SignatureSectionState extends State<SignatureSection> {
     super.dispose();
   }
 
+  @override
+  void didUpdateWidget(SignatureSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.signatureBytes != widget.signatureBytes ||
+        oldWidget.signatureImageUrl != widget.signatureImageUrl) {
+      _validate();
+    }
+  }
+
+  String _generateAgreementId() {
+    final random = Random();
+    return 'VA-${random.nextInt(900000) + 100000}'; // 6-digit random number
+  }
+
   void _validate() {
+    final hasSignature =
+        widget.signatureBytes != null ||
+        (widget.signatureImageUrl != null &&
+            widget.signatureImageUrl!.isNotEmpty);
+
     final isValid =
         widget.signerNameController.text.trim().isNotEmpty &&
-        widget.signatureBytes != null &&
+        hasSignature &&
         widget.acceptedTerms &&
         widget.consentAccepted &&
         widget.pricingAgreementAccepted &&
@@ -97,11 +123,16 @@ class _SignatureSectionState extends State<SignatureSection> {
   }
 
   void _updateErrors() {
+    final hasSignature =
+        widget.signatureBytes != null ||
+        (widget.signatureImageUrl != null &&
+            widget.signatureImageUrl!.isNotEmpty);
+
     setState(() {
       _signerNameError = widget.signerNameController.text.trim().isEmpty
           ? 'Signer name is required'
           : null;
-      _signatureError = widget.signatureBytes == null
+      _signatureError = !hasSignature
           ? 'Please provide your digital signature'
           : null;
       _termsError = !widget.acceptedTerms
@@ -118,6 +149,21 @@ class _SignatureSectionState extends State<SignatureSection> {
   }
 
   Future<void> _generateAndOpenPdf() async {
+    // If we have a remote image URL but no local bytes, we might want to try fetching the bytes
+    // to embed in the PDF, or just use a placeholder.
+    Uint8List? signatureForPdf = widget.signatureBytes;
+
+    if (signatureForPdf == null && widget.signatureImageUrl != null) {
+      try {
+        final response = await http.get(Uri.parse(widget.signatureImageUrl!));
+        if (response.statusCode == 200) {
+          signatureForPdf = response.bodyBytes;
+        }
+      } catch (e) {
+        debugPrint('Failed to download signature for PDF: $e');
+      }
+    }
+
     final pdf = pw.Document();
 
     pdf.addPage(
@@ -130,7 +176,7 @@ class _SignatureSectionState extends State<SignatureSection> {
               pw.SizedBox(height: 20),
               pw.Text('Signer Name: ${widget.signerNameController.text}'),
               pw.SizedBox(height: 10),
-              pw.Text('Date: ${DateTime.now().toString().split(' ')[0]}'),
+              pw.Text('Date: ${_formatDate(DateTime.now())}'),
               pw.SizedBox(height: 20),
               pw.Paragraph(
                 text:
@@ -141,13 +187,31 @@ class _SignatureSectionState extends State<SignatureSection> {
                 mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                 children: [
                   pw.Text('Authorized Signature:'),
-                  if (widget.signatureBytes != null)
+                  if (signatureForPdf != null)
                     pw.Image(
-                      pw.MemoryImage(widget.signatureBytes!),
+                      pw.MemoryImage(signatureForPdf!),
                       width: 100,
                       height: 50,
-                    ),
+                    )
+                  else
+                    pw.Text('[Digital Signature on File]'),
                 ],
+              ),
+              pw.Spacer(),
+              pw.Divider(),
+              pw.Text(
+                'This is a computer-generated agreement. No physical signature is required.',
+                style: const pw.TextStyle(
+                  fontSize: 10,
+                  color: PdfColors.grey700,
+                ),
+              ),
+              pw.Text(
+                '© 2026 MediCompares. All rights reserved.',
+                style: const pw.TextStyle(
+                  fontSize: 10,
+                  color: PdfColors.grey700,
+                ),
               ),
             ],
           );
@@ -160,22 +224,277 @@ class _SignatureSectionState extends State<SignatureSection> {
       final file = File('${output.path}/vendor_agreement.pdf');
       await file.writeAsBytes(await pdf.save());
 
-      // Open the file (requires open_file or similar, executing minimal open command if possible or just showing snackbar)
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Agreement generated at ${file.path}')),
-      );
-      // Actual file opening would depend on another package like open_filex, omitting to avoid adding deps blindly.
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Agreement generated at ${file.path}')),
+        );
+        await OpenFilex.open(file.path);
+      }
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Failed to generate PDF')));
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Failed to generate PDF')));
+      }
     }
   }
 
-  @override
-  void didUpdateWidget(SignatureSection oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    _validate();
+  String _formatDate(DateTime date) {
+    const months = [
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ];
+    return '${date.day} ${months[date.month - 1]} ${date.year}';
+  }
+
+  void _showPreviewDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierColor: Colors.black.withOpacity(0.5),
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(16),
+        child: Container(
+          height: MediaQuery.of(context).size.height * 0.9,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            children: [
+              // Header
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(color: Colors.grey.withOpacity(0.2)),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Vendor Agreement Preview',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Agreement ID: $agreementId',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          ElevatedButton.icon(
+                            onPressed: _generateAndOpenPdf,
+                            icon: const Icon(Icons.download_rounded, size: 16),
+                            label: const Text('Download Agreement'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.success,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                              textStyle: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close),
+                      color: AppColors.textSecondary,
+                    ),
+                  ],
+                ),
+              ),
+
+              // Body
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(24),
+                  child: Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      // direction: Axis.vertical,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 10,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                      border: Border.all(color: Colors.grey.withOpacity(0.1)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Agreement Title
+                        const Center(
+                          child: Text(
+                            'VENDOR AGREEMENT',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.2,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 32),
+
+                        // Agreement Text
+                        const Text(
+                          'This agreement confirms that the vendor has accepted all terms and conditions, pricing models, and service level agreements (SLVs) as stipulated by the platform.',
+                          style: TextStyle(
+                            fontSize: 14,
+                            height: 1.6,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 40),
+
+                        // Signer Name Section
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Signed for and on behalf of the Vendor',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              widget.signerNameController.text,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 32),
+
+                        // Digital Signature Section
+                        Center(
+                          child: Column(
+                            children: [
+                              Container(
+                                decoration: BoxDecoration(
+                                  border: Border(
+                                    bottom: BorderSide(
+                                      color: Colors.grey.withOpacity(0.3),
+                                      width: 1,
+                                    ),
+                                  ),
+                                ),
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: (widget.signatureBytes != null)
+                                    ? Image.memory(
+                                        widget.signatureBytes!,
+                                        height: 80,
+                                        fit: BoxFit.contain,
+                                      )
+                                    : (widget.signatureImageUrl != null)
+                                    ? Image.network(
+                                        widget.signatureImageUrl!,
+                                        height: 80,
+                                        fit: BoxFit.contain,
+                                        errorBuilder:
+                                            (context, error, stackTrace) =>
+                                                const Text('[Signature Error]'),
+                                      )
+                                    : const SizedBox(height: 80, width: 200),
+                              ),
+                              const SizedBox(height: 8),
+                              const Text(
+                                '[Digital Signature]',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontStyle: FontStyle.italic,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 32),
+
+                        // Date Section
+                        Text(
+                          'Date: ${_formatDate(DateTime.now())}',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+
+                        const SizedBox(height: 48),
+                        Divider(color: Colors.grey.withOpacity(0.2)),
+                        const SizedBox(height: 16),
+
+                        // Footer
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            const Text(
+                              'This is a computer-generated agreement. No physical signature is required.',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: AppColors.textSecondary,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 4),
+                            const Text(
+                              '© 2026 MediCompares. All rights reserved.',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: AppColors.textSecondary,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _saveSignature() async {
@@ -195,6 +514,11 @@ class _SignatureSectionState extends State<SignatureSection> {
 
   @override
   Widget build(BuildContext context) {
+    final hasSignature =
+        widget.signatureBytes != null ||
+        (widget.signatureImageUrl != null &&
+            widget.signatureImageUrl!.isNotEmpty);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -225,8 +549,9 @@ class _SignatureSectionState extends State<SignatureSection> {
           ),
         ),
         const SizedBox(height: 8),
+
         // Show saved signature preview if available
-        if (widget.signatureBytes != null) ...[
+        if (hasSignature) ...[
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
@@ -249,7 +574,7 @@ class _SignatureSectionState extends State<SignatureSection> {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      'Saved Signature (Restored from draft)',
+                      'Saved Signature',
                       style: TextStyle(
                         color: AppColors.success,
                         fontSize: 13,
@@ -270,19 +595,19 @@ class _SignatureSectionState extends State<SignatureSection> {
                   ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(8),
-                    child: Image.memory(
-                      widget.signatureBytes!,
-                      fit: BoxFit.contain,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Center(
-                          child: Icon(
-                            Icons.error_outline,
-                            color: AppColors.error,
-                            size: 32,
+                    child: widget.signatureBytes != null
+                        ? Image.memory(
+                            widget.signatureBytes!,
+                            fit: BoxFit.contain,
+                            errorBuilder: (context, error, stackTrace) =>
+                                const Center(child: Icon(Icons.error_outline)),
+                          )
+                        : Image.network(
+                            widget.signatureImageUrl!,
+                            fit: BoxFit.contain,
+                            errorBuilder: (context, error, stackTrace) =>
+                                const Center(child: Icon(Icons.broken_image)),
                           ),
-                        );
-                      },
-                    ),
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -297,12 +622,10 @@ class _SignatureSectionState extends State<SignatureSection> {
               ],
             ),
           ),
-          // const SizedBox(height: 16), // Avoid double spacing
         ],
-        // Signature Pad
+
         // Signature Pad - Only show if NO signature is saved
-        // Signature Pad - Only show if NO signature is saved
-        if (widget.signatureBytes == null) ...[
+        if (!hasSignature) ...[
           Container(
             height: 150,
             decoration: BoxDecoration(
@@ -361,24 +684,25 @@ class _SignatureSectionState extends State<SignatureSection> {
         ],
 
         // Edit Signature Button if saved
-        if (widget.signatureBytes != null)
+        if (hasSignature)
           Padding(
             padding: const EdgeInsets.only(top: 12),
             child: Center(
               child: TextButton.icon(
                 onPressed: widget.enabled
                     ? () {
-                        setState(() {});
-                        // Logic to edit?
-                        // Tapping "Edit" implies we want to redraw.
-                        // The current UI shows 'Clear' and 'Redraw' buttons anyway when signature is visible?
-                        // Ah, the requested design says:
-                        // "Show only one signature preview box... Provide an Edit Signature button"
-                        // "Remove any duplicate preview or restored signature containers"
-                        // My code currently shows 'Saved Signature' Box AND the Drawing Pad below it.
-                        // I should HIDE the drawing pad if signatureBytes != null.
-
-                        _clearSignature(); // This clears it, effectively entering "Edit mode"
+                        // Enter edit mode by clearing signature (but be careful if it was URL)
+                        // If we clear signature, the URL is cleared from view effectively because hasSignature becomes false
+                        // WE need to clear the URL in the parent too?
+                        // Or just clearing locally allows redraw, and when saved it provides bytes which override URL.
+                        // But wait, the URL comes from Widget props. We can't clear it.
+                        // The 'hasSignature' check uses widget.signatureImageUrl.
+                        // If I click clear, I need the parent to set signatureImageUrl to null.
+                        // But I don't have a callback for that.
+                        // I currently only have `onSignatureSaved(Uint8List?)`.
+                        // Assumptions: passing null to onSignatureSaved should signal "clear everything".
+                        // In VendorProfileScreen, onSignatureSaved(null) should ALSO clear the signatureImageUrl state.
+                        _clearSignature();
                       }
                     : null,
                 icon: const Icon(Icons.edit, size: 16),
@@ -395,9 +719,27 @@ class _SignatureSectionState extends State<SignatureSection> {
               style: const TextStyle(color: AppColors.error, fontSize: 12),
             ),
           ),
-        // Show success indicator only if signature was just saved (not restored)
-        // The preview above already shows the restored signature
+
         const SizedBox(height: 32),
+
+        // Agreement Preview Button
+        // SizedBox(
+        //   width: double.infinity,
+        //   child: OutlinedButton.icon(
+        //     onPressed: (hasSignature || widget.signatureImageUrl != null)
+        //         ? _showPreviewDialog
+        //         : null,
+        //     icon: const Icon(Icons.visibility_outlined),
+        //     label: const Text('Preview Vendor Agreement'),
+        //     style: OutlinedButton.styleFrom(
+        //       padding: const EdgeInsets.symmetric(vertical: 16),
+        //       foregroundColor: AppColors.primary,
+        //       side: const BorderSide(color: AppColors.primary),
+        //     ),
+        //   ),
+        // ),
+
+        // const SizedBox(height: 32),
         // Terms and Conditions
         Container(
           padding: const EdgeInsets.all(16),
@@ -518,95 +860,22 @@ class _SignatureSectionState extends State<SignatureSection> {
           onChanged: widget.onPricingAgreementChanged,
           errorText: _showErrors ? _pricingError : null,
           warningText:
-              'You cannot proceed with registration if you don’t agree to the pricing terms.',
+              'You must agree to the pricing terms to proceed with registration.',
         ),
 
         const SizedBox(height: 24),
 
         // SLV Agreement
         _buildRadioSection(
-          title: 'SLV Agreement *',
+          title: 'Service Level Agreement (SLV) *',
           question:
-              'Do you agree to the Service Level & Value commitments, including performance standards and support protocols?',
+              'Do you commit to adhering to the Service Level Agreement (SLV), ensuring timely and quality service delivery?',
           value: widget.slvAgreementAccepted,
           onChanged: widget.onSlvAgreementChanged,
           errorText: _showErrors ? _slvError : null,
           warningText:
-              'You cannot proceed with registration if you don’t agree to the SLV terms.',
+              'Acceptance of the SLV is mandatory to ensure quality standards.',
         ),
-
-        const SizedBox(height: 32),
-
-        // Generated Vendor Agreement
-        if (widget.signatureBytes != null &&
-            widget.acceptedTerms &&
-            widget.consentAccepted &&
-            widget.pricingAgreementAccepted &&
-            widget.slvAgreementAccepted)
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.05),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.primary.withOpacity(0.2)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(Icons.description_outlined, color: AppColors.primary),
-                    const SizedBox(width: 12),
-                    Text(
-                      'Generated Vendor Agreement',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                  ],
-                ),
-                if (widget.signatureBytes != null) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    'Agreement ID: VA-${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}', // Dummy ID
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: _generateAndOpenPdf,
-                        icon: const Icon(
-                          Icons.remove_red_eye_outlined,
-                          size: 18,
-                        ),
-                        label: const Text('Preview'),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: _generateAndOpenPdf,
-                        icon: const Icon(Icons.download_rounded, size: 18),
-                        label: const Text('Download'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          foregroundColor: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
       ],
     );
   }
@@ -623,14 +892,21 @@ class _SignatureSectionState extends State<SignatureSection> {
       children: [
         Text(
           title,
-          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: AppColors.textPrimary,
+          ),
         ),
         const SizedBox(height: 8),
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            border: Border.all(color: AppColors.border),
-            borderRadius: BorderRadius.circular(8),
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: errorText != null ? AppColors.error : AppColors.border,
+            ),
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -641,25 +917,27 @@ class _SignatureSectionState extends State<SignatureSection> {
                 child: Checkbox(
                   value: value,
                   onChanged: widget.enabled
-                      ? (v) {
-                          onChanged(v ?? false);
-                          if (!_showErrors) setState(() => _showErrors = true);
-                          _validate();
-                        }
+                      ? (v) => onChanged(v ?? false)
                       : null,
                   activeColor: AppColors.primary,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(4),
+                  ),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 8),
               Expanded(
-                child: Text(content, style: const TextStyle(fontSize: 14)),
+                child: Text(
+                  content,
+                  style: TextStyle(fontSize: 13, color: AppColors.textPrimary),
+                ),
               ),
             ],
           ),
         ),
         if (errorText != null)
           Padding(
-            padding: const EdgeInsets.only(top: 8, left: 12),
+            padding: const EdgeInsets.only(top: 6, left: 4),
             child: Text(
               errorText,
               style: const TextStyle(color: AppColors.error, fontSize: 12),
@@ -675,113 +953,73 @@ class _SignatureSectionState extends State<SignatureSection> {
     required bool value,
     required Function(bool) onChanged,
     String? errorText,
-    String? warningText,
+    required String warningText,
   }) {
-    // Value is basically "Accepted" vs "Not Accepted".
-    // We need to track tri-state for radio?
-    // Actually the requirements say "Agreement = Yes".
-    // Initially false.
-    // We need to distinguish between "Not selected yet" and "Selected No".
-    // But simplest is just boolean. If false, users can't proceed.
-    // However, user wants explicit options: Yes, I agree / No, I don't agree.
-    // So we can map true -> Yes, false -> No (or not selected).
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           title,
-          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: AppColors.textPrimary,
+          ),
         ),
         const SizedBox(height: 8),
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            border: Border.all(color: AppColors.border),
-            borderRadius: BorderRadius.circular(12),
             color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: errorText != null ? AppColors.error : AppColors.border,
+            ),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 question,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                ),
+                style: TextStyle(fontSize: 13, color: AppColors.textPrimary),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
               Row(
                 children: [
-                  Expanded(
-                    child: RadioListTile<bool>(
-                      title: const Text('Yes, I agree',style: TextStyle(
-            fontSize: 12, 
-          ),),
-                      value: true,
-                      groupValue: value
-                          ? true
-                          : null, // If false, it might be unselected or explicit No.
-                      // To simplify, let's assume default is false (No/Unselected).
-                      // Wait, if separate states are needed, we need a nullable bool or int.
-                      // But props are bool. Let's assume false = No/Unset.
-                      // To support explicit "No" selection UI, we need local state if props are strictly bool.
-                      // But props come from parent state.
-                      // Let's stick to true = Yes, false = No/Unset.
-                      onChanged: widget.enabled
-                          ? (v) {
-                              onChanged(v!);
-                              if (!_showErrors)
-                                setState(() => _showErrors = true);
-                              _validate();
-                            }
-                          : null,
-                      contentPadding: EdgeInsets.zero,
-                      activeColor: AppColors.success,
-                      visualDensity: VisualDensity.compact,
-                    ),
+                  _buildRadioButton(
+                    label: 'Yes, I Agree',
+                    value: true,
+                    groupValue: value,
+                    onChanged: onChanged,
+                    color: AppColors.success,
                   ),
-                  Expanded(
-                    child: RadioListTile<bool>(
-                      title: const Text('No, I don\'t agree',style: TextStyle(
-            fontSize: 12, 
-          ),),
-                      value: false,
-                      groupValue: !value ? false : null,
-                      onChanged: widget.enabled
-                          ? (v) {
-                              onChanged(v!);
-                              if (!_showErrors)
-                                setState(() => _showErrors = true);
-                              _validate();
-                            }
-                          : null,
-                      contentPadding: EdgeInsets.zero,
-                      activeColor: AppColors.error,
-                      visualDensity: VisualDensity.compact,
-                    ),
+                  const SizedBox(width: 16),
+                  _buildRadioButton(
+                    label: 'No',
+                    value: false,
+                    groupValue: value,
+                    onChanged: onChanged,
+                    color: AppColors.error,
                   ),
                 ],
               ),
-              if (!value &&
-                  _showErrors) // Show warning if No is selected (or just not Yes when validating)
+              if (!value && errorText != null)
                 Padding(
-                  padding: const EdgeInsets.only(top: 8),
+                  padding: const EdgeInsets.only(top: 12),
                   child: Row(
                     children: [
                       Icon(
-                        Icons.warning_amber_rounded,
+                        Icons.info_outline,
+                        size: 16,
                         color: AppColors.error,
-                        size: 13,
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 6),
                       Expanded(
                         child: Text(
-                          warningText ?? '',
-                          style: const TextStyle(
-                            color: AppColors.error,
+                          warningText,
+                          style: TextStyle(
                             fontSize: 12,
+                            color: AppColors.error,
                           ),
                         ),
                       ),
@@ -792,6 +1030,57 @@ class _SignatureSectionState extends State<SignatureSection> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildRadioButton({
+    required String label,
+    required bool value,
+    required bool groupValue,
+    required Function(bool) onChanged,
+    required Color color,
+  }) {
+    final isSelected = value == groupValue;
+    return InkWell(
+      onTap: widget.enabled ? () => onChanged(value) : null,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? color.withOpacity(0.1) : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: isSelected ? color : AppColors.border),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 16,
+              height: 16,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: isSelected ? color : AppColors.textSecondary,
+                  width: 1.5,
+                ),
+                color: isSelected ? color : null,
+              ),
+              child: isSelected
+                  ? const Icon(Icons.check, size: 10, color: Colors.white)
+                  : null,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                color: isSelected ? color : AppColors.textSecondary,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

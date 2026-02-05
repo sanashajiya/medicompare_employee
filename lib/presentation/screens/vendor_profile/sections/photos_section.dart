@@ -7,10 +7,14 @@ import '../../../../core/theme/app_colors.dart';
 
 class PhotosSection extends StatefulWidget {
   final List<File> frontStoreImages;
+  final List<String> frontStoreImageUrls;
   final File? storeLogo;
+  final String? storeLogoUrl;
   final File? profileBanner;
+  final String? profileBannerUrl;
   final bool enabled;
   final Function(List<File>) onFrontStoreImagesChanged;
+  final Function(List<String>) onFrontStoreImageUrlsChanged;
   final Function(File?) onStoreLogoChanged;
   final Function(File?) onProfileBannerChanged;
   final Function(bool isValid) onValidationChanged;
@@ -18,10 +22,14 @@ class PhotosSection extends StatefulWidget {
   const PhotosSection({
     super.key,
     required this.frontStoreImages,
+    this.frontStoreImageUrls = const [],
     required this.storeLogo,
+    this.storeLogoUrl,
     required this.profileBanner,
+    this.profileBannerUrl,
     required this.enabled,
     required this.onFrontStoreImagesChanged,
+    required this.onFrontStoreImageUrlsChanged,
     required this.onStoreLogoChanged,
     required this.onProfileBannerChanged,
     required this.onValidationChanged,
@@ -49,26 +57,47 @@ class _PhotosSectionState extends State<PhotosSection> {
     _validate();
   }
 
+  @override
+  void didUpdateWidget(PhotosSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.storeLogo != widget.storeLogo ||
+        oldWidget.storeLogoUrl != widget.storeLogoUrl ||
+        oldWidget.profileBanner != widget.profileBanner ||
+        oldWidget.profileBannerUrl != widget.profileBannerUrl ||
+        oldWidget.frontStoreImages.length != widget.frontStoreImages.length ||
+        oldWidget.frontStoreImageUrls.length !=
+            widget.frontStoreImageUrls.length) {
+      _validate();
+    }
+  }
+
   void _validate() {
     String? storeLogoError;
-    if (widget.storeLogo == null) {
+    final hasStoreLogo =
+        widget.storeLogo != null ||
+        (widget.storeLogoUrl != null && widget.storeLogoUrl!.isNotEmpty);
+    if (!hasStoreLogo) {
       storeLogoError = 'Store Logo is required';
     }
 
     String? profileBannerError;
-    if (widget.profileBanner == null) {
+    final hasProfileBanner =
+        widget.profileBanner != null ||
+        (widget.profileBannerUrl != null &&
+            widget.profileBannerUrl!.isNotEmpty);
+    if (!hasProfileBanner) {
       profileBannerError = 'Profile Banner is required';
     }
 
     String? frontStoreImagesError;
-    if (widget.frontStoreImages.isEmpty) {
+    final hasStoreImages =
+        widget.frontStoreImages.isNotEmpty ||
+        widget.frontStoreImageUrls.isNotEmpty;
+    if (!hasStoreImages) {
       frontStoreImagesError = 'Please upload at least one store image';
     }
 
-    final isValid =
-        widget.storeLogo != null &&
-        widget.profileBanner != null &&
-        widget.frontStoreImages.isNotEmpty;
+    final isValid = hasStoreLogo && hasProfileBanner && hasStoreImages;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
@@ -83,12 +112,6 @@ class _PhotosSectionState extends State<PhotosSection> {
         _frontStoreImagesError = frontStoreImagesError;
       });
     }
-  }
-
-  @override
-  void didUpdateWidget(PhotosSection oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    _validate();
   }
 
   Future<void> _pickStoreLogo() async {
@@ -136,7 +159,9 @@ class _PhotosSectionState extends State<PhotosSection> {
   }
 
   void _showStoreImagesUploadOptions() {
-    if (widget.frontStoreImages.length >= _maxImages) {
+    final totalImages =
+        widget.frontStoreImages.length + widget.frontStoreImageUrls.length;
+    if (totalImages >= _maxImages) {
       _showErrorSnackbar('Maximum $_maxImages images allowed');
       return;
     }
@@ -231,7 +256,10 @@ class _PhotosSectionState extends State<PhotosSection> {
 
   Future<void> _pickStoreImageFromGallery() async {
     try {
-      final remainingSlots = _maxImages - widget.frontStoreImages.length;
+      final totalImages =
+          widget.frontStoreImages.length + widget.frontStoreImageUrls.length;
+      final remainingSlots = _maxImages - totalImages;
+
       final List<XFile> pickedImages = await _imagePicker.pickMultiImage(
         imageQuality: 85,
         maxWidth: 1500,
@@ -302,12 +330,38 @@ class _PhotosSectionState extends State<PhotosSection> {
           errorText: _showErrors ? _storeLogoError : null,
           content: _buildSingleUploadCard(
             file: widget.storeLogo,
+            url: widget.storeLogoUrl,
             label: 'Tap to upload logo',
-            successLabel: 'Logo uploaded successfully',
+            successLabel: 'Logo available',
             onTap: widget.enabled ? _pickStoreLogo : null,
-            onRemove: widget.enabled && widget.storeLogo != null
+            onRemove:
+                widget.enabled &&
+                    (widget.storeLogo != null || widget.storeLogoUrl != null)
                 ? () {
-                    widget.onStoreLogoChanged(null);
+                    if (widget.storeLogo != null) {
+                      widget.onStoreLogoChanged(null);
+                    }
+                    if (widget.storeLogoUrl != null) {
+                      // We can't clear URL via valid callback as it might be 'onStoreLogoChanged' for File.
+                      // Parent needs to handle this or we treat URL as persistent unless file overwrites.
+                      // To support clearing URL, parent logic needs update.
+                      // For now, let's assume 'onStoreLogoChanged(null)' implies clearing selection logic in parent?
+                      // Actually, we usually can't 'remove' a persistent logo without uploading a new one or explicit delete API.
+                      // But for Edit mode, we might just let them replace it.
+                      // If we want to allow removing, we might need a separate callback or just hide it.
+                      // Let's assume hitting remove on URL calls onStoreLogoChanged(null) AND we might need a way to clear URL in parent.
+                      // Assuming parent rebuilds with url=null? No, parent state has the URL.
+                      // Let's just allow REPLACING for now if it's a URL.
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Please upload a new logo to replace the existing one.',
+                          ),
+                        ),
+                      );
+                    } else {
+                      widget.onStoreLogoChanged(null);
+                    }
                     _validate();
                   }
                 : null,
@@ -329,12 +383,27 @@ class _PhotosSectionState extends State<PhotosSection> {
           errorText: _showErrors ? _profileBannerError : null,
           content: _buildSingleUploadCard(
             file: widget.profileBanner,
+            url: widget.profileBannerUrl,
             label: 'Tap to upload banner',
-            successLabel: 'Banner uploaded successfully',
+            successLabel: 'Banner available',
             onTap: widget.enabled ? _pickProfileBanner : null,
-            onRemove: widget.enabled && widget.profileBanner != null
+            onRemove:
+                widget.enabled &&
+                    (widget.profileBanner != null ||
+                        widget.profileBannerUrl != null)
                 ? () {
-                    widget.onProfileBannerChanged(null);
+                    if (widget.profileBanner != null) {
+                      widget.onProfileBannerChanged(null);
+                    } else {
+                      // See Store Logo comment about removing existing URL assets
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Please upload a new banner to replace the existing one.',
+                          ),
+                        ),
+                      );
+                    }
                     _validate();
                   }
                 : null,
@@ -353,7 +422,8 @@ class _PhotosSectionState extends State<PhotosSection> {
         _buildUploadSection(
           title: 'Store Gallery Images',
           isRequired: true,
-          countLabel: '${widget.frontStoreImages.length}/$_maxImages uploaded',
+          countLabel:
+              '${widget.frontStoreImages.length + widget.frontStoreImageUrls.length}/$_maxImages uploaded',
           errorText: _showErrors ? _frontStoreImagesError : null,
           content: Column(
             children: [
@@ -391,32 +461,64 @@ class _PhotosSectionState extends State<PhotosSection> {
                   ),
                 ),
               ),
-              if (widget.frontStoreImages.isNotEmpty) ...[
+              if (widget.frontStoreImages.isNotEmpty ||
+                  widget.frontStoreImageUrls.isNotEmpty) ...[
                 const SizedBox(height: 16),
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: Row(
-                    children: List.generate(
-                      widget.frontStoreImages.length,
-                      (index) => Padding(
-                        padding: EdgeInsets.only(
-                          right: index < widget.frontStoreImages.length - 1
-                              ? 12
-                              : 0,
-                        ),
-                        child: _buildImageThumbnail(
-                          widget.frontStoreImages[index],
-                          () {
-                            final newImages = List<File>.from(
-                              widget.frontStoreImages,
-                            );
-                            newImages.removeAt(index);
-                            widget.onFrontStoreImagesChanged(newImages);
-                            _validate();
-                          },
+                    children: [
+                      // Display remote URLs
+                      ...List.generate(
+                        widget.frontStoreImageUrls.length,
+                        (index) => Padding(
+                          padding: const EdgeInsets.only(right: 12),
+                          child: _buildImageThumbnail(
+                            width: 80,
+                            height: 80,
+                            file: null,
+                            url: widget.frontStoreImageUrls[index],
+                            onRemove: () {
+                              if (widget.enabled) {
+                                final newUrls = List<String>.from(
+                                  widget.frontStoreImageUrls,
+                                );
+                                newUrls.removeAt(index);
+                                widget.onFrontStoreImageUrlsChanged(newUrls);
+                                _validate();
+                              }
+                            },
+                          ),
                         ),
                       ),
-                    ),
+                      // Display local Files
+                      ...List.generate(
+                        widget.frontStoreImages.length,
+                        (index) => Padding(
+                          padding: EdgeInsets.only(
+                            right: index < widget.frontStoreImages.length - 1
+                                ? 12
+                                : 0,
+                          ),
+                          child: _buildImageThumbnail(
+                            width: 80,
+                            height: 80,
+                            file: widget.frontStoreImages[index],
+                            url: null,
+                            onRemove: () {
+                              if (widget.enabled) {
+                                final newImages = List<File>.from(
+                                  widget.frontStoreImages,
+                                );
+                                newImages.removeAt(index);
+                                widget.onFrontStoreImagesChanged(newImages);
+                                _validate();
+                              }
+                            },
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -527,6 +629,7 @@ class _PhotosSectionState extends State<PhotosSection> {
 
   Widget _buildSingleUploadCard({
     required File? file,
+    required String? url,
     required String label,
     required String successLabel,
     required VoidCallback? onTap,
@@ -534,6 +637,8 @@ class _PhotosSectionState extends State<PhotosSection> {
     required bool isWide,
   }) {
     final bool hasFile = file != null;
+    final bool hasUrl = url != null && url.isNotEmpty;
+    final bool hasImage = hasFile || hasUrl;
 
     return InkWell(
       onTap: onTap,
@@ -542,25 +647,31 @@ class _PhotosSectionState extends State<PhotosSection> {
         width: double.infinity,
         height: isWide ? 150 : 150, // Keep height consistent or responsive
         decoration: BoxDecoration(
-          color: hasFile ? Colors.white : AppColors.primary.withOpacity(0.05),
+          color: hasImage ? Colors.white : AppColors.primary.withOpacity(0.05),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: hasFile
+            color: hasImage
                 ? AppColors.success
                 : AppColors.primary.withOpacity(0.3),
-            width: hasFile ? 1.5 : 1,
-            style: hasFile
-                ? BorderStyle.solid
-                : BorderStyle
-                      .none, // Removed dashed border helper dependency for now, simpler
+            width: hasImage ? 1.5 : 1,
+            style: hasImage ? BorderStyle.solid : BorderStyle.none,
           ),
-          image: hasFile
-              ? DecorationImage(image: FileImage(file), fit: BoxFit.cover)
-              : null,
         ),
-        child: hasFile
+        child: hasImage
             ? Stack(
+                fit: StackFit.expand,
                 children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(11),
+                    child: hasFile
+                        ? Image.file(file!, fit: BoxFit.cover)
+                        : Image.network(
+                            url!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) =>
+                                const Center(child: Icon(Icons.broken_image)),
+                          ),
+                  ),
                   Container(
                     decoration: BoxDecoration(
                       color: Colors.black.withOpacity(0.3),
@@ -669,13 +780,19 @@ class _PhotosSectionState extends State<PhotosSection> {
     );
   }
 
-  Widget _buildImageThumbnail(File imageFile, VoidCallback onRemove) {
+  Widget _buildImageThumbnail({
+    required double width,
+    required double height,
+    File? file,
+    String? url,
+    required VoidCallback onRemove,
+  }) {
     return Stack(
       clipBehavior: Clip.none,
       children: [
         Container(
-          width: 80,
-          height: 80,
+          width: width,
+          height: height,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(10),
             boxShadow: [
@@ -688,19 +805,33 @@ class _PhotosSectionState extends State<PhotosSection> {
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(10),
-            child: Image.file(
-              imageFile,
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) {
-                return Container(
-                  color: AppColors.border,
-                  child: const Icon(
-                    Icons.image_not_supported_outlined,
-                    color: AppColors.textSecondary,
+            child: file != null
+                ? Image.file(
+                    file,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Container(
+                        color: AppColors.border,
+                        child: const Icon(
+                          Icons.image_not_supported_outlined,
+                          color: AppColors.textSecondary,
+                        ),
+                      );
+                    },
+                  )
+                : Image.network(
+                    url!,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Container(
+                        color: AppColors.border,
+                        child: const Icon(
+                          Icons.broken_image_outlined,
+                          color: AppColors.textSecondary,
+                        ),
+                      );
+                    },
                   ),
-                );
-              },
-            ),
           ),
         ),
         Positioned(

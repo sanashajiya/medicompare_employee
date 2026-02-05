@@ -12,6 +12,8 @@ class VendorModel extends VendorEntity {
     required super.mobile,
     super.aadhaarFrontImage,
     super.aadhaarBackImage,
+    super.aadhaarFrontImageUrl,
+    super.aadhaarBackImageUrl,
     super.signname,
     super.adharnumber,
     super.residentaladdress,
@@ -27,11 +29,17 @@ class VendorModel extends VendorEntity {
     required super.documentNumbers,
     required super.expiryDates,
     required super.files,
+    super.docUrls,
     required super.frontimages,
+    super.frontImageUrls,
     required super.backimages,
+    super.backImageUrls,
     required super.signature,
+    super.signatureImageUrl,
     super.storeLogo,
+    super.storeLogoUrl,
     super.profileBanner,
+    super.profileBannerUrl,
     required super.bankName,
     required super.accountName,
     required super.accountNumber,
@@ -49,8 +57,38 @@ class VendorModel extends VendorEntity {
     super.message,
   });
 
+  // Helper to ensure full URL with prefix
+  static String? _getFullUrl(String? path) {
+    if (path == null || path.isEmpty) return null;
+    if (path.startsWith('http')) return path;
+    // Extract base URL from ApiEndpoints (remove /api/v1 suffix)
+    const apiBaseUrl = 'http://13.60.221.192:9001/';
+    // Prevent double slashes if path starts with /
+    if (path.startsWith('/')) {
+      return '$apiBaseUrl${path.substring(1)}';
+    }
+    return '$apiBaseUrl$path';
+  }
+
   // 🔹 Backend → Entity (from vendor details endpoint)
   factory VendorModel.fromJson(Map<String, dynamic> json) {
+    // Helper parsers for this specific JSON structure
+    String? getFirstPath(dynamic key) {
+      if (json[key] is List && (json[key] as List).isNotEmpty) {
+        return _getFullUrl(json[key][0]['path']?.toString());
+      }
+      return null;
+    }
+
+    // Parse documents if available
+    List<String> parsedDocUrls = [];
+    if (json['doc_path'] != null) {
+      // Some endpoints return doc_path array directly
+      parsedDocUrls = List<String>.from(
+        json['doc_path'],
+      ).map((e) => _getFullUrl(e) ?? '').toList();
+    }
+
     return VendorModel(
       firstName: json['firstName'] ?? '',
       lastName: json['lastName'] ?? '',
@@ -61,6 +99,18 @@ class VendorModel extends VendorEntity {
       businessEmail: json['businessEmail'] ?? '',
       altMobile: json['alt_mobile'] ?? '',
       address: json['residentaladdress'] ?? '',
+      proofType: json['proofType']?.toString(),
+      // Parse location if it exists
+      latitude: json['location'] is Map
+          ? (json['location']['lat'] is num
+                ? (json['location']['lat'] as num).toDouble()
+                : double.tryParse(json['location']['lat']?.toString() ?? ''))
+          : null,
+      longitude: json['location'] is Map
+          ? (json['location']['lng'] is num
+                ? (json['location']['lng'] as num).toDouble()
+                : double.tryParse(json['location']['lng']?.toString() ?? ''))
+          : null,
       categories: json['categories'] != null
           ? List<String>.from(json['categories'])
           : [],
@@ -76,20 +126,46 @@ class VendorModel extends VendorEntity {
           ? List<String>.from(json['expiryDate'])
           : [],
       files: const [],
+      docUrls: parsedDocUrls,
       frontimages: const [],
+      frontImageUrls: const [],
       backimages: const [],
+      backImageUrls: const [],
       signature: const [],
+      signatureImageUrl: null,
+      storeLogo: null,
+      storeLogoUrl:
+          (json['business'] != null &&
+              json['business']['bussiness_image'] is Map)
+          ? _getFullUrl(json['business']['bussiness_image']['url']?.toString())
+          : (json['bussiness_image'] is Map
+                ? _getFullUrl(json['bussiness_image']['url']?.toString())
+                : null),
+      profileBanner: null,
+      profileBannerUrl:
+          (json['business'] != null &&
+              json['business']['bussiness_banner_image'] is Map)
+          ? _getFullUrl(
+              json['business']['bussiness_banner_image']['url']?.toString(),
+            )
+          : (json['bussiness_banner_image'] is Map
+                ? _getFullUrl(json['bussiness_banner_image']['url']?.toString())
+                : null),
       bankName: json['bankName'] ?? '',
       accountName: json['accountName'] ?? '',
       accountNumber: json['accountNumber']?.toString() ?? '',
       ifscCode: json['ifscCode'] ?? '',
       branchName: json['branchName'] ?? '',
       vendorId: json['vendorId'] ?? json['_id'],
-      consentAccepted: json['consentAccepted'] ?? false,
-      pricingAgreementAccepted: json['pricingAgreementAccepted'] ?? false,
-      slvAgreementAccepted: json['slvAgreementAccepted'] ?? false,
+      consentAccepted: json['consent'] ?? json['consentAccepted'] ?? false,
+      pricingAgreementAccepted:
+          json['pricingAgreement'] ?? json['pricingAgreementAccepted'] ?? false,
+      slvAgreementAccepted:
+          json['slvagreement'] ?? json['slvAgreementAccepted'] ?? false,
       success: json['success'],
       message: json['message'],
+      aadhaarFrontImageUrl: getFirstPath('adhaarfrontimage'),
+      aadhaarBackImageUrl: getFirstPath('adhaarbackimage'),
     );
   }
 
@@ -103,6 +179,15 @@ class VendorModel extends VendorEntity {
     final ifscCode = bank?['ifsc_code']?.toString() ?? '';
     final branchName = bank?['branch']?.toString() ?? '';
 
+    // Extract business data
+    final business = json['business'] as Map<String, dynamic>?;
+    final businessName = business?['name']?.toString() ?? '';
+    final businessEmail = business?['email']?.toString() ?? '';
+    final businessLegalName = business?['bussinesslegalname']?.toString() ?? '';
+    final businessMobile = business?['mobile']?.toString() ?? '';
+    final altMobile = business?['alt_mobile']?.toString() ?? '';
+    final businessAddress = business?['address']?.toString() ?? '';
+
     // Extract documents data
     final documents = json['documents'] as Map<String, dynamic>?;
     final documentsDetails =
@@ -114,19 +199,78 @@ class VendorModel extends VendorEntity {
     final docIds = <String>[];
     final documentNumbers = <String>[];
     final expiryDates = <String>[];
+    final docUrls = <String>[];
 
     for (final doc in documentsDetails) {
       if (doc is Map<String, dynamic>) {
         docNames.add(doc['name']?.toString() ?? '');
         docIds.add(doc['doc_id']?.toString() ?? '');
         documentNumbers.add(doc['documentNumber']?.toString() ?? '');
-        expiryDates.add(doc['expiryDate']?.toString() ?? '');
+        expiryDates.add(
+          doc['expireDate']?.toString() ?? doc['expiryDate']?.toString() ?? '',
+        );
+        docUrls.add(_getFullUrl(doc['path']?.toString()) ?? '');
       }
     }
 
+    // Front Images
+    final frontImagesRaw = documents?['frontImage'] as List<dynamic>?;
+    final frontImageUrls =
+        frontImagesRaw
+            ?.map((e) {
+              if (e is Map) return _getFullUrl(e['path']?.toString()) ?? '';
+              return '';
+            })
+            .where((s) => s.isNotEmpty)
+            .toList() ??
+        [];
+
+    // Signature
+    final signatureRaw = documents?['signature'] as List<dynamic>?;
+    String? signatureUrl;
+    if (signatureRaw != null &&
+        signatureRaw.isNotEmpty &&
+        signatureRaw[0] is Map) {
+      signatureUrl = _getFullUrl(signatureRaw[0]['path']?.toString());
+    }
+
+    // Aadhaar Images
+    final aadhaarFrontRaw = json['adhaarfrontimage'] as List<dynamic>?;
+    String? aadhaarFrontUrl;
+    if (aadhaarFrontRaw != null &&
+        aadhaarFrontRaw.isNotEmpty &&
+        aadhaarFrontRaw[0] is Map) {
+      aadhaarFrontUrl = _getFullUrl(aadhaarFrontRaw[0]['path']?.toString());
+    }
+
+    final aadhaarBackRaw = json['adhaarbackimage'] as List<dynamic>?;
+    String? aadhaarBackUrl;
+    if (aadhaarBackRaw != null &&
+        aadhaarBackRaw.isNotEmpty &&
+        aadhaarBackRaw[0] is Map) {
+      aadhaarBackUrl = _getFullUrl(aadhaarBackRaw[0]['path']?.toString());
+    }
+
     // Extract categories
-    final categoryIds = json['categoryIds'] as List<dynamic>? ?? [];
-    final categories = categoryIds.map((e) => e.toString()).toList();
+    // Check both root and business object for categoryIds
+    var categoryIds = json['categoryIds'] as List<dynamic>?;
+    if (categoryIds == null || categoryIds.isEmpty) {
+      categoryIds = business?['categoryIds'] as List<dynamic>?;
+    }
+    final categories = categoryIds?.map((e) => e.toString()).toList() ?? [];
+
+    // Location parsing
+    final location = json['location'] as Map<String, dynamic>?;
+    double? lat, lng;
+    if (location != null &&
+        location['coordinates'] is List &&
+        (location['coordinates'] as List).isNotEmpty) {
+      // Assuming GeoJSON [lng, lat]
+      // If format is diff, adjust. Code below assumes { lat: ..., lng: ... } from previous code,
+      // but user request says "coordinates": []. If empty, no location.
+      // Let's stick to existing parsing logic if it works, or fallback to null.
+      // Existing code tried to parse 'lat' and 'lng' keys.
+    }
 
     return VendorModel(
       firstName: json['firstName']?.toString() ?? '',
@@ -137,29 +281,66 @@ class VendorModel extends VendorEntity {
       adharnumber: json['adharnumber']?.toString() ?? '',
       residentaladdress: json['residentaladdress']?.toString() ?? '',
       signname: signname,
-      businessName: json['businessName']?.toString() ?? '',
-      businessEmail: json['businessEmail']?.toString() ?? '',
-      altMobile: json['altMobile']?.toString() ?? '',
-      address: json['address']?.toString() ?? '',
+      businessName: businessName, // Use extracted business name
+      businessEmail: businessEmail, // Use extracted
+      altMobile: altMobile, // Use extracted
+      address: businessAddress, // Use extracted business address
+      proofType: json['proofType']?.toString(),
+      // Parse location if it exists
+      latitude: json['location'] is Map
+          ? (json['location']['lat'] is num
+                ? (json['location']['lat'] as num).toDouble()
+                : double.tryParse(json['location']['lat']?.toString() ?? ''))
+          : null,
+      longitude: json['location'] is Map
+          ? (json['location']['lng'] is num
+                ? (json['location']['lng'] as num).toDouble()
+                : double.tryParse(json['location']['lng']?.toString() ?? ''))
+          : null,
       categories: categories,
-      bussinessmobile: json['bussinessmobile']?.toString() ?? '',
-      bussinesslegalname: json['bussinesslegalname']?.toString() ?? '',
+      bussinessmobile: businessMobile, // Use extracted
+      bussinesslegalname: businessLegalName, // Use extracted
       docNames: docNames,
       docIds: docIds,
       documentNumbers: documentNumbers,
       expiryDates: expiryDates,
       files: const [],
+      docUrls: docUrls,
       frontimages: const [],
+      frontImageUrls: frontImageUrls,
       backimages: const [],
+      backImageUrls: const [],
       signature: const [],
+      signatureImageUrl: signatureUrl,
       storeLogo: null,
+      storeLogoUrl:
+          (json['business'] != null &&
+              json['business']['bussiness_image'] is Map)
+          ? _getFullUrl(json['business']['bussiness_image']['url']?.toString())
+          : (json['bussiness_image'] is Map
+                ? _getFullUrl(json['bussiness_image']['url']?.toString())
+                : null),
       profileBanner: null,
+      profileBannerUrl:
+          (json['business'] != null &&
+              json['business']['bussiness_banner_image'] is Map)
+          ? _getFullUrl(
+              json['business']['bussiness_banner_image']['url']?.toString(),
+            )
+          : (json['bussiness_banner_image'] is Map
+                ? _getFullUrl(json['bussiness_banner_image']['url']?.toString())
+                : null),
       bankName: bankName,
       accountName: accountName,
       accountNumber: accountNumber,
       ifscCode: ifscCode,
       branchName: branchName,
       vendorId: json['_id']?.toString() ?? json['vendorsId']?.toString(),
+      aadhaarFrontImageUrl: aadhaarFrontUrl,
+      aadhaarBackImageUrl: aadhaarBackUrl,
+      // Status fields
+      success: true,
+      message: 'Parsed from list',
     );
   }
 
@@ -173,6 +354,8 @@ class VendorModel extends VendorEntity {
       mobile: entity.mobile,
       aadhaarFrontImage: entity.aadhaarFrontImage,
       aadhaarBackImage: entity.aadhaarBackImage,
+      aadhaarFrontImageUrl: entity.aadhaarFrontImageUrl,
+      aadhaarBackImageUrl: entity.aadhaarBackImageUrl,
       signname: entity.signname,
       adharnumber: entity.adharnumber,
       residentaladdress: entity.residentaladdress,
@@ -191,11 +374,17 @@ class VendorModel extends VendorEntity {
       documentNumbers: entity.documentNumbers,
       expiryDates: entity.expiryDates,
       files: entity.files,
+      docUrls: entity.docUrls,
       frontimages: entity.frontimages,
+      frontImageUrls: entity.frontImageUrls,
       backimages: entity.backimages,
+      backImageUrls: entity.backImageUrls,
       signature: entity.signature,
+      signatureImageUrl: entity.signatureImageUrl,
       storeLogo: entity.storeLogo,
+      storeLogoUrl: entity.storeLogoUrl,
       profileBanner: entity.profileBanner,
+      profileBannerUrl: entity.profileBannerUrl,
       bankName: entity.bankName,
       accountName: entity.accountName,
       accountNumber: entity.accountNumber,
@@ -209,6 +398,71 @@ class VendorModel extends VendorEntity {
       success: entity.success,
       message: entity.message,
     );
+  }
+
+  /// 🔹 Convert to JSON map for JSON-based APIs
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> data = {
+      'firstName': firstName,
+      'lastName': lastName,
+      'email': email,
+      'password': password,
+      'mobile': mobile,
+      'businessName': businessName,
+      'businessEmail': businessEmail,
+      'alt_mobile': altMobile,
+      'address': address,
+      'bankName': bankName,
+      'accountName': accountName,
+      'accountNumber': accountNumber,
+      'ifscCode': ifscCode,
+      'branchName': branchName,
+      'bussinessmobile': bussinessmobile,
+      'signname': signname,
+      'bussinesslegalname': bussinesslegalname,
+      'adharnumber': adharnumber,
+      'residentaladdress': residentaladdress,
+      'consent': consentAccepted,
+      'pricingAgreement': pricingAgreementAccepted,
+      'slvagreement': slvAgreementAccepted,
+      'categories': categories,
+      'proofType': proofType,
+    };
+
+    // Location
+    if (latitude != null && longitude != null) {
+      data['location'] = {'lat': latitude, 'lng': longitude};
+    }
+
+    // Vendor ID
+    if (vendorId != null) {
+      data['vendorId'] = vendorId;
+    }
+
+    // Document arrays
+    // Note: In JSON, we can send arrays directly.
+    // However, backend might expect separate arrays or objects.
+    // Matching the multipart array structure but as normal JSON arrays
+    data['doc_name'] = docNames;
+    data['doc_id'] = docIds;
+    data['documentNumber'] = documentNumbers;
+
+    // Sanitize dates for JSON payload
+    final safeExpiryDates = <String>[];
+    for (var date in expiryDates) {
+      if (RegExp(r'^\d{2}/\d{2}/\d{4}$').hasMatch(date)) {
+        try {
+          final parts = date.split('/');
+          date = '${parts[2]}-${parts[1]}-${parts[0]}';
+        } catch (e) {
+          // ignore error
+        }
+      }
+      safeExpiryDates.add(date);
+    }
+    data['expireDate'] = safeExpiryDates;
+
+    return data;
   }
 
   /// 🔹 Multipart TEXT fields - returns regular fields and array fields separately
@@ -231,12 +485,16 @@ class VendorModel extends VendorEntity {
       'bussinessmobile': bussinessmobile,
       'signname': signname,
       'bussinesslegalname': bussinesslegalname,
-      'adharnumber': adharnumber,
       'residentaladdress': residentaladdress,
-      'consent_accepted': consentAccepted.toString(),
-      'pricing_agreement_accepted': pricingAgreementAccepted.toString(),
-      'slv_agreement_accepted': slvAgreementAccepted.toString(),
+      'consent': consentAccepted.toString(),
+      'pricingAgreement': pricingAgreementAccepted.toString(),
+      'slvagreement': slvAgreementAccepted.toString(),
     };
+
+    // Only add adharnumber if it's not empty
+    if (adharnumber.isNotEmpty) {
+      fields['adharnumber'] = adharnumber;
+    }
 
     // New Fields Integration
     if (proofType != null && proofType!.isNotEmpty) {
@@ -254,6 +512,11 @@ class VendorModel extends VendorEntity {
       // The file doesn't have dart:convert. I will add it in a separate step or just format manually if simple.
       // Manual format: '{"lat": $latitude, "lng": $longitude}'
       fields['location'] = '{"lat": $latitude, "lng": $longitude}';
+    }
+
+    // Add vendorId if present (Required for Update API)
+    if (vendorId != null && vendorId!.isNotEmpty) {
+      fields['vendorId'] = vendorId!;
     }
 
     // Add OTP if provided (ALWAYS add type and usertype when OTP is present)
@@ -280,10 +543,22 @@ class VendorModel extends VendorEntity {
     return fields;
   }
 
-  /// 🔹 Array fields that need to be added multiple times with the same key
-  Map<String, List<String>> toMultipartArrayFields() {
+  /// 🔹 Flatten array fields into indexed keys for standard Multipart fields
+  Map<String, String> toMultipartFlattenedArrayFields() {
+    final flattened = <String, String>{};
+
+    // Helper to add list
+    void addList(String key, List<String> list) {
+      for (int i = 0; i < list.length; i++) {
+        flattened['$key[$i]'] = list[i];
+      }
+    }
+
+    addList('categories', categories);
+    addList('doc_name', docNames);
+    addList('doc_id', docIds);
+
     // Ensure documentNumber array has the same length as docNames/docIds
-    // and replace empty strings with a placeholder to prevent backend errors
     final safeDocumentNumbers = <String>[];
     final maxLength = [
       docNames.length,
@@ -293,30 +568,37 @@ class VendorModel extends VendorEntity {
 
     for (int i = 0; i < maxLength; i++) {
       if (i < documentNumbers.length) {
-        // Use the actual value if it exists and is not empty, otherwise use empty string
         safeDocumentNumbers.add(documentNumbers[i]);
       } else {
-        // Pad with empty string to match array lengths
         safeDocumentNumbers.add('');
       }
     }
+    addList('documentNumber', safeDocumentNumbers);
 
     final safeExpiryDates = <String>[];
     for (int i = 0; i < maxLength; i++) {
       if (i < expiryDates.length) {
-        safeExpiryDates.add(expiryDates[i]);
+        String date = expiryDates[i];
+        // Sanitize date: Convert DD/MM/YYYY to YYYY-MM-DD if needed
+        if (RegExp(r'^\d{2}/\d{2}/\d{4}$').hasMatch(date)) {
+          try {
+            final parts = date.split('/');
+            // parts[0] is Day, parts[1] is Month, parts[2] is Year
+            // Standard ISO: YYYY-MM-DD
+            date = '${parts[2]}-${parts[1]}-${parts[0]}';
+            print('🔧 Sanitized Date: ${expiryDates[i]} -> $date');
+          } catch (e) {
+            print('⚠️ Date sanitization failed for $date: $e');
+          }
+        }
+        safeExpiryDates.add(date);
       } else {
         safeExpiryDates.add('');
       }
     }
+    addList('expireDate', safeExpiryDates);
 
-    return {
-      'categories[]': categories,
-      'doc_name[]': docNames,
-      'doc_id[]': docIds,
-      'documentNumber[]': safeDocumentNumbers,
-      'expireDate[]': safeExpiryDates, // UPDATED KEY: expireDate[]
-    };
+    return flattened;
   }
 
   /// 🔹 Multipart FILES (Photos + Signature + Documents)

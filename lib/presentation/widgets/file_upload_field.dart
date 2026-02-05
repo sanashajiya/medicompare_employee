@@ -1,11 +1,14 @@
 import 'dart:io';
+
 import 'package:flutter/material.dart';
+
 import '../../core/theme/app_colors.dart';
 
 class FileUploadField extends StatelessWidget {
   final String label;
   final String? fileName;
   final File? file;
+  final String? fileUrl;
   final String? errorText;
   final VoidCallback onTap;
   final VoidCallback? onRemove;
@@ -17,6 +20,7 @@ class FileUploadField extends StatelessWidget {
     required this.label,
     this.fileName,
     this.file,
+    this.fileUrl,
     this.errorText,
     required this.onTap,
     this.onRemove,
@@ -25,11 +29,22 @@ class FileUploadField extends StatelessWidget {
   });
 
   bool get _isImage {
-    if (fileName == null) return false;
-    final ext = fileName!.toLowerCase();
-    return ext.endsWith('.jpg') ||
-        ext.endsWith('.jpeg') ||
-        ext.endsWith('.png');
+    if (fileName != null) {
+      final ext = fileName!.toLowerCase();
+      return ext.endsWith('.jpg') ||
+          ext.endsWith('.jpeg') ||
+          ext.endsWith('.png');
+    }
+    if (fileUrl != null) {
+      final ext = fileUrl!.toLowerCase();
+      return ext.endsWith('.jpg') ||
+          ext.endsWith('.jpeg') ||
+          ext.endsWith('.png') ||
+          // If URL doesn't have extension, we rely on server content type,
+          // but for basic UI we might assume image if it's not explicitly PDF
+          !ext.endsWith('.pdf');
+    }
+    return false;
   }
 
   String _formatFileSize(int bytes) {
@@ -40,7 +55,9 @@ class FileUploadField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hasFile = fileName != null && file != null;
+    final hasFile =
+        (fileName != null && file != null) ||
+        (fileUrl != null && fileUrl!.isNotEmpty);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -152,17 +169,29 @@ class FileUploadField extends StatelessWidget {
       child: Column(
         children: [
           // Preview area
-          if (_isImage && file != null)
+          if (_isImage && (file != null || fileUrl != null))
             ClipRRect(
               borderRadius: const BorderRadius.vertical(
                 top: Radius.circular(11),
               ),
-              child: Image.file(
-                file!,
-                height: 120,
-                width: double.infinity,
-                fit: BoxFit.cover,
-              ),
+              child: file != null
+                  ? Image.file(
+                      file!,
+                      height: 120,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                    )
+                  : Image.network(
+                      fileUrl!,
+                      height: 120,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => Container(
+                        height: 120,
+                        color: Colors.grey[200],
+                        child: const Center(child: Icon(Icons.broken_image)),
+                      ),
+                    ),
             )
           else
             Container(
@@ -180,7 +209,7 @@ class FileUploadField extends StatelessWidget {
                   Icon(Icons.picture_as_pdf, color: AppColors.error, size: 36),
                   const SizedBox(height: 4),
                   Text(
-                    'PDF Document',
+                    'Document File',
                     style: TextStyle(
                       fontSize: 11,
                       color: AppColors.textSecondary,
@@ -201,7 +230,8 @@ class FileUploadField extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        fileName ?? '',
+                        fileName ??
+                            (fileUrl != null ? 'Existing Document' : ''),
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: AppColors.textPrimary,
                           fontWeight: FontWeight.w500,
@@ -212,6 +242,12 @@ class FileUploadField extends StatelessWidget {
                       if (file != null)
                         Text(
                           _formatFileSize(file!.lengthSync()),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: AppColors.textHint),
+                        ),
+                      if (fileUrl != null && file == null)
+                        Text(
+                          'Stored on Server',
                           style: Theme.of(context).textTheme.bodySmall
                               ?.copyWith(color: AppColors.textHint),
                         ),

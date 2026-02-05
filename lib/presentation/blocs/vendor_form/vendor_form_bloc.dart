@@ -28,12 +28,14 @@ class VendorFormBloc extends Bloc<VendorFormEvent, VendorFormState> {
 
       final vendor = await createVendorUseCase(vendorWithMedia, event.token);
 
-      emit(
-        VendorFormSuccess(
-          vendor,
-          vendor.message ?? 'Vendor created successfully',
-        ),
-      );
+      // Determine if this was an update or create based on vendorId presence
+      final isUpdate =
+          event.vendor.vendorId != null && event.vendor.vendorId!.isNotEmpty;
+      final successMessage = isUpdate
+          ? 'Vendor updated successfully'
+          : 'Vendor created successfully';
+
+      emit(VendorFormSuccess(vendor, vendor.message ?? successMessage));
     } catch (e) {
       emit(VendorFormFailure(e.toString()));
     }

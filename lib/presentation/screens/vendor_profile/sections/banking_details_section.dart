@@ -95,7 +95,7 @@ class _BankingDetailsSectionState extends State<BankingDetailsSection> {
 
     widget.onValidationChanged(isValid);
 
-    if (_showErrors) {
+    if (_showErrors && mounted) {
       setState(() {
         _accountNumberError = accountNumberError;
         _confirmAccountNumberError = confirmAccountNumberError;
@@ -105,6 +105,18 @@ class _BankingDetailsSectionState extends State<BankingDetailsSection> {
         _bankBranchError = bankBranchError;
       });
     }
+  }
+
+  @override
+  void dispose() {
+    // Remove listeners to prevent setState after dispose
+    widget.accountNumberController.removeListener(_validate);
+    widget.confirmAccountNumberController.removeListener(_validate);
+    widget.accountHolderNameController.removeListener(_validate);
+    widget.ifscCodeController.removeListener(_validate);
+    widget.bankNameController.removeListener(_validate);
+    widget.bankBranchController.removeListener(_validate);
+    super.dispose();
   }
 
   @override
@@ -126,7 +138,7 @@ class _BankingDetailsSectionState extends State<BankingDetailsSection> {
           enabled: widget.enabled,
           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
           onChanged: (_) {
-            if (!_showErrors) setState(() => _showErrors = true);
+            if (!_showErrors && mounted) setState(() => _showErrors = true);
           },
         ),
         const SizedBox(height: 20),
@@ -139,7 +151,7 @@ class _BankingDetailsSectionState extends State<BankingDetailsSection> {
           enabled: widget.enabled,
           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
           onChanged: (_) {
-            if (!_showErrors) setState(() => _showErrors = true);
+            if (!_showErrors && mounted) setState(() => _showErrors = true);
           },
         ),
         const SizedBox(height: 20),
@@ -153,7 +165,7 @@ class _BankingDetailsSectionState extends State<BankingDetailsSection> {
             FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z ]')),
           ],
           onChanged: (_) {
-            if (!_showErrors) setState(() => _showErrors = true);
+            if (!_showErrors && mounted) setState(() => _showErrors = true);
           },
         ),
         const SizedBox(height: 20),
@@ -173,7 +185,7 @@ class _BankingDetailsSectionState extends State<BankingDetailsSection> {
             }),
           ],
           onChanged: (_) {
-            if (!_showErrors) setState(() => _showErrors = true);
+            if (!_showErrors && mounted) setState(() => _showErrors = true);
           },
         ),
         const SizedBox(height: 20),
@@ -192,7 +204,8 @@ class _BankingDetailsSectionState extends State<BankingDetailsSection> {
                   FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z ]')),
                 ],
                 onChanged: (_) {
-                  if (!_showErrors) setState(() => _showErrors = true);
+                  if (!_showErrors && mounted)
+                    setState(() => _showErrors = true);
                 },
               ),
             ),
@@ -208,7 +221,8 @@ class _BankingDetailsSectionState extends State<BankingDetailsSection> {
                   FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z ]')),
                 ],
                 onChanged: (_) {
-                  if (!_showErrors) setState(() => _showErrors = true);
+                  if (!_showErrors && mounted)
+                    setState(() => _showErrors = true);
                 },
               ),
             ),

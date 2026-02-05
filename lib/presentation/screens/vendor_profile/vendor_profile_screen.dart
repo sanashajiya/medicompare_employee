@@ -70,6 +70,8 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
   final _residentialAddressController = TextEditingController();
   File? _aadhaarFrontImage;
   File? _aadhaarBackImage;
+  String? _aadhaarFrontImageUrl;
+  String? _aadhaarBackImageUrl;
 
   // Controllers - Business Details
   final _businessNameController = TextEditingController();
@@ -109,6 +111,7 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
   );
   final _signerNameController = TextEditingController();
   Uint8List? _signatureBytes;
+  String? _signatureImageUrl;
 
   // Categories
   List<String> _selectedBusinessCategories = [];
@@ -129,8 +132,19 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
   String? _panCardFileName;
   String? _professionalLicenseFileName;
   String? _additionalDocumentFileName;
+
+  // URL Variables for Edit Mode
+  String? _businessRegistrationUrl;
+  String? _gstCertificateUrl;
+  String? _panCardUrl;
+  String? _professionalLicenseUrl;
+  String? _additionalDocumentUrl;
+  String? _storeLogoUrl;
+  String? _profileBannerUrl;
+
   // Images
   List<File> _frontStoreImages = [];
+  List<String> _frontStoreImageUrls = [];
 
   // Terms
   bool _acceptedTerms = false;
@@ -490,9 +504,11 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
       _phoneController.text = vendor.mobile;
       _aadhaarNumberController.text = vendor.adharnumber;
       _selectedIdProofType =
-          'Aadhar'; // Default to Aadhar for existing vendors until we have a field for it
+          vendor.proofType ?? 'Aadhar'; // Use fetched proofType or default
       _residentialAddressController.text = vendor.residentaladdress;
       _signerNameController.text = vendor.signname;
+      _aadhaarFrontImageUrl = vendor.aadhaarFrontImageUrl;
+      _aadhaarBackImageUrl = vendor.aadhaarBackImageUrl;
 
       // Business Details
       _businessNameController.text = vendor.businessName;
@@ -501,6 +517,8 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
       _businessMobileController.text = vendor.bussinessmobile;
       _altBusinessMobileController.text = vendor.altMobile;
       _businessAddressController.text = vendor.address;
+      _businessLatitude = vendor.latitude;
+      _businessLongitude = vendor.longitude;
       _selectedBusinessCategories = List<String>.from(vendor.categories);
 
       // Banking Details
@@ -511,24 +529,35 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
       _bankNameController.text = vendor.bankName;
       _bankBranchController.text = vendor.branchName;
 
-      // Documents - Map document numbers based on docNames
+      // Documents - Map document numbers AND URLs based on docNames
       // Assuming order: PAN Card, GST Certificate, Business Registration, Professional License
+      // Note: vendor.docUrls aligns with vendor.docNames
       if (vendor.documentNumbers.isNotEmpty) {
         // Find PAN Card
         final panIndex = vendor.docNames.indexWhere(
           (name) => name.toLowerCase().contains('pan'),
         );
-        if (panIndex >= 0 && panIndex < vendor.documentNumbers.length) {
-          _panCardNumberController.text = vendor.documentNumbers[panIndex];
+        if (panIndex >= 0) {
+          if (panIndex < vendor.documentNumbers.length)
+            _panCardNumberController.text = vendor.documentNumbers[panIndex];
+          if (panIndex < vendor.docUrls.length)
+            _panCardUrl = vendor.docUrls[panIndex];
+          if (panIndex < vendor.expiryDates.length)
+            _panCardExpiryDateController.text = vendor.expiryDates[panIndex];
         }
 
         // Find GST Certificate
         final gstIndex = vendor.docNames.indexWhere(
           (name) => name.toLowerCase().contains('gst'),
         );
-        if (gstIndex >= 0 && gstIndex < vendor.documentNumbers.length) {
-          _gstCertificateNumberController.text =
-              vendor.documentNumbers[gstIndex];
+        if (gstIndex >= 0) {
+          if (gstIndex < vendor.documentNumbers.length)
+            _gstCertificateNumberController.text =
+                vendor.documentNumbers[gstIndex];
+          if (gstIndex < vendor.docUrls.length)
+            _gstCertificateUrl = vendor.docUrls[gstIndex];
+          if (gstIndex < vendor.expiryDates.length)
+            _gstExpiryDateController.text = vendor.expiryDates[gstIndex];
         }
 
         // Find Business Registration
@@ -537,9 +566,15 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
               name.toLowerCase().contains('business') ||
               name.toLowerCase().contains('registration'),
         );
-        if (brIndex >= 0 && brIndex < vendor.documentNumbers.length) {
-          _businessRegistrationNumberController.text =
-              vendor.documentNumbers[brIndex];
+        if (brIndex >= 0) {
+          if (brIndex < vendor.documentNumbers.length)
+            _businessRegistrationNumberController.text =
+                vendor.documentNumbers[brIndex];
+          if (brIndex < vendor.docUrls.length)
+            _businessRegistrationUrl = vendor.docUrls[brIndex];
+          if (brIndex < vendor.expiryDates.length)
+            _businessRegistrationExpiryDateController.text =
+                vendor.expiryDates[brIndex];
         }
 
         // Find Professional License
@@ -548,11 +583,44 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
               name.toLowerCase().contains('professional') ||
               name.toLowerCase().contains('license'),
         );
-        if (plIndex >= 0 && plIndex < vendor.documentNumbers.length) {
-          _professionalLicenseNumberController.text =
-              vendor.documentNumbers[plIndex];
+        if (plIndex >= 0) {
+          if (plIndex < vendor.documentNumbers.length)
+            _professionalLicenseNumberController.text =
+                vendor.documentNumbers[plIndex];
+          if (plIndex < vendor.docUrls.length)
+            _professionalLicenseUrl = vendor.docUrls[plIndex];
+          if (plIndex < vendor.expiryDates.length)
+            _professionalLicenseExpiryDateController.text =
+                vendor.expiryDates[plIndex];
+        }
+
+        // Find Additional Document
+        final usedIndices = {panIndex, gstIndex, brIndex, plIndex};
+        for (int i = 0; i < vendor.docNames.length; i++) {
+          if (!usedIndices.contains(i)) {
+            _additionalDocumentNameController.text = vendor.docNames[i];
+            if (i < vendor.docUrls.length)
+              _additionalDocumentUrl = vendor.docUrls[i];
+            if (i < vendor.expiryDates.length)
+              _additionalDocumentExpiryDateController.text =
+                  vendor.expiryDates[i];
+            break; // Only support one additional doc
+          }
         }
       }
+
+      // Images & Signature
+      _storeLogoUrl = vendor.storeLogoUrl;
+      _profileBannerUrl = vendor.profileBannerUrl;
+      _frontStoreImageUrls = vendor.frontImageUrls ?? [];
+      _signatureImageUrl = vendor.signatureImageUrl;
+
+      // Agreements
+      _acceptedTerms =
+          true; // If they are an existing vendor, they must have accepted terms
+      _consentAccepted = vendor.consentAccepted;
+      _pricingAgreementAccepted = vendor.pricingAgreementAccepted;
+      _slvAgreementAccepted = vendor.slvAgreementAccepted;
     });
 
     // Update categories mapping after prefilling
@@ -906,22 +974,13 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
     // Use the same mobile number that was used for OTP, but handle potential double-91 prefix
     var mobileForVendor = _mobileNumberForOtp ?? _phoneController.text.trim();
 
-    // Fix: Backend functionality appears to automatically prepend '91' to the 'mobile' field
-    // when type='phone' (which is used for OTP verification).
-    // If the user entered a number starting with '91' (e.g. 9182028173), the backend
-    // would make it 919182028173. We strip the leading '91' here to prevent this duplication.
-    // UPDATE: Removed this stripping as it causes mismatch with OTP number.
-    // if (mobileForVendor.startsWith('91') && mobileForVendor.length > 2) {
-    //   mobileForVendor = mobileForVendor.substring(2);
-    // }
-
-    print('\n═══════════════════════════════════════════════════════');
+    print('\n═══════════════════════════════════════════════════════════════');
     print('📱 STEP 2: Creating Vendor');
     print('   Mobile (must match identifier from Step 1): $mobileForVendor');
     print('   OTP: ${_verifiedOtp ?? "❌ NULL - THIS WILL CAUSE ERROR!"}');
     print('   Type: phone');
     print('   Usertype: app');
-    print('═══════════════════════════════════════════════════════');
+    print('═══════════════════════════════════════════════════════════════');
 
     if (_verifiedOtp == null || _verifiedOtp!.isEmpty) {
       throw Exception(
@@ -1018,6 +1077,9 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
       vendorId: widget.isEditMode && widget.vendorDetails != null
           ? widget.vendorDetails!.vendorId
           : null, // Include vendorId when editing
+      consentAccepted: _consentAccepted,
+      pricingAgreementAccepted: _pricingAgreementAccepted,
+      slvAgreementAccepted: _slvAgreementAccepted,
     );
 
     List<File> signatureFiles = [];
@@ -1063,6 +1125,8 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
       _residentialAddressController.clear();
       _aadhaarFrontImage = null;
       _aadhaarBackImage = null;
+      _aadhaarFrontImageUrl = null;
+      _aadhaarBackImageUrl = null;
       _businessNameController.clear();
       _businessLegalNameController.clear();
       _businessEmailController.clear();
@@ -1091,12 +1155,21 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
       _panCardFileName = null;
       _professionalLicenseFileName = null;
       _additionalDocumentFileName = null;
+      _businessRegistrationUrl = null;
+      _gstCertificateUrl = null;
+      _panCardUrl = null;
+      _professionalLicenseUrl = null;
+      _additionalDocumentUrl = null;
       _frontStoreImages = [];
+      _frontStoreImageUrls = [];
       _storeLogo = null;
+      _storeLogoUrl = null;
       _profileBanner = null;
+      _profileBannerUrl = null;
       _signatureController.clear();
       _signerNameController.clear();
       _signatureBytes = null;
+      _signatureImageUrl = null;
       _acceptedTerms = false;
     });
     context.read<VendorStepperBloc>().add(VendorStepperReset());
@@ -1115,6 +1188,8 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
           residentialAddressController: _residentialAddressController,
           aadhaarFrontImage: _aadhaarFrontImage,
           aadhaarBackImage: _aadhaarBackImage,
+          aadhaarFrontImageUrl: _aadhaarFrontImageUrl,
+          aadhaarBackImageUrl: _aadhaarBackImageUrl,
           enabled: enabled,
           onAadhaarFrontImageChanged: (photo) {
             setState(() => _aadhaarFrontImage = photo);
@@ -1158,6 +1233,8 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
               _businessLongitude = lng;
             });
           },
+          initialLatitude: _businessLatitude,
+          initialLongitude: _businessLongitude,
         );
       case 2:
         return BankingDetailsSection(
@@ -1177,14 +1254,19 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
       case 3:
         return DocumentsSection(
           businessRegistrationFile: _businessRegistrationFile,
+          businessRegistrationUrl: _businessRegistrationUrl,
           gstCertificateFile: _gstCertificateFile,
+          gstCertificateUrl: _gstCertificateUrl,
           panCardFile: _panCardFile,
+          panCardUrl: _panCardUrl,
           professionalLicenseFile: _professionalLicenseFile,
+          professionalLicenseUrl: _professionalLicenseUrl,
           businessRegistrationFileName: _businessRegistrationFileName,
           gstCertificateFileName: _gstCertificateFileName,
           panCardFileName: _panCardFileName,
           professionalLicenseFileName: _professionalLicenseFileName,
           additionalDocumentFile: _additionalDocumentFile,
+          additionalDocumentUrl: _additionalDocumentUrl,
           additionalDocumentFileName: _additionalDocumentFileName,
           panCardNumberController: _panCardNumberController,
           gstCertificateNumberController: _gstCertificateNumberController,
@@ -1212,12 +1294,20 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
       case 4:
         return PhotosSection(
           frontStoreImages: _frontStoreImages,
+          frontStoreImageUrls: _frontStoreImageUrls,
           storeLogo: _storeLogo,
+          storeLogoUrl: _storeLogoUrl,
           profileBanner: _profileBanner,
+          profileBannerUrl: _profileBannerUrl,
           enabled: enabled,
           onFrontStoreImagesChanged: (images) {
             setState(() {
               _frontStoreImages = images;
+            });
+          },
+          onFrontStoreImageUrlsChanged: (urls) {
+            setState(() {
+              _frontStoreImageUrls = urls;
             });
           },
           onStoreLogoChanged: (file) {
@@ -1242,6 +1332,7 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
           signatureController: _signatureController,
           signerNameController: _signerNameController,
           signatureBytes: _signatureBytes,
+          signatureImageUrl: _signatureImageUrl,
           acceptedTerms: _acceptedTerms,
           enabled: enabled,
           onSignatureSaved: (bytes) => setState(() => _signatureBytes = bytes),
@@ -1322,8 +1413,8 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
                           ),
                         ),
                         const SizedBox(height: 12),
-                        const Text(
-                          'Vendor created successfully',
+                        Text(
+                          state.message, // Use dynamic message from state
                           textAlign: TextAlign.center,
                           style: TextStyle(fontSize: 16, color: Colors.black54),
                         ),

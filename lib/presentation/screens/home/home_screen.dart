@@ -894,8 +894,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         const SizedBox(height: 12),
                         // Success Message
-                        const Text(
-                          'Vendor created successfully',
+                        Text(
+                          state.message, // Use dynamic message from state
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 16,

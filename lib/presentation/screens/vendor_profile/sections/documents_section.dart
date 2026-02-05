@@ -12,10 +12,15 @@ import '../../../widgets/file_upload_field.dart';
 
 class DocumentsSection extends StatefulWidget {
   final File? businessRegistrationFile;
+  final String? businessRegistrationUrl;
   final File? gstCertificateFile;
+  final String? gstCertificateUrl;
   final File? panCardFile;
+  final String? panCardUrl;
   final File? professionalLicenseFile;
+  final String? professionalLicenseUrl;
   final File? additionalDocumentFile;
+  final String? additionalDocumentUrl;
   final String? businessRegistrationFileName;
   final String? gstCertificateFileName;
   final String? panCardFileName;
@@ -38,10 +43,15 @@ class DocumentsSection extends StatefulWidget {
   const DocumentsSection({
     super.key,
     required this.businessRegistrationFile,
+    this.businessRegistrationUrl,
     required this.gstCertificateFile,
+    this.gstCertificateUrl,
     required this.panCardFile,
+    this.panCardUrl,
     required this.professionalLicenseFile,
+    this.professionalLicenseUrl,
     required this.additionalDocumentFile,
+    this.additionalDocumentUrl,
     required this.businessRegistrationFileName,
     required this.gstCertificateFileName,
     required this.panCardFileName,
@@ -104,11 +114,6 @@ class _DocumentsSectionState extends State<DocumentsSection> {
     widget.additionalDocumentExpiryDateController.addListener(_validate);
 
     // Initial validation without showing errors
-    widget.onValidationChanged(
-      false,
-    ); // Assume false initially or run full check logic without side effects
-
-    // We can run _validate() but ensure _showErrors is false which it is by default
     WidgetsBinding.instance.addPostFrameCallback((_) => _validate());
   }
 
@@ -151,23 +156,49 @@ class _DocumentsSectionState extends State<DocumentsSection> {
     super.dispose();
   }
 
+  @override
+  void didUpdateWidget(DocumentsSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.businessRegistrationUrl != widget.businessRegistrationUrl ||
+        oldWidget.gstCertificateUrl != widget.gstCertificateUrl ||
+        oldWidget.panCardUrl != widget.panCardUrl ||
+        oldWidget.professionalLicenseUrl != widget.professionalLicenseUrl ||
+        oldWidget.additionalDocumentUrl != widget.additionalDocumentUrl) {
+      _validate();
+    }
+  }
+
   bool? _lastIsValid;
 
   void _validate() {
-    final businessRegistrationError = Validators.validateFileUpload(
+    // Helper to check if file or URL is present
+    String? validateDocRequest(File? file, String? url, String label) {
+      if (file != null) return Validators.validateFileUpload(file, label);
+      if (url != null && url.isNotEmpty) return null; // URL is valid content
+      return Validators.validateFileUpload(
+        null,
+        label,
+      ); // Trigger required error
+    }
+
+    final businessRegistrationError = validateDocRequest(
       widget.businessRegistrationFile,
+      widget.businessRegistrationUrl,
       'Business Registration Certificate',
     );
-    final gstCertificateError = Validators.validateFileUpload(
+    final gstCertificateError = validateDocRequest(
       widget.gstCertificateFile,
+      widget.gstCertificateUrl,
       'GST Registration Certificate',
     );
-    final panCardError = Validators.validateFileUpload(
+    final panCardError = validateDocRequest(
       widget.panCardFile,
+      widget.panCardUrl,
       'PAN Card',
     );
-    final professionalLicenseError = Validators.validateFileUpload(
+    final professionalLicenseError = validateDocRequest(
       widget.professionalLicenseFile,
+      widget.professionalLicenseUrl,
       'Professional License',
     );
 
@@ -176,9 +207,26 @@ class _DocumentsSectionState extends State<DocumentsSection> {
     final hasAdditionalName = widget.additionalDocumentNameController.text
         .trim()
         .isNotEmpty;
-    if (hasAdditionalName && widget.additionalDocumentFile == null) {
-      additionalDocumentError = 'Please upload the additional document';
+    if (hasAdditionalName) {
+      if (widget.additionalDocumentFile == null &&
+          (widget.additionalDocumentUrl == null ||
+              widget.additionalDocumentUrl!.isEmpty)) {
+        additionalDocumentError = 'Please upload the additional document';
+      }
     }
+
+    // For overall validity check, we check if mandatory docs are present (either file or url)
+    final bool hasBusinessReg =
+        widget.businessRegistrationFile != null ||
+        (widget.businessRegistrationUrl?.isNotEmpty ?? false);
+    final bool hasGst =
+        widget.gstCertificateFile != null ||
+        (widget.gstCertificateUrl?.isNotEmpty ?? false);
+    final bool hasPan =
+        widget.panCardFile != null || (widget.panCardUrl?.isNotEmpty ?? false);
+    final bool hasProfLicense =
+        widget.professionalLicenseFile != null ||
+        (widget.professionalLicenseUrl?.isNotEmpty ?? false);
 
     final isValid =
         businessRegistrationError == null &&
@@ -186,13 +234,17 @@ class _DocumentsSectionState extends State<DocumentsSection> {
         panCardError == null &&
         professionalLicenseError == null &&
         additionalDocumentError == null &&
-        widget.businessRegistrationFile != null &&
-        widget.gstCertificateFile != null &&
-        widget.panCardFile != null &&
-        widget.professionalLicenseFile != null &&
+        hasBusinessReg &&
+        hasGst &&
+        hasPan &&
+        hasProfLicense &&
+        widget.businessRegistrationNumberController.text.isNotEmpty &&
         widget.businessRegistrationExpiryDateController.text.isNotEmpty &&
+        widget.gstCertificateNumberController.text.isNotEmpty &&
         widget.gstExpiryDateController.text.isNotEmpty &&
+        widget.panCardNumberController.text.isNotEmpty &&
         widget.panCardExpiryDateController.text.isNotEmpty &&
+        widget.professionalLicenseNumberController.text.isNotEmpty &&
         widget.professionalLicenseExpiryDateController.text.isNotEmpty;
 
     if (_lastIsValid != isValid) {
@@ -475,12 +527,16 @@ class _DocumentsSectionState extends State<DocumentsSection> {
 
   void _removeFile(String fieldName) {
     widget.onFileSelected(fieldName, null, null);
-    _validate();
-  }
-
-  @override
-  void didUpdateWidget(DocumentsSection oldWidget) {
-    super.didUpdateWidget(oldWidget);
+    // Note: onFileSelected(null) clears the file.
+    // If there was an existing URL, removing the file might mean "I want to remove the new file I just uploaded and revert to empty" or "I want to clear everything".
+    // Usually, hitting remove on a "File with URL" field implies clearing the URL too if we support clearing.
+    // But since these are mandatory fields, "removing" usually just clears current selection.
+    // If a URL exists, FileUploadField displays it.
+    // If I hit remove, I probably want to clear that URL too? But I can't clear URL via `onFileSelected`.
+    // The parent manages state. If I want to clear URL, I need a callback for that or strict handling.
+    // For now, let's assume `onFileSelected(fieldName, null, null)` just clears the *newly selected file*.
+    // If I want to clear the URL, I need the parent to know.
+    // However, since `DocumentsSection` fields are mandatory, users essentially replace them.
     _validate();
   }
 
@@ -490,6 +546,7 @@ class _DocumentsSectionState extends State<DocumentsSection> {
     required TextEditingController expiryDateController,
     required String numberHint,
     required File? file,
+    required String? url,
     required String? fileName,
     required String fieldKey,
     required String? errorText,
@@ -537,7 +594,6 @@ class _DocumentsSectionState extends State<DocumentsSection> {
             hint: numberHint,
             enabled: widget.enabled,
             inputFormatters: inputFormatters,
-            // Removed onChanged setState to reduce rebuilds. Validation happens on blur.
           ),
           const SizedBox(height: 16),
           _buildExpiryDateField(expiryDateController, isMandatory),
@@ -546,6 +602,7 @@ class _DocumentsSectionState extends State<DocumentsSection> {
             label: 'Upload $title',
             fileName: fileName,
             file: file,
+            fileUrl: url,
             errorText: errorText,
             required: isMandatory,
             enabled: widget.enabled,
@@ -567,7 +624,7 @@ class _DocumentsSectionState extends State<DocumentsSection> {
         child: CustomTextField(
           controller: controller,
           label: isMandatory ? 'Expiry Date *' : 'Expiry Date',
-          hint: 'dd/mm/yyyy',
+          hint: 'yyyy-mm-dd',
           enabled: widget.enabled,
           suffixIcon: const Icon(
             Icons.calendar_today_outlined,
@@ -597,11 +654,11 @@ class _DocumentsSectionState extends State<DocumentsSection> {
     );
 
     if (picked != null) {
-      // Format: dd/mm/yyyy
+      // Format: yyyy-mm-dd (ISO 8601) to satisfy backend Date casting
       final day = picked.day.toString().padLeft(2, '0');
       final month = picked.month.toString().padLeft(2, '0');
       final year = picked.year;
-      controller.text = '$day/$month/$year';
+      controller.text = '$year-$month-$day';
       if (!_showErrors) setState(() => _showErrors = true);
       _validate();
     }
@@ -622,6 +679,7 @@ class _DocumentsSectionState extends State<DocumentsSection> {
           expiryDateController: widget.businessRegistrationExpiryDateController,
           numberHint: 'Enter registration number',
           file: widget.businessRegistrationFile,
+          url: widget.businessRegistrationUrl,
           fileName: widget.businessRegistrationFileName,
           fieldKey: 'business_registration',
           errorText: _showErrors ? _businessRegistrationError : null,
@@ -634,6 +692,7 @@ class _DocumentsSectionState extends State<DocumentsSection> {
           expiryDateController: widget.gstExpiryDateController,
           numberHint: 'Enter GST number',
           file: widget.gstCertificateFile,
+          url: widget.gstCertificateUrl,
           fileName: widget.gstCertificateFileName,
           fieldKey: 'gst_certificate',
           errorText: _showErrors ? _gstCertificateError : null,
@@ -646,6 +705,7 @@ class _DocumentsSectionState extends State<DocumentsSection> {
           expiryDateController: widget.panCardExpiryDateController,
           numberHint: 'Enter PAN number',
           file: widget.panCardFile,
+          url: widget.panCardUrl,
           fileName: widget.panCardFileName,
           fieldKey: 'pan_card',
           errorText: _showErrors ? _panCardError : null,
@@ -667,6 +727,7 @@ class _DocumentsSectionState extends State<DocumentsSection> {
           expiryDateController: widget.professionalLicenseExpiryDateController,
           numberHint: 'Enter license number',
           file: widget.professionalLicenseFile,
+          url: widget.professionalLicenseUrl,
           fileName: widget.professionalLicenseFileName,
           fieldKey: 'professional_license',
           errorText: _showErrors ? _professionalLicenseError : null,
@@ -722,7 +783,6 @@ class _DocumentsSectionState extends State<DocumentsSection> {
                 label: 'Document Name',
                 hint: 'e.g., Trade License',
                 enabled: widget.enabled,
-                // Validation on blur via FocusNode
               ),
               if (hasAdditionalName) ...[
                 const SizedBox(height: 16),
@@ -735,6 +795,7 @@ class _DocumentsSectionState extends State<DocumentsSection> {
                   label: 'Upload Document',
                   fileName: widget.additionalDocumentFileName,
                   file: widget.additionalDocumentFile,
+                  fileUrl: widget.additionalDocumentUrl,
                   errorText: _showErrors ? _additionalDocumentError : null,
                   required: hasAdditionalName,
                   enabled: widget.enabled,

@@ -17,6 +17,8 @@ class PersonalDetailsSection extends StatefulWidget {
   final TextEditingController residentialAddressController;
   final File? aadhaarFrontImage;
   final File? aadhaarBackImage;
+  final String? aadhaarFrontImageUrl;
+  final String? aadhaarBackImageUrl;
   final bool enabled;
   final Function(File?) onAadhaarFrontImageChanged;
   final Function(File?) onAadhaarBackImageChanged;
@@ -34,6 +36,8 @@ class PersonalDetailsSection extends StatefulWidget {
     required this.residentialAddressController,
     required this.aadhaarFrontImage,
     required this.aadhaarBackImage,
+    this.aadhaarFrontImageUrl,
+    this.aadhaarBackImageUrl,
     required this.enabled,
     required this.onAadhaarFrontImageChanged,
     required this.onAadhaarBackImageChanged,
@@ -79,7 +83,9 @@ class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
   void didUpdateWidget(PersonalDetailsSection oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.aadhaarFrontImage != widget.aadhaarFrontImage ||
-        oldWidget.aadhaarBackImage != widget.aadhaarBackImage) {
+        oldWidget.aadhaarBackImage != widget.aadhaarBackImage ||
+        oldWidget.aadhaarFrontImageUrl != widget.aadhaarFrontImageUrl ||
+        oldWidget.aadhaarBackImageUrl != widget.aadhaarBackImageUrl) {
       _validate();
     }
   }
@@ -130,12 +136,26 @@ class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
     final idProofTypeError = widget.selectedIdProofType == null
         ? 'ID Proof Type is mandatory'
         : null;
-    final aadhaarFrontImageError = widget.aadhaarFrontImage == null
+
+    // Validate image presence (File OR URL)
+    final hasFrontImage =
+        widget.aadhaarFrontImage != null ||
+        (widget.aadhaarFrontImageUrl != null &&
+            widget.aadhaarFrontImageUrl!.isNotEmpty);
+
+    final hasBackImage =
+        widget.aadhaarBackImage != null ||
+        (widget.aadhaarBackImageUrl != null &&
+            widget.aadhaarBackImageUrl!.isNotEmpty);
+
+    final aadhaarFrontImageError = !hasFrontImage
         ? 'Id Proof Front Image is required'
         : null;
-    final aadhaarBackImageError = widget.aadhaarBackImage == null
+
+    final aadhaarBackImageError = !hasBackImage
         ? 'Id Proof Back Image is required'
         : null;
+
     final residentialAddressError = Validators.validateAddress(
       widget.residentialAddressController.text,
     );
@@ -156,13 +176,13 @@ class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
         widget.phoneController.text.isNotEmpty &&
         widget.aadhaarNumberController.text.isNotEmpty &&
         widget.selectedIdProofType != null &&
-        widget.aadhaarFrontImage != null &&
-        widget.aadhaarBackImage != null &&
+        hasFrontImage &&
+        hasBackImage &&
         widget.residentialAddressController.text.isNotEmpty;
 
     widget.onValidationChanged(isValid);
 
-    if (_showErrors) {
+    if (_showErrors && mounted) {
       setState(() {
         _firstNameError = firstNameError;
         _lastNameError = lastNameError;
@@ -175,6 +195,18 @@ class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
         _residentialAddressError = residentialAddressError;
       });
     }
+  }
+
+  @override
+  void dispose() {
+    // Remove listeners to prevent setState after dispose
+    widget.firstNameController.removeListener(_validate);
+    widget.lastNameController.removeListener(_validate);
+    widget.emailController.removeListener(_validate);
+    widget.phoneController.removeListener(_validate);
+    widget.aadhaarNumberController.removeListener(_validate);
+    widget.residentialAddressController.removeListener(_validate);
+    super.dispose();
   }
 
   Future<void> _pickAadhaarImage(ImageSource source, bool isFront) async {
@@ -209,7 +241,7 @@ class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
       } else {
         widget.onAadhaarBackImageChanged(file);
       }
-      if (!_showErrors) setState(() => _showErrors = true);
+      if (!_showErrors && mounted) setState(() => _showErrors = true);
       _validate();
     } catch (e) {
       debugPrint('Image pick error: $e');
@@ -315,7 +347,8 @@ class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
                 errorText: _firstNameError,
                 enabled: widget.enabled,
                 onChanged: (_) {
-                  if (!_showErrors) setState(() => _showErrors = true);
+                  if (!_showErrors && mounted)
+                    setState(() => _showErrors = true);
                 },
               ),
             ),
@@ -328,7 +361,8 @@ class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
                 errorText: _lastNameError,
                 enabled: widget.enabled,
                 onChanged: (_) {
-                  if (!_showErrors) setState(() => _showErrors = true);
+                  if (!_showErrors && mounted)
+                    setState(() => _showErrors = true);
                 },
               ),
             ),
@@ -343,7 +377,7 @@ class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
           keyboardType: TextInputType.emailAddress,
           enabled: widget.enabled,
           onChanged: (_) {
-            if (!_showErrors) setState(() => _showErrors = true);
+            if (!_showErrors && mounted) setState(() => _showErrors = true);
           },
         ),
         const SizedBox(height: 20),
@@ -375,7 +409,7 @@ class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
             }),
           ],
           onChanged: (_) {
-            if (!_showErrors) setState(() => _showErrors = true);
+            if (!_showErrors && mounted) setState(() => _showErrors = true);
           },
         ),
         const SizedBox(height: 20),
@@ -430,7 +464,8 @@ class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
                       ? (String? newValue) {
                           widget.onIdProofTypeChanged(newValue);
                           // Create a dummy mismatch check to trigger revalidation
-                          if (!_showErrors) setState(() => _showErrors = true);
+                          if (!_showErrors && mounted)
+                            setState(() => _showErrors = true);
                         }
                       : null,
                 ),
@@ -447,7 +482,7 @@ class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
           ],
         ),
         const SizedBox(height: 20),
-        // ID Proof Number (Renamed from Aadhaar Number)
+        // ID Proof Number
         CustomTextField(
           controller: widget.aadhaarNumberController,
           label: 'ID Proof Number *',
@@ -470,7 +505,7 @@ class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
               }),
           ],
           onChanged: (_) {
-            if (!_showErrors) setState(() => _showErrors = true);
+            if (!_showErrors && mounted) setState(() => _showErrors = true);
           },
         ),
         const SizedBox(height: 20),
@@ -489,7 +524,7 @@ class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
           maxLines: 3,
           enabled: widget.enabled,
           onChanged: (_) {
-            if (!_showErrors) setState(() => _showErrors = true);
+            if (!_showErrors && mounted) setState(() => _showErrors = true);
           },
         ),
       ],
@@ -497,12 +532,20 @@ class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
   }
 
   Widget _buildAadhaarImageUpload(bool isFront) {
-    final image = isFront ? widget.aadhaarFrontImage : widget.aadhaarBackImage;
+    final imageFile = isFront
+        ? widget.aadhaarFrontImage
+        : widget.aadhaarBackImage;
+    final imageUrl = isFront
+        ? widget.aadhaarFrontImageUrl
+        : widget.aadhaarBackImageUrl;
     final error = isFront ? _aadhaarFrontImageError : _aadhaarBackImageError;
     final label = isFront ? 'Id Proof Front Image *' : 'Id Proof Back Image *';
     final uploadText = isFront
-        ? 'Upload  Id Proof Front Image'
-        : 'Upload  Id Proof Back Image';
+        ? 'Upload Id Proof Front Image'
+        : 'Upload Id Proof Back Image';
+
+    final hasImage =
+        imageFile != null || (imageUrl != null && imageUrl.isNotEmpty);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -516,7 +559,7 @@ class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
           ),
         ),
         const SizedBox(height: 8),
-        if (image != null)
+        if (hasImage)
           // Photo Preview
           Container(
             width: double.infinity,
@@ -530,46 +573,23 @@ class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
                   borderRadius: const BorderRadius.vertical(
                     top: Radius.circular(11),
                   ),
-                  child: Image.file(
-                    image,
-                    width: double.infinity,
-                    height: 150,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      // Handle image loading errors gracefully
-                      return Container(
-                        width: double.infinity,
-                        height: 150,
-                        color: AppColors.error.withOpacity(0.1),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.broken_image_outlined,
-                              color: AppColors.error,
-                              size: 48,
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Image cannot be loaded',
-                              style: TextStyle(
-                                color: AppColors.error,
-                                fontSize: 12,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Please upload again',
-                              style: TextStyle(
-                                color: AppColors.textSecondary,
-                                fontSize: 11,
-                              ),
-                            ),
-                          ],
+                  child: imageFile != null
+                      ? Image.file(
+                          imageFile,
+                          width: double.infinity,
+                          height: 150,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) =>
+                              _buildErrorPlaceholder(),
+                        )
+                      : Image.network(
+                          imageUrl!,
+                          width: double.infinity,
+                          height: 150,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) =>
+                              _buildErrorPlaceholder(),
                         ),
-                      );
-                    },
-                  ),
                 ),
                 Container(
                   padding: const EdgeInsets.all(12),
@@ -687,6 +707,30 @@ class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
             ),
           ),
       ],
+    );
+  }
+
+  Widget _buildErrorPlaceholder() {
+    return Container(
+      width: double.infinity,
+      height: 150,
+      color: AppColors.error.withOpacity(0.1),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.broken_image_outlined, color: AppColors.error, size: 48),
+          const SizedBox(height: 8),
+          Text(
+            'Image cannot be loaded',
+            style: TextStyle(color: AppColors.error, fontSize: 12),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Please upload again',
+            style: TextStyle(color: AppColors.textSecondary, fontSize: 11),
+          ),
+        ],
+      ),
     );
   }
 

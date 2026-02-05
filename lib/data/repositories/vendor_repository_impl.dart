@@ -5,8 +5,8 @@ import '../../domain/entities/vendor_list_item_entity.dart';
 import '../../domain/repositories/vendor_repository.dart';
 import '../datasources/remote/api_service.dart';
 import '../models/dashboard_stats_model.dart';
-import '../models/vendor_model.dart';
 import '../models/vendor_list_item_model.dart';
+import '../models/vendor_model.dart';
 
 class VendorRepositoryImpl implements VendorRepository {
   final ApiService apiService;
@@ -38,33 +38,51 @@ class VendorRepositoryImpl implements VendorRepository {
 
       // 🔹 Multipart fields & files
       final fields = vendorModel.toMultipartFields();
-      final arrayFields = vendorModel.toMultipartArrayFields();
+      final arrayFields = vendorModel.toMultipartFlattenedArrayFields();
+      // Merge all fields
+      fields.addAll(arrayFields);
+
       final files = await vendorModel.toMultipartFiles();
 
-      print('\n📝 Multipart Fields: ${fields.length} fields');
+      print('\n📝 Multipart Fields: ${fields.length} including arrays');
       print('   Mobile: ${fields['mobile']}');
       print('   OTP: ${fields['otp'] ?? 'NOT PROVIDED'}');
-      print('   Type: ${fields['type'] ?? 'NOT PROVIDED'}');
-      print('   Usertype: ${fields['usertype'] ?? 'NOT PROVIDED'}');
-      print('📋 Array Fields: ${arrayFields.length} array types');
-      for (final entry in arrayFields.entries) {
-        print('   ${entry.key}: ${entry.value.length} items');
-      }
       print('📎 Multipart Files: ${files.length} files ready to send');
 
+      // 🔹 Check if this is an update or create operation
+      final isUpdate =
+          vendorModel.vendorId != null && vendorModel.vendorId!.isNotEmpty;
+
+      // UPDATE endpoint format: /api/v1/employeevendor/vendor/update/{id}
+      final endpoint = isUpdate
+          ? '${ApiEndpoints.updateVendor}/${vendorModel.vendorId}'
+          : ApiEndpoints.createVendor;
+
+      print('\n🔄 OPERATION: ${isUpdate ? "UPDATE" : "CREATE"} Vendor');
+      if (isUpdate) {
+        print('   Target Vendor ID: ${vendorModel.vendorId}');
+      }
+      print('   Endpoint: $endpoint');
+      print('   Method: POST (Multipart)');
+
+      // 🔍 DEBUG: Print all fields being sent
+      print('\n🔍 ALL MULTIPART FIELDS BEING SENT:');
+      fields.forEach((key, value) {
+        print('   $key: $value');
+      });
+
       final response = await apiService.postMultipart(
-        ApiEndpoints.createVendor,
+        endpoint,
         fields,
         files,
         token: token,
-        arrayFields: arrayFields,
       );
 
       print(
         '\n═══════════════════════════════════════════════════════════════',
       );
-      print('✅ VENDOR CREATION RESPONSE:');
-      print('═══════════════════════════════════════════════════════════════');
+      print('✅ VENDOR ${isUpdate ? "UPDATE" : "CREATION"} RESPONSE:');
+      print('═══════════════════════════════════════════════════════');
       print('Success: ${response['success']}');
       print('Message: ${response['message']}');
       print('Vendor ID: ${response['vendorId']}');
@@ -259,12 +277,14 @@ class VendorRepositoryImpl implements VendorRepository {
         try {
           print('🔗 Trying URL: $url');
           final response = await apiService.get(url, token: token);
-          
+
           print(
             '\n═══════════════════════════════════════════════════════════════',
           );
           print('✅ VENDOR DETAILS RESPONSE:');
-          print('═══════════════════════════════════════════════════════════════');
+          print(
+            '═══════════════════════════════════════════════════════════════',
+          );
           print('Success: ${response['success']}');
           print('Message: ${response['message']}');
           print(
@@ -286,7 +306,7 @@ class VendorRepositoryImpl implements VendorRepository {
         } catch (e) {
           lastError = e is Exception ? e : Exception(e.toString());
           // If it's a 404 or route not found, try next endpoint
-          if (e.toString().contains('404') || 
+          if (e.toString().contains('404') ||
               e.toString().contains('Route not found') ||
               e.toString().contains('API Error: 404')) {
             print('⚠️ Endpoint failed, trying next...');
@@ -297,7 +317,7 @@ class VendorRepositoryImpl implements VendorRepository {
           }
         }
       }
-      
+
       // If all endpoints failed, throw the last error
       throw lastError ?? Exception('All endpoint formats failed');
     } on Exception catch (e) {

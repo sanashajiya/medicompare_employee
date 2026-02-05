@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'dart:developer';
+
 import 'package:http/http.dart' as http;
 
 class ApiService {
@@ -64,16 +64,36 @@ class ApiService {
       }
 
       // Add files
+      // Add files
       request.files.addAll(files);
+      print('\n═══════════════════════════════════════════════════════');
+      print('🛠️ MULTIPART REQUEST DEBUG LOG (For Postman)');
+      print('═══════════════════════════════════════════════════════');
+      print('URL: $url');
+      print('Method: POST');
+      print('Headers: ${request.headers}');
+      print('--- BODY FIELDS ---');
+      request.fields.forEach((key, value) => print('$key: $value'));
 
-      log("fkdjfkfkdkfdkfdkf${request.fields}");
-      log("fkdjfkfkdkfdkfdkf${request.files}");
+      print('\n--- FILES ---');
+      for (final file in request.files) {
+        if (file.filename != null) {
+          print(
+            'Key: ${file.field} | File: ${file.filename} | Size: ${file.length} bytes',
+          );
+        } else {
+          // For array fields that are finalized strings, we can't easily read them back
+          // without keeping a copy or checking the type carefully.
+          // Since this is just a debug log, we'll mark it as an array value.
+          print('Key: ${file.field} | (Array Value)');
+        }
+      }
+      print('═══════════════════════════════════════════════════════\n');
+
       // Send request
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
-
-      log("fkdjfkfkdkfdkfdkf${response.body}");
-      log("fkdjfkfkdkfdkfdkf${response.statusCode}");
+      // log("sssssssssss${response.body}");
       // print('');
       // print('═══════════════════════════════════════════════════════');
       // print('📡 API RESPONSE');
