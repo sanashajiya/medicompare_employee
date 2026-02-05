@@ -7,12 +7,14 @@ import 'package:path_provider/path_provider.dart';
 import 'package:signature/signature.dart';
 
 import '../../../core/constants/api_endpoints.dart';
+import '../../../core/di/injection_container.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/datasources/remote/api_service.dart';
 import '../../../data/models/category_model.dart';
 import '../../../domain/entities/draft_vendor_entity.dart';
 import '../../../domain/entities/user_entity.dart';
 import '../../../domain/entities/vendor_entity.dart';
+import '../../../domain/repositories/draft_repository.dart';
 import '../../blocs/draft/draft_bloc.dart';
 import '../../blocs/draft/draft_event.dart';
 import '../../blocs/draft/draft_state.dart';
@@ -730,6 +732,35 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
         latitude: _businessLatitude,
         longitude: _businessLongitude,
       );
+
+      // Check if a draft already exists for this vendor (by business name + mobile)
+      // This prevents duplicate drafts for the same vendor
+      final businessName = _businessNameController.text.trim();
+      final mobile = _phoneController.text.trim();
+
+      if (businessName.isNotEmpty &&
+          mobile.isNotEmpty &&
+          widget.draftId == null) {
+        try {
+          final draftRepo = sl<DraftRepository>();
+          final existingDraft = await draftRepo.findDraftByVendorKey(
+            businessName: businessName,
+            mobile: mobile,
+          );
+
+          if (existingDraft != null && existingDraft.id != _currentDraftId) {
+            // Found an existing draft - use its ID to update it
+            print('📋 Found existing draft for $businessName ($mobile)');
+            print(
+              '   Reusing draft ID: ${existingDraft.id} (instead of $_currentDraftId)',
+            );
+            _currentDraftId = existingDraft.id;
+          }
+        } catch (e) {
+          print('Error checking for existing draft: $e');
+          // Continue with current draft ID if check fails
+        }
+      }
 
       // Create draft entity
       final draft = await DraftHelper.createDraftFromFormData(

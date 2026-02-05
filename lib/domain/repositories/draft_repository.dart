@@ -18,11 +18,10 @@ abstract class DraftRepository {
 
   /// Get the total count of drafts
   Future<int> getDraftCount();
+
+  /// Find existing draft by unique vendor key (business name + mobile)
+  Future<DraftVendorEntity?> findDraftByVendorKey({
+    required String businessName,
+    required String mobile,
+  });
 }
-
-
-
-
-
-
-
