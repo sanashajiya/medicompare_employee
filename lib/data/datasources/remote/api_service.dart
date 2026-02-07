@@ -37,34 +37,15 @@ class ApiService {
 
       // Add regular fields
       request.fields.addAll(fields);
-      // Hardcode 'business' field as it is required by backend but missing in our model mapping ??
-      // Based on error: "business is not defined"
-      // If the backend expects a JSON string for business, we might need to construct it.
-      // But looking at previous errors, it seems like sometimes these "not defined" errors appear for missing fields.
-      // If we don't have a specific business object to send, let's try sending an empty object or relevant fields.
-      // BUT WAIT, the user showed a response where "business" is an object in the JSON.
-      // In multipart updates, usually fields are flattened?
-      // Or maybe it expects a field named 'business' with JSON content?
-      // Let's try adding a dummy business field if not present.
       if (!request.fields.containsKey('business')) {
         // Removed hardcoded hack - validating properly in model
       }
-
-      // Add array fields (multiple entries with the same key)
-      // The http package's MultipartRequest.fields is a Map<String, String>,
-      // which doesn't support duplicate keys. We need to manually add array fields.
-      //
-      // Solution: Use MultipartFile.fromString() which creates a file-like object
-      // that can be sent as a form field. The backend should accept these as form fields.
       if (arrayFields != null && arrayFields.isNotEmpty) {
         print('\n📋 Adding array fields:');
         for (final entry in arrayFields.entries) {
           final key = entry.key; // e.g., 'categories[]'
           print('   $key: ${entry.value.length} value(s)');
           for (final value in entry.value) {
-            // IMPORTANT: Always send array values, even if empty, to maintain array alignment
-            // The backend expects arrays like documentNumber[] to match the length of doc_name[]
-            // Skipping empty values causes array misalignment and backend errors
             final arrayField = http.MultipartFile.fromString(
               key, // Keep the [] in the key name
               value, // Send empty string if needed to maintain array alignment
