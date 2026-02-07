@@ -10,6 +10,7 @@ class VendorListItemEntity extends Equatable {
   final String? vendorsId;
   final String? businessName;
   final String? businessEmail;
+  final String? rejectedReason; // Reason for rejection
   final DateTime? createdAt;
   final DateTime? updatedAt;
   final Map<String, dynamic>? rawData; // Store full vendor JSON for editing
@@ -24,6 +25,7 @@ class VendorListItemEntity extends Equatable {
     this.vendorsId,
     this.businessName,
     this.businessEmail,
+    this.rejectedReason,
     this.createdAt,
     this.updatedAt,
     this.rawData,
@@ -42,6 +44,7 @@ class VendorListItemEntity extends Equatable {
     vendorsId,
     businessName,
     businessEmail,
+    rejectedReason,
     createdAt,
     updatedAt,
     rawData,

@@ -11,6 +11,7 @@ class VendorListItemModel extends VendorListItemEntity {
     super.vendorsId,
     super.businessName,
     super.businessEmail,
+    super.rejectedReason,
     super.createdAt,
     super.updatedAt,
     super.rawData,
@@ -36,6 +37,7 @@ class VendorListItemModel extends VendorListItemEntity {
       vendorsId: json['vendorsId'] as String?,
       businessName: json['businessName'] as String?,
       businessEmail: json['businessEmail'] as String?,
+      rejectedReason: json['rejectedReason'] as String?,
       createdAt: parseDate(json['createdAt'] as String?),
       updatedAt: parseDate(json['updatedAt'] as String?),
       rawData: json, // Store the full vendor JSON
@@ -53,6 +55,7 @@ class VendorListItemModel extends VendorListItemEntity {
       'vendorsId': vendorsId,
       'businessName': businessName,
       'businessEmail': businessEmail,
+      'rejectedReason': rejectedReason,
       'createdAt': createdAt?.toIso8601String(),
       'updatedAt': updatedAt?.toIso8601String(),
     };
