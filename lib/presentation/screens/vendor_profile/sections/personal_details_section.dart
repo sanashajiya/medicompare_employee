@@ -68,10 +68,12 @@ class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
   void initState() {
     super.initState();
     _addListeners();
-
-    // Auto-validate prefilled data in edit/resume mode
+    // Validating initially to ensure state is captured if prefilled
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _validate();
+      if (widget.firstNameController.text.isNotEmpty) {
+        if (mounted) setState(() => _showErrors = true);
+        _validate();
+      }
     });
   }
 

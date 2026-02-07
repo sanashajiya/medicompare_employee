@@ -13,6 +13,7 @@ class DraftVendorModel extends DraftVendorEntity {
     super.email,
     super.mobile,
     super.aadhaarNumber,
+    super.idProofType,
     super.residentialAddress,
     super.aadhaarFrontImagePath,
     super.aadhaarBackImagePath,
@@ -69,6 +70,7 @@ class DraftVendorModel extends DraftVendorEntity {
       email: entity.email,
       mobile: entity.mobile,
       aadhaarNumber: entity.aadhaarNumber,
+      idProofType: entity.idProofType,
       residentialAddress: entity.residentialAddress,
       aadhaarFrontImagePath: entity.aadhaarFrontImagePath,
       aadhaarBackImagePath: entity.aadhaarBackImagePath,
@@ -126,6 +128,7 @@ class DraftVendorModel extends DraftVendorEntity {
       'email': email,
       'mobile': mobile,
       'aadhaarNumber': aadhaarNumber,
+      'idProofType': idProofType,
       'residentialAddress': residentialAddress,
       'aadhaarFrontImagePath': aadhaarFrontImagePath,
       'aadhaarBackImagePath': aadhaarBackImagePath,
@@ -182,7 +185,11 @@ class DraftVendorModel extends DraftVendorEntity {
       lastName: map['lastName'] as String? ?? '',
       email: map['email'] as String? ?? '',
       mobile: map['mobile'] as String? ?? '',
-      aadhaarNumber: map['aadhaarNumber'] as String? ?? '',
+      aadhaarNumber:
+          map['aadhaarNumber'] as String? ??
+          map['aadhaarCardNumber'] as String? ??
+          '',
+      idProofType: map['idProofType'] as String?,
       residentialAddress: map['residentialAddress'] as String? ?? '',
       // Backward compatibility: if old aadhaarPhotoPath exists, use it as front image
       aadhaarFrontImagePath:
@@ -240,7 +247,7 @@ class DraftVendorModel extends DraftVendorEntity {
       storeLogoPath: map['storeLogoPath'] as String?,
       profileBannerPath: map['profileBannerPath'] as String?,
       signatureImagePath: map['signatureImagePath'] as String?,
-      signerName: map['signerName'] as String?,
+      signerName: map['signerName'] as String? ?? map['signName'] as String?,
       acceptedTerms: map['acceptedTerms'] as bool? ?? false,
       consentAccepted: map['consentAccepted'] as bool? ?? false,
       pricingAgreementAccepted:

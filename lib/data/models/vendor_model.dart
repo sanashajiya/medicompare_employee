@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 
@@ -61,8 +63,8 @@ class VendorModel extends VendorEntity {
   static String? _getFullUrl(String? path) {
     if (path == null || path.isEmpty) return null;
     if (path.startsWith('http')) return path;
-    // Extract base URL from ApiEndpoints (remove /api/v1 suffix)
-    const apiBaseUrl = 'http://13.60.221.192:9001/';
+    // Use the correct base URL
+    const apiBaseUrl = 'https://api.medicompares.com/';
     // Prevent double slashes if path starts with /
     if (path.startsWith('/')) {
       return '$apiBaseUrl${path.substring(1)}';
@@ -99,7 +101,8 @@ class VendorModel extends VendorEntity {
       businessEmail: json['businessEmail'] ?? '',
       altMobile: json['alt_mobile'] ?? '',
       address: json['residentaladdress'] ?? '',
-      proofType: json['proofType']?.toString(),
+      proofType:
+          json['proofType']?.toString() ?? json['idProofType']?.toString(),
       // Parse location if it exists
       latitude: json['location'] is Map
           ? (json['location']['lat'] is num
@@ -278,14 +281,19 @@ class VendorModel extends VendorEntity {
       email: json['email']?.toString() ?? '',
       password: json['password']?.toString() ?? '',
       mobile: json['mobile']?.toString() ?? '',
-      adharnumber: json['adharnumber']?.toString() ?? '',
+      adharnumber:
+          json['adharnumber']?.toString() ??
+          json['aadhaarNumber']?.toString() ??
+          json['aadharNumber']?.toString() ??
+          '',
       residentaladdress: json['residentaladdress']?.toString() ?? '',
       signname: signname,
       businessName: businessName, // Use extracted business name
       businessEmail: businessEmail, // Use extracted
       altMobile: altMobile, // Use extracted
       address: businessAddress, // Use extracted business address
-      proofType: json['proofType']?.toString(),
+      proofType:
+          json['proofType']?.toString() ?? json['idProofType']?.toString(),
       // Parse location if it exists
       latitude: json['location'] is Map
           ? (json['location']['lat'] is num
@@ -501,18 +509,34 @@ class VendorModel extends VendorEntity {
       fields['proofType'] = proofType!;
     }
 
+    // Add debug print for business fields
+    print(
+      '🔍 DEBUG: Business Fields: Name=$businessName, Email=$businessEmail',
+    );
+
+    // Construct and add the 'business' JSON object field
+    final Map<String, dynamic> businessMap = {
+      'name': businessName,
+      'email': businessEmail,
+      'mobile': bussinessmobile.isNotEmpty ? bussinessmobile : mobile,
+      'alt_mobile': altMobile,
+      'address': address,
+      'bussinesslegalname': bussinesslegalname,
+    };
+
     if (latitude != null && longitude != null) {
-      // Backend expects: location: { "lat": <double>, "lng": <double> }
-      // This will be sent as a serialized JSON string in multipart field
-      // but we need to import dart:convert.
-      // Assuming outer scope has explicit import or we use string interpolation carefully?
-      // Better to use string construction to avoid dependency if not already there,
-      // but JSON is safer.
-      // Let's use simple string construction or add import.
-      // The file doesn't have dart:convert. I will add it in a separate step or just format manually if simple.
-      // Manual format: '{"lat": $latitude, "lng": $longitude}'
-      fields['location'] = '{"lat": $latitude, "lng": $longitude}';
+      businessMap['location'] = {'lat': latitude, 'lng': longitude};
+      // Also send flattened location for completeness
+      fields['location'] = jsonEncode({'lat': latitude, 'lng': longitude});
+      fields['businessLocation'] = jsonEncode({
+        'lat': latitude,
+        'lng': longitude,
+      });
     }
+
+    // Encode business object to JSON string
+    fields['business'] = jsonEncode(businessMap);
+    print('✅ Added business JSON field: ${fields['business']}');
 
     // Add vendorId if present (Required for Update API)
     if (vendorId != null && vendorId!.isNotEmpty) {
@@ -555,48 +579,74 @@ class VendorModel extends VendorEntity {
     }
 
     addList('categories', categories);
-    addList('doc_name', docNames);
-    addList('doc_id', docIds);
+    // Filter out invalid docs (must have name, id, number, AND date)
+    final validIndices = <int>[];
+    for (int i = 0; i < docNames.length; i++) {
+      final hasName = docNames[i].trim().isNotEmpty;
+      final hasId = i < docIds.length && docIds[i].trim().isNotEmpty;
+      final hasNumber =
+          i < documentNumbers.length && documentNumbers[i].trim().isNotEmpty;
+      final hasDate =
+          i < expiryDates.length && expiryDates[i].trim().isNotEmpty;
 
-    // Ensure documentNumber array has the same length as docNames/docIds
-    final safeDocumentNumbers = <String>[];
-    final maxLength = [
-      docNames.length,
-      docIds.length,
-      documentNumbers.length,
-    ].reduce((a, b) => a > b ? a : b);
-
-    for (int i = 0; i < maxLength; i++) {
-      if (i < documentNumbers.length) {
-        safeDocumentNumbers.add(documentNumbers[i]);
-      } else {
-        safeDocumentNumbers.add('');
+      // Only include if ALL required fields are present
+      if (hasName && hasId && hasNumber && hasDate) {
+        validIndices.add(i);
       }
     }
-    addList('documentNumber', safeDocumentNumbers);
 
-    final safeExpiryDates = <String>[];
-    for (int i = 0; i < maxLength; i++) {
+    final filteredDocNames = validIndices.map((i) => docNames[i]).toList();
+    final filteredDocIds = validIndices
+        .map((i) => i < docIds.length ? docIds[i] : '')
+        .toList();
+
+    // safeDocumentNumbers logic with filtering
+    final filteredDocumentNumbers = <String>[];
+    for (int i in validIndices) {
+      if (i < documentNumbers.length) {
+        filteredDocumentNumbers.add(documentNumbers[i]);
+      } else {
+        filteredDocumentNumbers.add('');
+      }
+    }
+
+    // safeExpiryDates logic with filtering and sanitization
+    final filteredExpiryDates = <String>[];
+    for (int i in validIndices) {
+      String date = '';
       if (i < expiryDates.length) {
-        String date = expiryDates[i];
-        // Sanitize date: Convert DD/MM/YYYY to YYYY-MM-DD if needed
+        date = expiryDates[i];
+        // Sanitization logic remains same
         if (RegExp(r'^\d{2}/\d{2}/\d{4}$').hasMatch(date)) {
           try {
             final parts = date.split('/');
-            // parts[0] is Day, parts[1] is Month, parts[2] is Year
-            // Standard ISO: YYYY-MM-DD
             date = '${parts[2]}-${parts[1]}-${parts[0]}';
-            print('🔧 Sanitized Date: ${expiryDates[i]} -> $date');
           } catch (e) {
             print('⚠️ Date sanitization failed for $date: $e');
           }
+        } else if (date.contains('T')) {
+          try {
+            date = date.split('T')[0];
+          } catch (e) {
+            print('⚠️ ISO Date sanitization failed for $date: $e');
+          }
         }
-        safeExpiryDates.add(date);
-      } else {
-        safeExpiryDates.add('');
       }
+      filteredExpiryDates.add(date);
     }
-    addList('expireDate', safeExpiryDates);
+
+    addList('categories', categories); // Categories usually separate from docs
+    addList('doc_name', filteredDocNames);
+    addList('doc_id', filteredDocIds);
+    addList('documentNumber', filteredDocumentNumbers);
+    addList('expireDate', filteredExpiryDates);
+
+    print('🔍 DEBUG: Generated Flattened Array Fields (Filtered):');
+    flattened.forEach((key, value) {
+      if (key.startsWith('expireDate') || key.startsWith('doc_name')) {
+        print('   $key: $value');
+      }
+    });
 
     return flattened;
   }

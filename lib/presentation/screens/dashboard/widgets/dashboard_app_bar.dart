@@ -28,7 +28,7 @@ class DashboardAppBar extends StatelessWidget implements PreferredSizeWidget {
           ),
           const SizedBox(width: 12),
           const Text(
-            'Medicompare',
+            'Medicompares',
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
           ),
         ],

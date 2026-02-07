@@ -129,6 +129,7 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
   List<String> _selectedBusinessCategories = [];
   List<CategoryModel> _availableCategories = [];
   Map<String, String> _categoryNameToId = {};
+  Map<String, String> _categoryIdToName = {}; // New map for ID -> Name
   bool _categoriesLoaded = false;
 
   // Files
@@ -437,7 +438,18 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
         _businessAddressController.text = draft.businessAddress;
         _businessLatitude = draft.latitude;
         _businessLongitude = draft.longitude;
-        _selectedBusinessCategories = List<String>.from(draft.categories);
+        // Convert IDs to Names if map is available, otherwise keep IDs (will be fixed in fetchCategories)
+        _selectedBusinessCategories = draft.categories.map((c) {
+          // If it looks like an ID (and we have a name for it), use the name
+          if (_categoryIdToName.containsKey(c)) {
+            return _categoryIdToName[c]!;
+          }
+          // Check if it's already a name (exists in nameToId)
+          if (_categoryNameToId.containsKey(c)) {
+            return c;
+          }
+          return c;
+        }).toList();
 
         // Banking Details
         _accountNumberController.text = draft.accountNumber;
@@ -538,10 +550,43 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
       _firstNameController.text = vendor.firstName;
       _lastNameController.text = vendor.lastName;
       _emailController.text = vendor.email;
-      _phoneController.text = vendor.mobile;
-      _aadhaarNumberController.text = vendor.adharnumber;
-      _selectedIdProofType =
-          vendor.proofType ?? 'Aadhar'; // Use fetched proofType or default
+      // Helper to sanitize mobile (keep last 10 digits)
+      String sanitizeMobile(String val) {
+        final digits = val.replaceAll(RegExp(r'\D'), '');
+        if (digits.length > 10) return digits.substring(digits.length - 10);
+        return digits;
+      }
+
+      _phoneController.text = sanitizeMobile(vendor.mobile);
+
+      // Clean ID Number (remove spaces/dashes)
+      String cleanIdNumber = vendor.adharnumber.replaceAll(
+        RegExp(r'[\s-]'),
+        '',
+      );
+
+      // Robust ID Proof Type Handling
+      String? proofType = vendor.proofType;
+
+      // 1. Try to infer from content if missing
+      if (proofType == null || proofType.isEmpty) {
+        // Check for PAN pattern (ABCDE1234F)
+        if (RegExp(r'^[A-Z]{5}[0-9]{4}[A-Z]{1}$').hasMatch(cleanIdNumber)) {
+          proofType = 'PAN Card';
+        } else {
+          // Default to Aadhar
+          proofType = 'Aadhar';
+        }
+      }
+
+      // 2. Normalize typical variations
+      if (proofType.toLowerCase().contains('adhar') ||
+          proofType.toLowerCase().contains('aadhaar')) {
+        proofType = 'Aadhar';
+      }
+
+      _aadhaarNumberController.text = cleanIdNumber;
+      _selectedIdProofType = proofType;
       _residentialAddressController.text = vendor.residentaladdress;
       _signerNameController.text = vendor.signname;
       _aadhaarFrontImageUrl = vendor.aadhaarFrontImageUrl;
@@ -551,12 +596,16 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
       _businessNameController.text = vendor.businessName;
       _businessLegalNameController.text = vendor.bussinesslegalname;
       _businessEmailController.text = vendor.businessEmail;
-      _businessMobileController.text = vendor.bussinessmobile;
-      _altBusinessMobileController.text = vendor.altMobile;
+      _businessMobileController.text = sanitizeMobile(vendor.bussinessmobile);
+      _altBusinessMobileController.text = sanitizeMobile(vendor.altMobile);
       _businessAddressController.text = vendor.address;
       _businessLatitude = vendor.latitude;
       _businessLongitude = vendor.longitude;
-      _selectedBusinessCategories = List<String>.from(vendor.categories);
+
+      // Convert IDs to Names
+      _selectedBusinessCategories = vendor.categories.map((id) {
+        return _categoryIdToName[id] ?? id;
+      }).toList();
 
       // Banking Details
       _accountNumberController.text = vendor.accountNumber;
@@ -681,11 +730,8 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
       _slvAgreementAccepted = vendor.slvAgreementAccepted;
     });
 
-    // Update categories mapping after prefilling
-    // Update categories mapping after prefilling
-    if (_categoriesLoaded) {
-      _updateCategoryMappings();
-    }
+    // No need to update category mappings explicitly as fetchCategories handles full mapping
+    // and we are using the full map now.
 
     // Initialize Stepper State for Edit Mode
     // Since this is an existing vendor, we assume all sections are initially valid and completed.
@@ -710,15 +756,6 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
     }
   }
 
-  void _updateCategoryMappings() {
-    // Update the category name to ID mappings
-    for (final category in _availableCategories) {
-      if (_selectedBusinessCategories.contains(category.id)) {
-        _categoryNameToId[category.name] = category.id;
-      }
-    }
-  }
-
   Future<void> _fetchCategories() async {
     try {
       final apiService = ApiService();
@@ -731,6 +768,17 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
       setState(() {
         _availableCategories = categories;
         _categoryNameToId = {for (var cat in categories) cat.name: cat.id};
+        _categoryIdToName = {for (var cat in categories) cat.id: cat.name};
+
+        // Convert currently selected IDs to Names if any
+        _selectedBusinessCategories = _selectedBusinessCategories.map((c) {
+          // If 'c' is an ID in our map, swap to Name
+          if (_categoryIdToName.containsKey(c)) {
+            return _categoryIdToName[c]!;
+          }
+          return c;
+        }).toList();
+
         _categoriesLoaded = true;
       });
     } catch (e) {
@@ -793,14 +841,16 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
         'storeLogo': _storeLogo,
         'profileBanner': _profileBanner,
         'signatureBytes': _signatureBytes,
-        'categories': _selectedBusinessCategories,
+        'categories': _selectedBusinessCategories
+            .map((name) => _categoryNameToId[name] ?? name)
+            .toList(), // Convert Names to IDs for storage
         'latitude': _businessLatitude,
         'longitude': _businessLongitude,
-        'aadhaarCardNumber': _aadhaarNumberController.text,
+        'aadhaarNumber': _aadhaarNumberController.text,
         'residentialAddress': _residentialAddressController.text,
         'aadhaarFrontImage': _aadhaarFrontImage,
         'aadhaarBackImage': _aadhaarBackImage,
-        'signName': _signerNameController.text,
+        'signerName': _signerNameController.text,
         'idProofType': _selectedIdProofType,
         'acceptedTerms': _acceptedTerms,
         'consentAccepted': _consentAccepted,

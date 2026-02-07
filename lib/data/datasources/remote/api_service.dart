@@ -37,6 +37,18 @@ class ApiService {
 
       // Add regular fields
       request.fields.addAll(fields);
+      // Hardcode 'business' field as it is required by backend but missing in our model mapping ??
+      // Based on error: "business is not defined"
+      // If the backend expects a JSON string for business, we might need to construct it.
+      // But looking at previous errors, it seems like sometimes these "not defined" errors appear for missing fields.
+      // If we don't have a specific business object to send, let's try sending an empty object or relevant fields.
+      // BUT WAIT, the user showed a response where "business" is an object in the JSON.
+      // In multipart updates, usually fields are flattened?
+      // Or maybe it expects a field named 'business' with JSON content?
+      // Let's try adding a dummy business field if not present.
+      if (!request.fields.containsKey('business')) {
+        // Removed hardcoded hack - validating properly in model
+      }
 
       // Add array fields (multiple entries with the same key)
       // The http package's MultipartRequest.fields is a Map<String, String>,
