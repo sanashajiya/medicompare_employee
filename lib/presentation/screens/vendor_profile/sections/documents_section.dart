@@ -1,53 +1,82 @@
 import 'dart:io';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
+
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/validators.dart';
 import '../../../widgets/custom_text_field.dart';
 import '../../../widgets/file_upload_field.dart';
+import '../models/additional_document_model.dart'; // New import
 
 class DocumentsSection extends StatefulWidget {
   final File? businessRegistrationFile;
+  final String? businessRegistrationUrl;
   final File? gstCertificateFile;
+  final String? gstCertificateUrl;
   final File? panCardFile;
+  final String? panCardUrl;
   final File? professionalLicenseFile;
-  final File? additionalDocumentFile;
+  final String? professionalLicenseUrl;
   final String? businessRegistrationFileName;
-  final String? gstCertificateFileName;
-  final String? panCardFileName;
+  final String?
+  gstCertificateFileName; // Keep this as it's used in _buildDocumentCard
+  final String? panCardFileName; // Keep this as it's used in _buildDocumentCard
   final String? professionalLicenseFileName;
-  final String? additionalDocumentFileName;
+
+  // Dynamic Additional Documents
+  final List<AdditionalDocumentModel> additionalDocuments;
+  final VoidCallback onAddDocument;
+  final Function(int) onRemoveDocument;
+  final Function(int, File?, String?) onDocumentFileSelected;
+
   final TextEditingController panCardNumberController;
   final TextEditingController gstCertificateNumberController;
   final TextEditingController businessRegistrationNumberController;
   final TextEditingController professionalLicenseNumberController;
-  final TextEditingController additionalDocumentNameController;
+
+  final TextEditingController businessRegistrationExpiryDateController;
+  final TextEditingController gstExpiryDateController;
+  final TextEditingController panCardExpiryDateController;
+  final TextEditingController professionalLicenseExpiryDateController;
+
   final bool enabled;
   final Function(String fieldName, File? file, String? fileName) onFileSelected;
   final Function(bool isValid) onValidationChanged;
+  final bool showErrors; // New field
 
   const DocumentsSection({
     super.key,
     required this.businessRegistrationFile,
+    this.businessRegistrationUrl,
     required this.gstCertificateFile,
+    this.gstCertificateUrl,
     required this.panCardFile,
+    this.panCardUrl,
     required this.professionalLicenseFile,
-    required this.additionalDocumentFile,
+    this.professionalLicenseUrl,
     required this.businessRegistrationFileName,
     required this.gstCertificateFileName,
     required this.panCardFileName,
     required this.professionalLicenseFileName,
-    required this.additionalDocumentFileName,
+    required this.additionalDocuments, // New
+    required this.onAddDocument, // New
+    required this.onRemoveDocument, // New
+    required this.onDocumentFileSelected, // New
     required this.panCardNumberController,
     required this.gstCertificateNumberController,
     required this.businessRegistrationNumberController,
     required this.professionalLicenseNumberController,
-    required this.additionalDocumentNameController,
+    required this.businessRegistrationExpiryDateController,
+    required this.gstExpiryDateController,
+    required this.panCardExpiryDateController,
+    required this.professionalLicenseExpiryDateController,
     required this.enabled,
     required this.onFileSelected,
     required this.onValidationChanged,
+    this.showErrors = false, // New
   });
 
   @override
@@ -61,74 +90,223 @@ class _DocumentsSectionState extends State<DocumentsSection> {
   String? _gstCertificateError;
   String? _panCardError;
   String? _professionalLicenseError;
-  String? _additionalDocumentError;
+  // String? _additionalDocumentError; // Removed
   bool _showErrors = false;
 
   static const int _maxFileSizeMB = 5;
   static const int _maxFileSizeBytes = _maxFileSizeMB * 1024 * 1024;
   static const List<String> _allowedExtensions = ['pdf', 'jpg', 'jpeg', 'png'];
 
+  final FocusNode _businessRegistrationNumberFocus = FocusNode();
+  final FocusNode _gstCertificateNumberFocus = FocusNode();
+  final FocusNode _panCardNumberFocus = FocusNode();
+  final FocusNode _professionalLicenseNumberFocus = FocusNode();
+  // final FocusNode _additionalDocumentNameFocus = FocusNode(); // Removed
+
   @override
   void initState() {
     super.initState();
-    widget.additionalDocumentNameController.addListener(_validate);
+    // Use FocusNodes for validation on blur
+    _businessRegistrationNumberFocus.addListener(_onFocusChange);
+    _gstCertificateNumberFocus.addListener(_onFocusChange);
+    _panCardNumberFocus.addListener(_onFocusChange);
+    _professionalLicenseNumberFocus.addListener(_onFocusChange);
+    // _additionalDocumentNameFocus.addListener(_onFocusChange); // Removed
+
+    // Keep validation on date changes as they are picked via dialog
+    widget.businessRegistrationExpiryDateController.addListener(_validate);
+    widget.gstExpiryDateController.addListener(_validate);
+    widget.panCardExpiryDateController.addListener(_validate);
+    widget.professionalLicenseExpiryDateController.addListener(_validate);
+    // widget.additionalDocumentExpiryDateController.addListener(_validate); // Removed
+
+    // Initial validation without showing errors
+    WidgetsBinding.instance.addPostFrameCallback((_) => _validate());
+
+    // Auto-validate prefilled data in edit/resume mode
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _validate();
+    });
+  }
+
+  void _onFocusChange() {
+    // Check if any controller has text, implying user interaction has started
+    final hasInteraction =
+        widget.businessRegistrationNumberController.text.isNotEmpty ||
+        widget.gstCertificateNumberController.text.isNotEmpty ||
+        widget.panCardNumberController.text.isNotEmpty ||
+        widget.professionalLicenseNumberController.text.isNotEmpty;
+    // || widget.additionalDocumentNameController.text.isNotEmpty; // Removed
+
+    if (hasInteraction && !_showErrors) {
+      if (mounted) setState(() => _showErrors = true);
+    }
+
+    // Always validate on focus change to keep state in sync
     _validate();
   }
 
   @override
   void dispose() {
-    widget.additionalDocumentNameController.removeListener(_validate);
+    widget.businessRegistrationExpiryDateController.removeListener(_validate);
+    widget.gstExpiryDateController.removeListener(_validate);
+    widget.panCardExpiryDateController.removeListener(_validate);
+    widget.professionalLicenseExpiryDateController.removeListener(_validate);
+    // widget.additionalDocumentExpiryDateController.removeListener(_validate); // Removed
+
+    _businessRegistrationNumberFocus.removeListener(_onFocusChange);
+    _gstCertificateNumberFocus.removeListener(_onFocusChange);
+    _panCardNumberFocus.removeListener(_onFocusChange);
+    _professionalLicenseNumberFocus.removeListener(_onFocusChange);
+    // _additionalDocumentNameFocus.removeListener(_onFocusChange); // Removed
+
+    _businessRegistrationNumberFocus.dispose();
+    _gstCertificateNumberFocus.dispose();
+    _panCardNumberFocus.dispose();
+    _professionalLicenseNumberFocus.dispose();
+    // _additionalDocumentNameFocus.dispose(); // Removed
     super.dispose();
   }
 
+  @override
+  void didUpdateWidget(DocumentsSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.businessRegistrationUrl != widget.businessRegistrationUrl ||
+        oldWidget.gstCertificateUrl != widget.gstCertificateUrl ||
+        oldWidget.panCardUrl != widget.panCardUrl ||
+        oldWidget.professionalLicenseUrl != widget.professionalLicenseUrl ||
+        // oldWidget.additionalDocumentUrl != widget.additionalDocumentUrl || // Removed
+        oldWidget.businessRegistrationFile != widget.businessRegistrationFile ||
+        oldWidget.gstCertificateFile != widget.gstCertificateFile ||
+        oldWidget.panCardFile != widget.panCardFile ||
+        oldWidget.professionalLicenseFile != widget.professionalLicenseFile ||
+        // oldWidget.additionalDocumentFile != widget.additionalDocumentFile || // Removed
+        oldWidget.additionalDocuments.length !=
+            widget
+                .additionalDocuments
+                .length // New check for additional documents
+                ) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _validate();
+      });
+    }
+  }
+
+  bool? _lastIsValid;
+
   void _validate() {
-    final businessRegistrationError = Validators.validateFileUpload(
+    // Helper to check if file or URL is present
+    String? validateDocRequest(File? file, String? url, String label) {
+      if (file != null) return Validators.validateFileUpload(file, label);
+      if (url != null && url.isNotEmpty) return null; // URL is valid content
+      return Validators.validateFileUpload(
+        null,
+        label,
+      ); // Trigger required error
+    }
+
+    final businessRegistrationError = validateDocRequest(
       widget.businessRegistrationFile,
+      widget.businessRegistrationUrl,
       'Business Registration Certificate',
     );
-    final gstCertificateError = Validators.validateFileUpload(
+    final gstCertificateError = validateDocRequest(
       widget.gstCertificateFile,
+      widget.gstCertificateUrl,
       'GST Registration Certificate',
     );
-    final panCardError = Validators.validateFileUpload(
+    final panCardError = validateDocRequest(
       widget.panCardFile,
+      widget.panCardUrl,
       'PAN Card',
     );
-    final professionalLicenseError = Validators.validateFileUpload(
+    final professionalLicenseError = validateDocRequest(
       widget.professionalLicenseFile,
+      widget.professionalLicenseUrl,
       'Professional License',
     );
 
     // Additional document validation: if name is entered, file is required
-    String? additionalDocumentError;
-    final hasAdditionalName = widget.additionalDocumentNameController.text
-        .trim()
-        .isNotEmpty;
-    if (hasAdditionalName && widget.additionalDocumentFile == null) {
-      additionalDocumentError = 'Please upload the additional document';
+    // String? additionalDocumentError; // Removed
+    // final hasAdditionalName = widget.additionalDocumentNameController.text // Removed
+    //     .trim() // Removed
+    //     .isNotEmpty; // Removed
+    // if (hasAdditionalName) { // Removed
+    //   if (widget.additionalDocumentFile == null && // Removed
+    //       (widget.additionalDocumentUrl == null || // Removed
+    //           widget.additionalDocumentUrl!.isEmpty)) { // Removed
+    //     additionalDocumentError = 'Please upload the additional document'; // Removed
+    //   } // Removed
+    // } // Removed
+
+    // Validate dynamic additional documents
+    bool additionalDocumentsAreValid = true;
+    for (final doc in widget.additionalDocuments) {
+      if (doc.nameController.text.trim().isEmpty ||
+          doc.numberController.text.trim().isEmpty ||
+          (doc.file == null && (doc.fileUrl == null || doc.fileUrl!.isEmpty))) {
+        additionalDocumentsAreValid = false;
+        break;
+      }
     }
+
+    // For overall validity check, we check if mandatory docs are present (either file or url)
+    final bool hasBusinessReg =
+        widget.businessRegistrationFile != null ||
+        (widget.businessRegistrationUrl?.isNotEmpty ?? false);
+    final bool hasGst =
+        widget.gstCertificateFile != null ||
+        (widget.gstCertificateUrl?.isNotEmpty ?? false);
+    final bool hasPan =
+        widget.panCardFile != null || (widget.panCardUrl?.isNotEmpty ?? false);
+    final bool hasProfLicense =
+        widget.professionalLicenseFile != null ||
+        (widget.professionalLicenseUrl?.isNotEmpty ?? false);
 
     final isValid =
         businessRegistrationError == null &&
         gstCertificateError == null &&
         panCardError == null &&
         professionalLicenseError == null &&
-        additionalDocumentError == null &&
-        widget.businessRegistrationFile != null &&
-        widget.gstCertificateFile != null &&
-        widget.panCardFile != null &&
-        widget.professionalLicenseFile != null;
+        // additionalDocumentError == null && // Removed
+        hasBusinessReg &&
+        hasGst &&
+        hasPan &&
+        hasProfLicense &&
+        widget.businessRegistrationNumberController.text.isNotEmpty &&
+        widget.businessRegistrationExpiryDateController.text.isNotEmpty &&
+        widget.gstCertificateNumberController.text.isNotEmpty &&
+        widget.gstExpiryDateController.text.isNotEmpty &&
+        widget.panCardNumberController.text.isNotEmpty &&
+        widget.panCardExpiryDateController.text.isNotEmpty &&
+        widget.professionalLicenseNumberController.text.isNotEmpty &&
+        widget.professionalLicenseExpiryDateController.text.isNotEmpty &&
+        additionalDocumentsAreValid; // New validation for dynamic docs
 
-    widget.onValidationChanged(isValid);
-
-    if (_showErrors) {
-      setState(() {
-        _businessRegistrationError = businessRegistrationError;
-        _gstCertificateError = gstCertificateError;
-        _panCardError = panCardError;
-        _professionalLicenseError = professionalLicenseError;
-        _additionalDocumentError = additionalDocumentError;
+    if (_lastIsValid != isValid) {
+      _lastIsValid = isValid;
+      // Defer callback to next frame to avoid build collisions
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) widget.onValidationChanged(isValid);
       });
+    }
+
+    if (widget.showErrors) {
+      // Changed from _showErrors to widget.showErrors
+      // Only set state if something actually changed to avoid rebuilds
+      if (_businessRegistrationError != businessRegistrationError ||
+          _gstCertificateError != gstCertificateError ||
+          _panCardError != panCardError ||
+          _professionalLicenseError != professionalLicenseError) {
+        // _additionalDocumentError != additionalDocumentError) { // Removed
+        setState(() {
+          _businessRegistrationError = businessRegistrationError;
+          _gstCertificateError = gstCertificateError;
+          _panCardError = panCardError;
+          _professionalLicenseError = professionalLicenseError;
+          // _additionalDocumentError = additionalDocumentError; // Removed
+        });
+      }
     }
   }
 
@@ -266,7 +444,7 @@ class _DocumentsSectionState extends State<DocumentsSection> {
       final file = File(pickedFile.path);
       final fileName = pickedFile.name;
 
-      if (!_validateFile(file, fileName, fieldName)) return;
+      if (!await _validateFileAsync(file, fileName, fieldName)) return;
 
       widget.onFileSelected(fieldName, file, fileName);
       if (!_showErrors) setState(() => _showErrors = true);
@@ -290,7 +468,7 @@ class _DocumentsSectionState extends State<DocumentsSection> {
       final file = File(pickedFile.path);
       final fileName = pickedFile.name;
 
-      if (!_validateFile(file, fileName, fieldName)) return;
+      if (!await _validateFileAsync(file, fileName, fieldName)) return;
 
       widget.onFileSelected(fieldName, file, fileName);
       if (!_showErrors) setState(() => _showErrors = true);
@@ -316,7 +494,7 @@ class _DocumentsSectionState extends State<DocumentsSection> {
       final file = File(platformFile.path!);
       final fileName = platformFile.name;
 
-      if (!_validateFile(file, fileName, fieldName)) return;
+      if (!await _validateFileAsync(file, fileName, fieldName)) return;
 
       widget.onFileSelected(fieldName, file, fileName);
       if (!_showErrors) setState(() => _showErrors = true);
@@ -326,7 +504,91 @@ class _DocumentsSectionState extends State<DocumentsSection> {
     }
   }
 
-  bool _validateFile(File file, String fileName, String fieldName) {
+  // Generic pick image function for additional documents
+  Future<void> _pickImage(
+    ImageSource source,
+    Function(File?, String?) onFilePicked,
+  ) async {
+    try {
+      final XFile? pickedFile = await _imagePicker.pickImage(
+        source: source,
+        imageQuality: 85,
+        maxWidth: 1500,
+        maxHeight: 1500,
+      );
+
+      if (pickedFile == null) {
+        onFilePicked(null, null);
+        return;
+      }
+
+      final file = File(pickedFile.path);
+      final fileName = pickedFile.name;
+
+      // For additional documents, we don't use _setFieldError directly,
+      // but the validation will happen in _validateForm
+      if (!await _validateFileAsync(
+        file,
+        fileName,
+        'additional_document_dynamic',
+      )) {
+        onFilePicked(null, null); // Clear selection if validation fails
+        return;
+      }
+
+      onFilePicked(file, fileName);
+      _validate();
+    } catch (e) {
+      _showErrorSnackbar('Failed to pick image');
+      onFilePicked(null, null);
+    }
+  }
+
+  // Generic pick PDF function for additional documents
+  Future<void> _pickPdf(Function(File?, String?) onFilePicked) async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: const ['pdf'],
+        allowMultiple: false,
+      );
+
+      if (result == null || result.files.isEmpty) {
+        onFilePicked(null, null);
+        return;
+      }
+
+      final platformFile = result.files.first;
+      if (platformFile.path == null) {
+        onFilePicked(null, null);
+        return;
+      }
+
+      final file = File(platformFile.path!);
+      final fileName = platformFile.name;
+
+      if (!await _validateFileAsync(
+        file,
+        fileName,
+        'additional_document_dynamic',
+      )) {
+        onFilePicked(null, null); // Clear selection if validation fails
+        return;
+      }
+
+      onFilePicked(file, fileName);
+      _validate();
+    } catch (e) {
+      _showErrorSnackbar('Failed to pick PDF');
+      onFilePicked(null, null);
+    }
+  }
+
+  Future<bool> _validateFileAsync(
+    File file,
+    String fileName,
+    String fieldName,
+  ) async {
     // Check extension
     final ext = fileName.split('.').last.toLowerCase();
     if (!_allowedExtensions.contains(ext)) {
@@ -334,9 +596,16 @@ class _DocumentsSectionState extends State<DocumentsSection> {
       return false;
     }
 
-    // Check size
-    if (file.lengthSync() > _maxFileSizeBytes) {
-      _setFieldError(fieldName, 'File must be less than $_maxFileSizeMB MB');
+    // Check size - async to avoid blocking UI
+    try {
+      final len = await file.length();
+      if (len > _maxFileSizeBytes) {
+        _setFieldError(fieldName, 'File must be less than $_maxFileSizeMB MB');
+        return false;
+      }
+    } catch (e) {
+      print('Error checking file size: $e');
+      _setFieldError(fieldName, 'Error Validating File');
       return false;
     }
 
@@ -359,9 +628,9 @@ class _DocumentsSectionState extends State<DocumentsSection> {
         case 'professional_license':
           _professionalLicenseError = error;
           break;
-        case 'additional_document':
-          _additionalDocumentError = error;
-          break;
+        // case 'additional_document': // Removed
+        //   _additionalDocumentError = error; // Removed
+        //   break; // Removed
       }
     });
   }
@@ -375,76 +644,200 @@ class _DocumentsSectionState extends State<DocumentsSection> {
 
   void _removeFile(String fieldName) {
     widget.onFileSelected(fieldName, null, null);
+    // Note: onFileSelected(null) clears the file.
+    // If there was an existing URL, removing the file might mean "I want to remove the new file I just uploaded and revert to empty" or "I want to clear everything".
+    // Usually, hitting remove on a "File with URL" field implies clearing the URL too if we support clearing.
+    // But since these are mandatory fields, "removing" usually just clears current selection.
+    // If a URL exists, FileUploadField displays it.
+    // If I hit remove, I probably want to clear that URL too? But I can't clear URL via `onFileSelected`.
+    // The parent manages state. If I want to clear URL, I need a callback for that or strict handling.
+    // For now, let's assume `onFileSelected(fieldName, null, null)` just clears the *newly selected file*.
+    // If I want to clear the URL, I need the parent to know.
+    // However, since `DocumentsSection` fields are mandatory, users essentially replace them.
     _validate();
   }
 
-  @override
-  void didUpdateWidget(DocumentsSection oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    _validate();
+  Widget _buildDocumentCard({
+    required String title,
+    required TextEditingController numberController,
+    required TextEditingController expiryDateController,
+    required String numberHint,
+    required File? file,
+    required String? url,
+    required String? fileName,
+    required String fieldKey,
+    required String? errorText,
+    bool isMandatory = true,
+    List<TextInputFormatter>? inputFormatters,
+    required FocusNode focusNode,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  isMandatory ? '$title *' : title,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          CustomTextField(
+            controller: numberController,
+            focusNode: focusNode,
+            label: 'Document Number',
+            hint: numberHint,
+            enabled: widget.enabled,
+            inputFormatters: inputFormatters,
+            onChanged: (_) => _validate(), // Added onChanged for validation
+          ),
+          const SizedBox(height: 16),
+          _buildExpiryDateField(expiryDateController, isMandatory),
+          const SizedBox(height: 16),
+          FileUploadField(
+            label: 'Upload $title',
+            fileName: fileName,
+            file: file,
+            fileUrl: url,
+            errorText: errorText,
+            required: isMandatory,
+            enabled: widget.enabled,
+            onTap: () => _showUploadOptions(fieldKey),
+            onRemove: () => _removeFile(fieldKey),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildExpiryDateField(
+    TextEditingController controller,
+    bool isMandatory,
+  ) {
+    return GestureDetector(
+      onTap: widget.enabled ? () => _selectDate(controller) : null,
+      child: AbsorbPointer(
+        child: CustomTextField(
+          controller: controller,
+          label: isMandatory ? 'Expiry Date *' : 'Expiry Date',
+          hint: 'yyyy-mm-dd',
+          enabled: widget.enabled,
+          suffixIcon: const Icon(
+            Icons.calendar_today_outlined,
+            color: AppColors.textSecondary,
+            size: 20,
+          ),
+          onChanged: (_) => _validate(), // Added onChanged for validation
+        ),
+      ),
+    );
+  }
+
+  Future<void> _selectDate(TextEditingController controller) async {
+    final DateTime now = DateTime.now();
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: now.add(const Duration(days: 1)),
+      firstDate: now.add(const Duration(days: 1)), // Only future dates
+      lastDate: DateTime(2101),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.light(primary: AppColors.primary),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null) {
+      // Format: yyyy-mm-dd (ISO 8601) to satisfy backend Date casting
+      final day = picked.day.toString().padLeft(2, '0');
+      final month = picked.month.toString().padLeft(2, '0');
+      final year = picked.year;
+      controller.text = '$year-$month-$day';
+      if (!_showErrors) setState(() => _showErrors = true);
+      _validate();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final hasAdditionalName = widget.additionalDocumentNameController.text
-        .trim()
-        .isNotEmpty;
+    // final hasAdditionalName = widget.additionalDocumentNameController.text // Removed
+    //     .trim() // Removed
+    //     .isNotEmpty; // Removed
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Upload required documents',
-          style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
-        ),
-        const SizedBox(height: 20),
-        CustomTextField(
-          controller: widget.businessRegistrationNumberController,
-          label: 'Business Registration Number',
-          hint: 'Enter registration number',
-          enabled: widget.enabled,
-        ),
-        const SizedBox(height: 20),
-        FileUploadField(
-          label: 'Business Registration Certificate',
-          fileName: widget.businessRegistrationFileName,
+        _buildDocumentCard(
+          title: 'Business Registration Certificate',
+          numberController: widget.businessRegistrationNumberController,
+          expiryDateController: widget.businessRegistrationExpiryDateController,
+          numberHint: 'Enter registration number',
           file: widget.businessRegistrationFile,
-          errorText: _showErrors ? _businessRegistrationError : null,
-          required: true,
-          enabled: widget.enabled,
-          onTap: () => _showUploadOptions('business_registration'),
-          onRemove: () => _removeFile('business_registration'),
+          url: widget.businessRegistrationUrl,
+          fileName: widget.businessRegistrationFileName,
+          fieldKey: 'business_registration',
+          errorText: widget.showErrors
+              ? _businessRegistrationError
+              : null, // Changed to widget.showErrors
+          isMandatory: true,
+          focusNode: _businessRegistrationNumberFocus,
         ),
-
-        const SizedBox(height: 20),
-        CustomTextField(
-          controller: widget.gstCertificateNumberController,
-          label: 'GST Certificate Number',
-          hint: 'Enter GST number',
-          enabled: widget.enabled,
-        ),
-        const SizedBox(height: 20),
-        FileUploadField(
-          label: 'GST Registration Certificate',
-          fileName: widget.gstCertificateFileName,
+        _buildDocumentCard(
+          title: 'GST Registration Certificate',
+          numberController: widget.gstCertificateNumberController,
+          expiryDateController: widget.gstExpiryDateController,
+          numberHint: 'Enter GST number',
           file: widget.gstCertificateFile,
-          errorText: _showErrors ? _gstCertificateError : null,
-          required: true,
-          enabled: widget.enabled,
-          onTap: () => _showUploadOptions('gst_certificate'),
-          onRemove: () => _removeFile('gst_certificate'),
+          url: widget.gstCertificateUrl,
+          fileName: widget.gstCertificateFileName,
+          fieldKey: 'gst_certificate',
+          errorText: widget.showErrors
+              ? _gstCertificateError
+              : null, // Changed to widget.showErrors
+          isMandatory: true,
+          focusNode: _gstCertificateNumberFocus,
         ),
-        const SizedBox(height: 20),
-        CustomTextField(
-          controller: widget.panCardNumberController,
-          label: 'PAN Card Number',
-          hint: 'Enter PAN number (e.g., ABCDE1234F)',
-          enabled: widget.enabled,
+        _buildDocumentCard(
+          title: 'PAN Card',
+          numberController: widget.panCardNumberController,
+          expiryDateController: widget.panCardExpiryDateController,
+          numberHint: 'Enter PAN number',
+          file: widget.panCardFile,
+          url: widget.panCardUrl,
+          fileName: widget.panCardFileName,
+          fieldKey: 'pan_card',
+          errorText: widget.showErrors
+              ? _panCardError
+              : null, // Changed to widget.showErrors
+          isMandatory: true,
+          focusNode: _panCardNumberFocus,
           inputFormatters: [
-            // Allow both lowercase & uppercase letters + numbers
             FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9]')),
-
-            // Convert input to uppercase automatically
             TextInputFormatter.withFunction((oldValue, newValue) {
               return newValue.copyWith(
                 text: newValue.text.toUpperCase(),
@@ -453,98 +846,215 @@ class _DocumentsSectionState extends State<DocumentsSection> {
             }),
           ],
         ),
-        const SizedBox(height: 20),
-        FileUploadField(
-          label: 'PAN Card',
-          fileName: widget.panCardFileName,
-          file: widget.panCardFile,
-          errorText: _showErrors ? _panCardError : null,
-          required: true,
-          enabled: widget.enabled,
-          onTap: () => _showUploadOptions('pan_card'),
-          onRemove: () => _removeFile('pan_card'),
-        ),
-        const SizedBox(height: 20),
-        CustomTextField(
-          controller: widget.professionalLicenseNumberController,
-          label: 'Professional License Number',
-          hint: 'Enter license number',
-          enabled: widget.enabled,
-        ),
-        const SizedBox(height: 20),
-        FileUploadField(
-          label: 'Professional License',
-          fileName: widget.professionalLicenseFileName,
+        _buildDocumentCard(
+          title: 'Professional License',
+          numberController: widget.professionalLicenseNumberController,
+          expiryDateController: widget.professionalLicenseExpiryDateController,
+          numberHint: 'Enter license number',
           file: widget.professionalLicenseFile,
-          errorText: _showErrors ? _professionalLicenseError : null,
-          required: true,
-          enabled: widget.enabled,
-          onTap: () => _showUploadOptions('professional_license'),
-          onRemove: () => _removeFile('professional_license'),
+          url: widget.professionalLicenseUrl,
+          fileName: widget.professionalLicenseFileName,
+          fieldKey: 'professional_license',
+          errorText: widget.showErrors
+              ? _professionalLicenseError
+              : null, // Changed to widget.showErrors
+          isMandatory: true,
+          focusNode: _professionalLicenseNumberFocus,
         ),
-        // Additional Document Section
-        const SizedBox(height: 28),
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AppColors.primary.withOpacity(0.03),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.border.withOpacity(0.5)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(
-                    Icons.add_circle_outline,
-                    color: AppColors.primary,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Additional Document (Optional)',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
-                    ),
+
+        // Additional Documents Header
+        const SizedBox(height: 24),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Additional Documents',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            if (widget.enabled)
+              TextButton.icon(
+                onPressed: widget.onAddDocument,
+                icon: const Icon(Icons.add_circle_outline, size: 20),
+                label: const Text('Add Document'),
+                style: TextButton.styleFrom(foregroundColor: AppColors.primary),
+              ),
+          ],
+        ),
+        const SizedBox(height: 8),
+
+        // Dynamic List of Documents
+        if (widget.additionalDocuments.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade50,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade200),
+            ),
+            child: const Center(
+              child: Text(
+                'No additional documents added.',
+                style: TextStyle(color: Colors.grey),
+              ),
+            ),
+          )
+        else
+          ...widget.additionalDocuments.asMap().entries.map((entry) {
+            final index = entry.key;
+            final doc = entry.value;
+
+            // Validation logic for dynamic fields
+            final bool nameError =
+                widget.showErrors &&
+                doc.nameController.text.isEmpty; // Changed to widget.showErrors
+            final bool numberError =
+                widget.showErrors &&
+                doc
+                    .numberController
+                    .text
+                    .isEmpty; // Changed to widget.showErrors
+            // final bool expiryError = false; // Optional - removed as it's not used
+            final bool fileError =
+                widget.showErrors &&
+                doc.file == null &&
+                doc.fileUrl == null; // Changed to widget.showErrors
+
+            return Container(
+              margin: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade300),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
                   ),
                 ],
               ),
-              const SizedBox(height: 6),
-              Text(
-                'Add any other supporting document if needed',
-                style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Document #${index + 1}',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      if (widget.enabled)
+                        IconButton(
+                          icon: const Icon(
+                            Icons.delete_outline,
+                            color: Colors.red,
+                          ),
+                          tooltip: 'Remove Document',
+                          onPressed: () => widget.onRemoveDocument(index),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
+                    ],
+                  ),
+                  const Divider(height: 20),
+                  CustomTextField(
+                    controller: doc.nameController,
+                    label: 'Document Name',
+                    hint: 'e.g. ISO Certificate',
+                    enabled: widget.enabled,
+                    errorText: nameError ? 'Required' : null,
+                    onChanged: (_) =>
+                        _validate(), // Changed from _validateForm to _validate
+                  ),
+                  const SizedBox(height: 16),
+                  CustomTextField(
+                    controller: doc.numberController,
+                    label: 'Document Number',
+                    hint: 'Enter document number',
+                    enabled: widget.enabled,
+                    errorText: numberError ? 'Required' : null,
+                    onChanged: (_) =>
+                        _validate(), // Changed from _validateForm to _validate
+                  ),
+                  const SizedBox(height: 16),
+                  _buildExpiryDateField(
+                    doc.expiryDateController,
+                    false, // Expiry optional for additional docs? Let's keep it optional but validate non-empty if required
+                  ),
+                  const SizedBox(height: 16),
+                  FileUploadField(
+                    label: 'Upload Document',
+                    fileName: doc.fileName,
+                    file: doc.file,
+                    fileUrl: doc.fileUrl,
+                    errorText: fileError ? 'File required' : null,
+                    required: true,
+                    enabled: widget.enabled,
+                    onTap: () => _showAdditionalDocUploadOptions(index),
+                    onRemove: () =>
+                        widget.onDocumentFileSelected(index, null, null),
+                  ),
+                ],
               ),
-              const SizedBox(height: 16),
-              CustomTextField(
-                controller: widget.additionalDocumentNameController,
-                label: 'Document Name',
-                hint: 'e.g., Trade License, FSSAI Certificate',
-                enabled: widget.enabled,
-                onChanged: (_) {
-                  if (!_showErrors) setState(() => _showErrors = true);
-                },
-              ),
-              const SizedBox(height: 16),
-              FileUploadField(
-                label: 'Upload Document',
-                fileName: widget.additionalDocumentFileName,
-                file: widget.additionalDocumentFile,
-                errorText: _showErrors ? _additionalDocumentError : null,
-                required: hasAdditionalName,
-                enabled: widget.enabled,
-                onTap: () => _showUploadOptions('additional_document'),
-                onRemove: () => _removeFile('additional_document'),
-              ),
-            ],
-          ),
-        ),
+            );
+          }),
       ],
     );
   }
+
+  void _showAdditionalDocUploadOptions(int index) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (BuildContext context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              ListTile(
+                leading: const Icon(Icons.camera_alt),
+                title: const Text('Take Photo'),
+                onTap: () async {
+                  Navigator.pop(context);
+                  await _pickImage(ImageSource.camera, (file, name) {
+                    widget.onDocumentFileSelected(index, file, name);
+                  });
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library),
+                title: const Text('Choose from Gallery'),
+                onTap: () async {
+                  Navigator.pop(context);
+                  await _pickImage(ImageSource.gallery, (file, name) {
+                    widget.onDocumentFileSelected(index, file, name);
+                  });
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.description),
+                title: const Text('Pick PDF'),
+                onTap: () async {
+                  Navigator.pop(context);
+                  await _pickPdf((file, name) {
+                    widget.onDocumentFileSelected(index, file, name);
+                  });
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
 }
-
-
-

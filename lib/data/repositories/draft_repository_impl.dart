@@ -36,10 +36,15 @@ class DraftRepositoryImpl implements DraftRepository {
   Future<int> getDraftCount() async {
     return await draftLocalStorage.getDraftCount();
   }
+
+  @override
+  Future<DraftVendorEntity?> findDraftByVendorKey({
+    required String businessName,
+    required String mobile,
+  }) async {
+    return await draftLocalStorage.findDraftByVendorKey(
+      businessName: businessName,
+      mobile: mobile,
+    );
+  }
 }
-
-
-
-
-
-

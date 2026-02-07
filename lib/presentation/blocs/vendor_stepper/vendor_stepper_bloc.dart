@@ -21,23 +21,16 @@ class VendorStepperBloc extends Bloc<VendorStepperEvent, VendorStepperState> {
     // Check if section is enabled
     if (!state.isSectionEnabled(index)) return;
 
-    final newExpanded = List<bool>.from(state.sectionExpanded);
+    final isAlreadyExpanded = state.sectionExpanded[index];
+    final newExpanded = List<bool>.filled(state.sectionExpanded.length, false);
 
-    // Toggle the tapped section
-    newExpanded[index] = !newExpanded[index];
-
-    // Update current section if expanding
-    int newCurrentSection = state.currentSection;
-    if (newExpanded[index]) {
-      newCurrentSection = index;
+    // If not already expanded, expand it.
+    // If it was already expanded, leave it false (collapse it).
+    if (!isAlreadyExpanded) {
+      newExpanded[index] = true;
     }
 
-    emit(
-      state.copyWith(
-        currentSection: newCurrentSection,
-        sectionExpanded: newExpanded,
-      ),
-    );
+    emit(state.copyWith(currentSection: index, sectionExpanded: newExpanded));
   }
 
   void _onNextPressed(
@@ -107,8 +100,3 @@ class VendorStepperBloc extends Bloc<VendorStepperEvent, VendorStepperState> {
     );
   }
 }
-
-
-
-
-

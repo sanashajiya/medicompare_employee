@@ -7,12 +7,14 @@ import 'package:path_provider/path_provider.dart';
 import 'package:signature/signature.dart';
 
 import '../../../core/constants/api_endpoints.dart';
+import '../../../core/di/injection_container.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/datasources/remote/api_service.dart';
 import '../../../data/models/category_model.dart';
 import '../../../domain/entities/draft_vendor_entity.dart';
 import '../../../domain/entities/user_entity.dart';
 import '../../../domain/entities/vendor_entity.dart';
+import '../../../domain/repositories/draft_repository.dart';
 import '../../blocs/draft/draft_bloc.dart';
 import '../../blocs/draft/draft_event.dart';
 import '../../blocs/draft/draft_state.dart';
@@ -23,6 +25,7 @@ import '../../blocs/vendor_stepper/vendor_stepper_bloc.dart';
 import '../../blocs/vendor_stepper/vendor_stepper_event.dart';
 import '../../blocs/vendor_stepper/vendor_stepper_state.dart';
 import '../../widgets/custom_button.dart';
+import 'models/additional_document_model.dart';
 import 'sections/banking_details_section.dart';
 import 'sections/business_details_section.dart';
 import 'sections/documents_section.dart';
@@ -66,12 +69,12 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
   final _lastNameController = TextEditingController();
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
-  final _passwordController = TextEditingController();
-  final _confirmPasswordController = TextEditingController();
   final _aadhaarNumberController = TextEditingController();
   final _residentialAddressController = TextEditingController();
   File? _aadhaarFrontImage;
   File? _aadhaarBackImage;
+  String? _aadhaarFrontImageUrl;
+  String? _aadhaarBackImageUrl;
 
   // Controllers - Business Details
   final _businessNameController = TextEditingController();
@@ -80,6 +83,8 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
   final _businessMobileController = TextEditingController();
   final _altBusinessMobileController = TextEditingController();
   final _businessAddressController = TextEditingController();
+  double? _businessLatitude;
+  double? _businessLongitude;
 
   // Controllers - Banking Details
   final _accountNumberController = TextEditingController();
@@ -89,12 +94,27 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
   final _bankNameController = TextEditingController();
   final _bankBranchController = TextEditingController();
 
-  // Controllers - Documents
-  final _panCardNumberController = TextEditingController();
-  final _gstCertificateNumberController = TextEditingController();
-  final _businessRegistrationNumberController = TextEditingController();
-  final _professionalLicenseNumberController = TextEditingController();
-  final _additionalDocumentNameController = TextEditingController();
+  // Controllers  // Documents
+  final TextEditingController _panCardNumberController =
+      TextEditingController();
+  final TextEditingController _gstCertificateNumberController =
+      TextEditingController();
+  final TextEditingController _businessRegistrationNumberController =
+      TextEditingController();
+  final TextEditingController _professionalLicenseNumberController =
+      TextEditingController();
+
+  // Dynamic Additional Documents
+  List<AdditionalDocumentModel> _additionalDocuments = [];
+
+  final TextEditingController _panCardExpiryDateController =
+      TextEditingController();
+  final TextEditingController _gstExpiryDateController =
+      TextEditingController();
+  final TextEditingController _businessRegistrationExpiryDateController =
+      TextEditingController();
+  final TextEditingController _professionalLicenseExpiryDateController =
+      TextEditingController();
 
   // Signature
   final SignatureController _signatureController = SignatureController(
@@ -103,11 +123,13 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
   );
   final _signerNameController = TextEditingController();
   Uint8List? _signatureBytes;
+  String? _signatureImageUrl;
 
   // Categories
   List<String> _selectedBusinessCategories = [];
   List<CategoryModel> _availableCategories = [];
   Map<String, String> _categoryNameToId = {};
+  Map<String, String> _categoryIdToName = {}; // New map for ID -> Name
   bool _categoriesLoaded = false;
 
   // Files
@@ -115,18 +137,34 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
   File? _gstCertificateFile;
   File? _panCardFile;
   File? _professionalLicenseFile;
-  File? _additionalDocumentFile;
   String? _businessRegistrationFileName;
   String? _gstCertificateFileName;
   String? _panCardFileName;
   String? _professionalLicenseFileName;
-  String? _additionalDocumentFileName;
+
+  // URL Variables for Edit Mode
+  String? _businessRegistrationUrl;
+  String? _gstCertificateUrl;
+  String? _panCardUrl;
+  String? _professionalLicenseUrl;
+
+  // Additional documents files are managed inside _additionalDocuments list
+
+  File? _storeLogo;
+  File? _profileBanner;
+
+  String? _storeLogoUrl;
+  String? _profileBannerUrl;
 
   // Images
   List<File> _frontStoreImages = [];
+  List<String> _frontStoreImageUrls = [];
 
   // Terms
   bool _acceptedTerms = false;
+  bool _consentAccepted = false;
+  bool _pricingAgreementAccepted = false;
+  bool _slvAgreementAccepted = false;
 
   // OTP verification state
   bool _isOtpVerificationInProgress = false;
@@ -134,6 +172,9 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
   String?
   _mobileNumberForOtp; // Store mobile number used for OTP (must match in vendor creation)
   final ApiService _apiService = ApiService();
+
+  // ID Proof Type
+  String? _selectedIdProofType;
 
   // Section data
   final List<_SectionData> _sections = [
@@ -184,10 +225,13 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
     String? restoredBusinessRegistrationFileName;
     File? restoredProfessionalLicenseFile;
     String? restoredProfessionalLicenseFileName;
-    File? restoredAdditionalDocumentFile;
-    String? restoredAdditionalDocumentFileName;
     List<File> restoredFrontStoreImages = [];
+    File? restoredStoreLogo;
+    File? restoredProfileBanner;
     Uint8List? restoredSignatureBytes;
+
+    // Declare here to be visible in setState later
+    List<AdditionalDocumentModel> restoredAdditionalDocuments = [];
 
     // Helper function to restore files
     Future<void> restoreFile(
@@ -215,7 +259,7 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
     }
 
     try {
-      // Restore Govt ID Proof Images
+      // Restore ID Proof Images
       if (draft.aadhaarFrontImagePath != null &&
           draft.aadhaarFrontImagePath!.isNotEmpty) {
         try {
@@ -283,10 +327,35 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
         restoredProfessionalLicenseFileName = fileName;
       });
 
-      await restoreFile(draft.additionalDocumentFilePath, (file, fileName) {
-        restoredAdditionalDocumentFile = file;
-        restoredAdditionalDocumentFileName = fileName;
-      });
+      // Restore additional documents
+      restoredAdditionalDocuments = [];
+      for (final doc in draft.additionalDocuments) {
+        File? docFile;
+        final docPath = doc['filePath'];
+        if (docPath != null && docPath.isNotEmpty) {
+          try {
+            final file = File(docPath);
+            if (await file.exists()) {
+              final fileSize = await file.length();
+              if (fileSize > 0) {
+                docFile = file;
+              }
+            }
+          } catch (e) {
+            print('❌ Error restoring additional document file: $e');
+          }
+        }
+        restoredAdditionalDocuments.add(
+          AdditionalDocumentModel(
+            name: doc['name'] ?? '',
+            number: doc['number'] ?? '',
+            expiryDate: doc['expiryDate'] ?? '',
+            file: docFile,
+            fileName: docFile?.path.split('/').last,
+            fileUrl: docPath, // Use filePath as URL equivalent for draft
+          ),
+        );
+      }
 
       // Restore front store images
       for (final imagePath in draft.frontStoreImagePaths) {
@@ -317,6 +386,16 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
         );
       }
 
+      // Restore Store Logo
+      await restoreFile(draft.storeLogoPath, (file, fileName) {
+        restoredStoreLogo = file;
+      });
+
+      // Restore Profile Banner
+      await restoreFile(draft.profileBannerPath, (file, fileName) {
+        restoredProfileBanner = file;
+      });
+
       // Restore signature
       if (draft.signatureImagePath != null) {
         try {
@@ -345,10 +424,9 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
         _firstNameController.text = draft.firstName;
         _lastNameController.text = draft.lastName;
         _emailController.text = draft.email;
-        _passwordController.text = draft.password;
-        _confirmPasswordController.text = draft.password;
         _phoneController.text = draft.mobile;
         _aadhaarNumberController.text = draft.aadhaarNumber;
+        _selectedIdProofType = draft.idProofType ?? 'Aadhar';
         _residentialAddressController.text = draft.residentialAddress;
 
         // Business Details
@@ -358,7 +436,20 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
         _businessMobileController.text = draft.businessMobile;
         _altBusinessMobileController.text = draft.altBusinessMobile;
         _businessAddressController.text = draft.businessAddress;
-        _selectedBusinessCategories = List<String>.from(draft.categories);
+        _businessLatitude = draft.latitude;
+        _businessLongitude = draft.longitude;
+        // Convert IDs to Names if map is available, otherwise keep IDs (will be fixed in fetchCategories)
+        _selectedBusinessCategories = draft.categories.map((c) {
+          // If it looks like an ID (and we have a name for it), use the name
+          if (_categoryIdToName.containsKey(c)) {
+            return _categoryIdToName[c]!;
+          }
+          // Check if it's already a name (exists in nameToId)
+          if (_categoryNameToId.containsKey(c)) {
+            return c;
+          }
+          return c;
+        }).toList();
 
         // Banking Details
         _accountNumberController.text = draft.accountNumber;
@@ -375,7 +466,15 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
             draft.businessRegistrationNumber;
         _professionalLicenseNumberController.text =
             draft.professionalLicenseNumber;
-        _additionalDocumentNameController.text = draft.additionalDocumentName;
+        _panCardExpiryDateController.text = draft.panCardExpiryDate ?? '';
+        _gstExpiryDateController.text = draft.gstExpiryDate ?? '';
+        _businessRegistrationExpiryDateController.text =
+            draft.businessRegistrationExpiryDate ?? '';
+        _professionalLicenseExpiryDateController.text =
+            draft.professionalLicenseExpiryDate ?? '';
+
+        // Additional Documents
+        _additionalDocuments = restoredAdditionalDocuments;
 
         // Images and Files
         _aadhaarFrontImage = restoredAadhaarFrontImage;
@@ -388,14 +487,17 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
         _businessRegistrationFileName = restoredBusinessRegistrationFileName;
         _professionalLicenseFile = restoredProfessionalLicenseFile;
         _professionalLicenseFileName = restoredProfessionalLicenseFileName;
-        _additionalDocumentFile = restoredAdditionalDocumentFile;
-        _additionalDocumentFileName = restoredAdditionalDocumentFileName;
         _frontStoreImages = restoredFrontStoreImages;
+        _storeLogo = restoredStoreLogo;
+        _profileBanner = restoredProfileBanner;
         _signatureBytes = restoredSignatureBytes;
 
         // Signature
         _signerNameController.text = draft.signerName ?? '';
         _acceptedTerms = draft.acceptedTerms;
+        _consentAccepted = draft.consentAccepted;
+        _pricingAgreementAccepted = draft.pricingAgreementAccepted;
+        _slvAgreementAccepted = draft.slvAgreementAccepted;
       });
     }
 
@@ -448,19 +550,62 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
       _firstNameController.text = vendor.firstName;
       _lastNameController.text = vendor.lastName;
       _emailController.text = vendor.email;
-      _phoneController.text = vendor.mobile;
-      _aadhaarNumberController.text = vendor.adharnumber;
+      // Helper to sanitize mobile (keep last 10 digits)
+      String sanitizeMobile(String val) {
+        final digits = val.replaceAll(RegExp(r'\D'), '');
+        if (digits.length > 10) return digits.substring(digits.length - 10);
+        return digits;
+      }
+
+      _phoneController.text = sanitizeMobile(vendor.mobile);
+
+      // Clean ID Number (remove spaces/dashes)
+      String cleanIdNumber = vendor.adharnumber.replaceAll(
+        RegExp(r'[\s-]'),
+        '',
+      );
+
+      // Robust ID Proof Type Handling
+      String? proofType = vendor.proofType;
+
+      // 1. Try to infer from content if missing
+      if (proofType == null || proofType.isEmpty) {
+        // Check for PAN pattern (ABCDE1234F)
+        if (RegExp(r'^[A-Z]{5}[0-9]{4}[A-Z]{1}$').hasMatch(cleanIdNumber)) {
+          proofType = 'PAN Card';
+        } else {
+          // Default to Aadhar
+          proofType = 'Aadhar';
+        }
+      }
+
+      // 2. Normalize typical variations
+      if (proofType.toLowerCase().contains('adhar') ||
+          proofType.toLowerCase().contains('aadhaar')) {
+        proofType = 'Aadhar';
+      }
+
+      _aadhaarNumberController.text = cleanIdNumber;
+      _selectedIdProofType = proofType;
       _residentialAddressController.text = vendor.residentaladdress;
       _signerNameController.text = vendor.signname;
+      _aadhaarFrontImageUrl = vendor.aadhaarFrontImageUrl;
+      _aadhaarBackImageUrl = vendor.aadhaarBackImageUrl;
 
       // Business Details
       _businessNameController.text = vendor.businessName;
       _businessLegalNameController.text = vendor.bussinesslegalname;
       _businessEmailController.text = vendor.businessEmail;
-      _businessMobileController.text = vendor.bussinessmobile;
-      _altBusinessMobileController.text = vendor.altMobile;
+      _businessMobileController.text = sanitizeMobile(vendor.bussinessmobile);
+      _altBusinessMobileController.text = sanitizeMobile(vendor.altMobile);
       _businessAddressController.text = vendor.address;
-      _selectedBusinessCategories = List<String>.from(vendor.categories);
+      _businessLatitude = vendor.latitude;
+      _businessLongitude = vendor.longitude;
+
+      // Convert IDs to Names
+      _selectedBusinessCategories = vendor.categories.map((id) {
+        return _categoryIdToName[id] ?? id;
+      }).toList();
 
       // Banking Details
       _accountNumberController.text = vendor.accountNumber;
@@ -470,60 +615,144 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
       _bankNameController.text = vendor.bankName;
       _bankBranchController.text = vendor.branchName;
 
-      // Documents - Map document numbers based on docNames
+      // Documents - Map document numbers AND URLs based on docNames
       // Assuming order: PAN Card, GST Certificate, Business Registration, Professional License
+      // Note: vendor.docUrls aligns with vendor.docNames
       if (vendor.documentNumbers.isNotEmpty) {
         // Find PAN Card
         final panIndex = vendor.docNames.indexWhere(
           (name) => name.toLowerCase().contains('pan'),
         );
-        if (panIndex >= 0 && panIndex < vendor.documentNumbers.length) {
-          _panCardNumberController.text = vendor.documentNumbers[panIndex];
+        if (panIndex >= 0) {
+          if (panIndex < vendor.documentNumbers.length)
+            _panCardNumberController.text = vendor.documentNumbers[panIndex];
+          if (panIndex < vendor.docUrls.length)
+            _panCardUrl = vendor.docUrls[panIndex];
+          if (panIndex < vendor.expiryDates.length)
+            _panCardExpiryDateController.text = vendor.expiryDates[panIndex];
         }
 
         // Find GST Certificate
         final gstIndex = vendor.docNames.indexWhere(
           (name) => name.toLowerCase().contains('gst'),
         );
-        if (gstIndex >= 0 && gstIndex < vendor.documentNumbers.length) {
-          _gstCertificateNumberController.text =
-              vendor.documentNumbers[gstIndex];
+        if (gstIndex >= 0) {
+          if (gstIndex < vendor.documentNumbers.length)
+            _gstCertificateNumberController.text =
+                vendor.documentNumbers[gstIndex];
+          if (gstIndex < vendor.docUrls.length)
+            _gstCertificateUrl = vendor.docUrls[gstIndex];
+          if (gstIndex < vendor.expiryDates.length)
+            _gstExpiryDateController.text = vendor.expiryDates[gstIndex];
         }
 
         // Find Business Registration
         final brIndex = vendor.docNames.indexWhere(
-          (name) => name.toLowerCase().contains('business') ||
+          (name) =>
+              name.toLowerCase().contains('business') ||
               name.toLowerCase().contains('registration'),
         );
-        if (brIndex >= 0 && brIndex < vendor.documentNumbers.length) {
-          _businessRegistrationNumberController.text =
-              vendor.documentNumbers[brIndex];
+        if (brIndex >= 0) {
+          if (brIndex < vendor.documentNumbers.length)
+            _businessRegistrationNumberController.text =
+                vendor.documentNumbers[brIndex];
+          if (brIndex < vendor.docUrls.length)
+            _businessRegistrationUrl = vendor.docUrls[brIndex];
+          if (brIndex < vendor.expiryDates.length)
+            _businessRegistrationExpiryDateController.text =
+                vendor.expiryDates[brIndex];
         }
 
         // Find Professional License
         final plIndex = vendor.docNames.indexWhere(
-          (name) => name.toLowerCase().contains('professional') ||
+          (name) =>
+              name.toLowerCase().contains('professional') ||
               name.toLowerCase().contains('license'),
         );
-        if (plIndex >= 0 && plIndex < vendor.documentNumbers.length) {
-          _professionalLicenseNumberController.text =
-              vendor.documentNumbers[plIndex];
+        if (plIndex >= 0) {
+          if (plIndex < vendor.documentNumbers.length)
+            _professionalLicenseNumberController.text =
+                vendor.documentNumbers[plIndex];
+          if (plIndex < vendor.docUrls.length)
+            _professionalLicenseUrl = vendor.docUrls[plIndex];
+          if (plIndex < vendor.expiryDates.length)
+            _professionalLicenseExpiryDateController.text =
+                vendor.expiryDates[plIndex];
+        }
+
+        // Populate Additional Documents
+        // Filter out mandatory documents to find additional ones
+        final mandatoryDocNames = [
+          'PAN Card',
+          'GST Certificate',
+          'Business Registration',
+          'Professional License',
+        ];
+
+        _additionalDocuments = [];
+        // docNames is non-nullable list
+        for (int i = 0; i < vendor.docNames.length; i++) {
+          final docName = vendor.docNames[i];
+          // Check if this document name is not one of the mandatory ones
+          if (!mandatoryDocNames.any(
+            (mName) => docName.toLowerCase().contains(mName.toLowerCase()),
+          )) {
+            // This is an additional document
+            final doc = AdditionalDocumentModel(
+              name: docName,
+              number: (i < vendor.documentNumbers.length)
+                  ? vendor.documentNumbers[i]
+                  : '',
+              expiryDate: (i < vendor.expiryDates.length)
+                  ? vendor.expiryDates[i]
+                  : '',
+            );
+            // Try to find file/url if available
+            if (i < vendor.docUrls.length) {
+              doc.fileUrl = vendor.docUrls[i];
+            }
+            _additionalDocuments.add(doc);
+          }
         }
       }
+
+      // Images & Signature
+      _storeLogoUrl = vendor.storeLogoUrl;
+      _profileBannerUrl = vendor.profileBannerUrl;
+      _frontStoreImageUrls = vendor.frontImageUrls ?? [];
+      _signatureImageUrl = vendor.signatureImageUrl;
+
+      // Agreements
+      _acceptedTerms =
+          true; // If they are an existing vendor, they must have accepted terms
+      _consentAccepted = vendor.consentAccepted;
+      _pricingAgreementAccepted = vendor.pricingAgreementAccepted;
+      _slvAgreementAccepted = vendor.slvAgreementAccepted;
     });
 
-    // Update categories mapping after prefilling
-    if (_categoriesLoaded) {
-      _updateCategoryMappings();
-    }
-  }
+    // No need to update category mappings explicitly as fetchCategories handles full mapping
+    // and we are using the full map now.
 
-  void _updateCategoryMappings() {
-    // Update the category name to ID mappings
-    for (final category in _availableCategories) {
-      if (_selectedBusinessCategories.contains(category.id)) {
-        _categoryNameToId[category.name] = category.id;
-      }
+    // Initialize Stepper State for Edit Mode
+    // Since this is an existing vendor, we assume all sections are initially valid and completed.
+    if (mounted) {
+      final stepperBloc = context.read<VendorStepperBloc>();
+
+      // All 6 sections valid & completed
+      final allValid = List<bool>.generate(6, (_) => true);
+      final allCompleted = List<bool>.generate(6, (_) => true);
+
+      // Start at first section
+      final newExpanded = List<bool>.generate(6, (index) => index == 0);
+
+      stepperBloc.add(
+        VendorStepperRestoreState(
+          currentSection: 0,
+          sectionValidations: allValid,
+          sectionCompleted: allCompleted,
+          sectionExpanded: newExpanded,
+        ),
+      );
     }
   }
 
@@ -539,6 +768,17 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
       setState(() {
         _availableCategories = categories;
         _categoryNameToId = {for (var cat in categories) cat.name: cat.id};
+        _categoryIdToName = {for (var cat in categories) cat.id: cat.name};
+
+        // Convert currently selected IDs to Names if any
+        _selectedBusinessCategories = _selectedBusinessCategories.map((c) {
+          // If 'c' is an ID in our map, swap to Name
+          if (_categoryIdToName.containsKey(c)) {
+            return _categoryIdToName[c]!;
+          }
+          return c;
+        }).toList();
+
         _categoriesLoaded = true;
       });
     } catch (e) {
@@ -565,45 +805,87 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
       final draftBloc = context.read<DraftBloc>();
 
       // Extract form data
-      final formData = DraftHelper.extractFormData(
-        controllers: {
-          'firstName': _firstNameController,
-          'lastName': _lastNameController,
-          'email': _emailController,
-          'password': _passwordController,
-          'mobile': _phoneController,
-          'aadhaarNumber': _aadhaarNumberController,
-          'residentialAddress': _residentialAddressController,
-          'businessName': _businessNameController,
-          'businessLegalName': _businessLegalNameController,
-          'businessEmail': _businessEmailController,
-          'businessMobile': _businessMobileController,
-          'altBusinessMobile': _altBusinessMobileController,
-          'businessAddress': _businessAddressController,
-          'accountNumber': _accountNumberController,
-          'accountHolderName': _accountHolderNameController,
-          'ifscCode': _ifscCodeController,
-          'bankName': _bankNameController,
-          'bankBranch': _bankBranchController,
-          'panCardNumber': _panCardNumberController,
-          'gstCertificateNumber': _gstCertificateNumberController,
-          'businessRegistrationNumber': _businessRegistrationNumberController,
-          'professionalLicenseNumber': _professionalLicenseNumberController,
-          'additionalDocumentName': _additionalDocumentNameController,
-        },
-        aadhaarFrontImage: _aadhaarFrontImage,
-        aadhaarBackImage: _aadhaarBackImage,
-        panCardFile: _panCardFile,
-        gstCertificateFile: _gstCertificateFile,
-        businessRegistrationFile: _businessRegistrationFile,
-        professionalLicenseFile: _professionalLicenseFile,
-        additionalDocumentFile: _additionalDocumentFile,
-        frontStoreImages: _frontStoreImages,
-        signatureBytes: _signatureBytes,
-        categories: _selectedBusinessCategories,
-        signerName: _signerNameController.text,
-        acceptedTerms: _acceptedTerms,
-      );
+      final formData = {
+        'firstName': _firstNameController.text,
+        'lastName': _lastNameController.text,
+        'mobile': _phoneController.text, // Mobile from Personal Details
+        'email': _emailController.text,
+        'businessName': _businessNameController.text,
+        'businessLegalName': _businessLegalNameController.text,
+        'businessEmail': _businessEmailController.text,
+        'businessMobile': _businessMobileController.text,
+        'altBusinessMobile': _altBusinessMobileController.text,
+        'businessAddress': _businessAddressController.text,
+        'accountNumber': _accountNumberController.text,
+        'accountHolderName': _accountHolderNameController.text,
+        'ifscCode': _ifscCodeController.text,
+        'bankName': _bankNameController.text,
+        'bankBranch': _bankBranchController.text,
+        'panCardNumber': _panCardNumberController.text,
+        'gstCertificateNumber': _gstCertificateNumberController.text,
+        'businessRegistrationNumber':
+            _businessRegistrationNumberController.text,
+        'professionalLicenseNumber': _professionalLicenseNumberController.text,
+        'panCardExpiryDate': _panCardExpiryDateController.text,
+        'gstExpiryDate': _gstExpiryDateController.text,
+        'businessRegistrationExpiryDate':
+            _businessRegistrationExpiryDateController.text,
+        'professionalLicenseExpiryDate':
+            _professionalLicenseExpiryDateController.text,
+        'additionalDocuments': _additionalDocuments, // Pass the list model
+        'businessRegistrationFile': _businessRegistrationFile,
+        'gstCertificateFile': _gstCertificateFile,
+        'panCardFile': _panCardFile,
+        'professionalLicenseFile': _professionalLicenseFile,
+        'frontStoreImages': _frontStoreImages,
+        'storeLogo': _storeLogo,
+        'profileBanner': _profileBanner,
+        'signatureBytes': _signatureBytes,
+        'categories': _selectedBusinessCategories
+            .map((name) => _categoryNameToId[name] ?? name)
+            .toList(), // Convert Names to IDs for storage
+        'latitude': _businessLatitude,
+        'longitude': _businessLongitude,
+        'aadhaarNumber': _aadhaarNumberController.text,
+        'residentialAddress': _residentialAddressController.text,
+        'aadhaarFrontImage': _aadhaarFrontImage,
+        'aadhaarBackImage': _aadhaarBackImage,
+        'signerName': _signerNameController.text,
+        'idProofType': _selectedIdProofType,
+        'acceptedTerms': _acceptedTerms,
+        'consentAccepted': _consentAccepted,
+        'pricingAgreementAccepted': _pricingAgreementAccepted,
+        'slvAgreementAccepted': _slvAgreementAccepted,
+      };
+
+      // Check if a draft already exists for this vendor (by business name + mobile)
+      // This prevents duplicate drafts for the same vendor
+      final businessName = _businessNameController.text.trim();
+      final mobile = _phoneController.text.trim();
+
+      if (businessName.isNotEmpty &&
+          mobile.isNotEmpty &&
+          widget.draftId == null) {
+        try {
+          final draftRepo = sl<DraftRepository>();
+          final existingDraft = await draftRepo.findDraftByVendorKey(
+            businessName: businessName,
+            mobile: mobile,
+          );
+
+          if (existingDraft != null && existingDraft.id != _currentDraftId) {
+            // Found an existing draft - use its ID to update it
+            print('📋 Found existing draft for $businessName ($mobile)');
+            print(
+              '   Reusing draft ID: ${existingDraft.id} (instead of $_currentDraftId)',
+            );
+            _currentDraftId = existingDraft.id;
+          }
+        } catch (e) {
+          print('Error checking for existing draft: $e');
+          // Continue with current draft ID if check fails
+        }
+      }
 
       // Create draft entity
       final draft = await DraftHelper.createDraftFromFormData(
@@ -636,8 +918,6 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
     _lastNameController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
-    _passwordController.dispose();
-    _confirmPasswordController.dispose();
     _aadhaarNumberController.dispose();
     _residentialAddressController.dispose();
     _businessNameController.dispose();
@@ -656,7 +936,16 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
     _gstCertificateNumberController.dispose();
     _businessRegistrationNumberController.dispose();
     _professionalLicenseNumberController.dispose();
-    _additionalDocumentNameController.dispose();
+
+    // Dispose dynamic documents
+    for (var doc in _additionalDocuments) {
+      doc.dispose();
+    }
+
+    _panCardExpiryDateController.dispose();
+    _gstExpiryDateController.dispose();
+    _businessRegistrationExpiryDateController.dispose();
+    _professionalLicenseExpiryDateController.dispose();
     _signatureController.dispose();
     _signerNameController.dispose();
     super.dispose();
@@ -699,11 +988,31 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
           _professionalLicenseFile = file;
           _professionalLicenseFileName = fileName;
           break;
-        case 'additional_document':
-          _additionalDocumentFile = file;
-          _additionalDocumentFileName = fileName;
-          break;
       }
+    });
+  }
+
+  void _addAdditionalDocument() {
+    setState(() {
+      _additionalDocuments.add(AdditionalDocumentModel());
+    });
+  }
+
+  void _removeAdditionalDocument(int index) {
+    setState(() {
+      _additionalDocuments[index].dispose();
+      _additionalDocuments.removeAt(index);
+    });
+  }
+
+  void _onAdditionalDocumentFileSelected(
+    int index,
+    File? file,
+    String? fileName,
+  ) {
+    setState(() {
+      _additionalDocuments[index].file = file;
+      _additionalDocuments[index].fileName = fileName;
     });
   }
 
@@ -842,17 +1151,16 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
         .where((id) => id.isNotEmpty)
         .toList();
 
-    // Use the same mobile number that was used for OTP
-    // This ensures the identifier matches exactly between send-otp and create vendor APIs
-    final mobileForVendor = _mobileNumberForOtp ?? _phoneController.text.trim();
+    // Use the same mobile number that was used for OTP, but handle potential double-91 prefix
+    var mobileForVendor = _mobileNumberForOtp ?? _phoneController.text.trim();
 
-    print('\n═══════════════════════════════════════════════════════');
+    print('\n═══════════════════════════════════════════════════════════════');
     print('📱 STEP 2: Creating Vendor');
     print('   Mobile (must match identifier from Step 1): $mobileForVendor');
     print('   OTP: ${_verifiedOtp ?? "❌ NULL - THIS WILL CAUSE ERROR!"}');
     print('   Type: phone');
     print('   Usertype: app');
-    print('═══════════════════════════════════════════════════════');
+    print('═══════════════════════════════════════════════════════════════');
 
     if (_verifiedOtp == null || _verifiedOtp!.isEmpty) {
       throw Exception(
@@ -871,17 +1179,20 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
       firstName: _firstNameController.text,
       lastName: _lastNameController.text,
       email: _emailController.text,
-      password: _passwordController.text,
+      password: '', // Password is not collected in this flow
       mobile: mobileForVendor,
       aadhaarFrontImage: _aadhaarFrontImage,
       aadhaarBackImage: _aadhaarBackImage,
       signname: _signerNameController.text,
       adharnumber: _aadhaarNumberController.text,
       residentaladdress: _residentialAddressController.text,
+      proofType: _selectedIdProofType,
       businessName: _businessNameController.text,
       businessEmail: _businessEmailController.text,
       altMobile: _altBusinessMobileController.text,
       address: _businessAddressController.text,
+      latitude: _businessLatitude,
+      longitude: _businessLongitude,
       categories: categoryIds,
       bussinessmobile: _businessMobileController.text,
       bussinesslegalname: _businessLegalNameController.text,
@@ -890,6 +1201,8 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
         'GST Certificate',
         'Business Registration',
         'Professional License',
+        // Add names from dynamic additional documents
+        ..._additionalDocuments.map((doc) => doc.nameController.text),
       ],
       docIds: [
         _panCardNumberController.text.isNotEmpty
@@ -904,22 +1217,38 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
         _professionalLicenseNumberController.text.isNotEmpty
             ? _professionalLicenseNumberController.text
             : 'PL',
+        // Add IDs for additional docs (using number as ID placeholder or 'ADDITIONAL')
+        ..._additionalDocuments.map((doc) => 'ADDITIONAL'),
       ],
       documentNumbers: [
         _panCardNumberController.text,
         _gstCertificateNumberController.text,
         _businessRegistrationNumberController.text,
         _professionalLicenseNumberController.text,
+        // Add numbers from additional documents
+        ..._additionalDocuments.map((doc) => doc.numberController.text),
+      ],
+      expiryDates: [
+        _panCardExpiryDateController.text,
+        _gstExpiryDateController.text,
+        _businessRegistrationExpiryDateController.text,
+        _professionalLicenseExpiryDateController.text,
+        // Add expiry dates from additional documents
+        ..._additionalDocuments.map((doc) => doc.expiryDateController.text),
       ],
       files: [
         _panCardFile,
         _gstCertificateFile,
         _businessRegistrationFile,
         _professionalLicenseFile,
+        // Add files from additional documents
+        ..._additionalDocuments.map((doc) => doc.file),
       ],
-      frontimages: [],
+      frontimages: _frontStoreImages,
       backimages: [],
       signature: [],
+      storeLogo: _storeLogo,
+      profileBanner: _profileBanner,
       bankName: _bankNameController.text,
       accountName: _accountHolderNameController.text,
       accountNumber: _accountNumberController.text,
@@ -929,6 +1258,9 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
       vendorId: widget.isEditMode && widget.vendorDetails != null
           ? widget.vendorDetails!.vendorId
           : null, // Include vendorId when editing
+      consentAccepted: _consentAccepted,
+      pricingAgreementAccepted: _pricingAgreementAccepted,
+      slvAgreementAccepted: _slvAgreementAccepted,
     );
 
     List<File> signatureFiles = [];
@@ -969,12 +1301,13 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
       _lastNameController.clear();
       _emailController.clear();
       _phoneController.clear();
-      _passwordController.clear();
-      _confirmPasswordController.clear();
       _aadhaarNumberController.clear();
+      _selectedIdProofType = null;
       _residentialAddressController.clear();
       _aadhaarFrontImage = null;
       _aadhaarBackImage = null;
+      _aadhaarFrontImageUrl = null;
+      _aadhaarBackImageUrl = null;
       _businessNameController.clear();
       _businessLegalNameController.clear();
       _businessEmailController.clear();
@@ -989,24 +1322,35 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
       _bankBranchController.clear();
       _panCardNumberController.clear();
       _gstCertificateNumberController.clear();
-      _businessRegistrationNumberController.clear();
       _professionalLicenseNumberController.clear();
-      _additionalDocumentNameController.clear();
+      _additionalDocuments.forEach((doc) => doc.dispose());
+      _additionalDocuments.clear();
       _selectedBusinessCategories = [];
       _businessRegistrationFile = null;
       _gstCertificateFile = null;
       _panCardFile = null;
       _professionalLicenseFile = null;
-      _additionalDocumentFile = null;
+      // additional docs cleared above
       _businessRegistrationFileName = null;
       _gstCertificateFileName = null;
       _panCardFileName = null;
       _professionalLicenseFileName = null;
-      _additionalDocumentFileName = null;
+      // additional docs cleared above
+      _businessRegistrationUrl = null;
+      _gstCertificateUrl = null;
+      _panCardUrl = null;
+      _professionalLicenseUrl = null;
+      // additional docs cleared above
       _frontStoreImages = [];
+      _frontStoreImageUrls = [];
+      _storeLogo = null;
+      _storeLogoUrl = null;
+      _profileBanner = null;
+      _profileBannerUrl = null;
       _signatureController.clear();
       _signerNameController.clear();
       _signatureBytes = null;
+      _signatureImageUrl = null;
       _acceptedTerms = false;
     });
     context.read<VendorStepperBloc>().add(VendorStepperReset());
@@ -1021,12 +1365,12 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
           lastNameController: _lastNameController,
           emailController: _emailController,
           phoneController: _phoneController,
-          passwordController: _passwordController,
-          confirmPasswordController: _confirmPasswordController,
           aadhaarNumberController: _aadhaarNumberController,
           residentialAddressController: _residentialAddressController,
           aadhaarFrontImage: _aadhaarFrontImage,
           aadhaarBackImage: _aadhaarBackImage,
+          aadhaarFrontImageUrl: _aadhaarFrontImageUrl,
+          aadhaarBackImageUrl: _aadhaarBackImageUrl,
           enabled: enabled,
           onAadhaarFrontImageChanged: (photo) {
             setState(() => _aadhaarFrontImage = photo);
@@ -1038,6 +1382,10 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
             context.read<VendorStepperBloc>().add(
               VendorStepperSectionValidated(0, isValid),
             );
+          },
+          selectedIdProofType: _selectedIdProofType,
+          onIdProofTypeChanged: (value) {
+            setState(() => _selectedIdProofType = value);
           },
         );
       case 1:
@@ -1060,6 +1408,14 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
               VendorStepperSectionValidated(1, isValid),
             );
           },
+          onLocationSelected: (lat, lng) {
+            setState(() {
+              _businessLatitude = lat;
+              _businessLongitude = lng;
+            });
+          },
+          initialLatitude: _businessLatitude,
+          initialLongitude: _businessLongitude,
         );
       case 2:
         return BankingDetailsSection(
@@ -1079,22 +1435,38 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
       case 3:
         return DocumentsSection(
           businessRegistrationFile: _businessRegistrationFile,
+          businessRegistrationUrl: _businessRegistrationUrl,
           gstCertificateFile: _gstCertificateFile,
+          gstCertificateUrl: _gstCertificateUrl,
           panCardFile: _panCardFile,
+          panCardUrl: _panCardUrl,
           professionalLicenseFile: _professionalLicenseFile,
+          professionalLicenseUrl: _professionalLicenseUrl,
           businessRegistrationFileName: _businessRegistrationFileName,
           gstCertificateFileName: _gstCertificateFileName,
           panCardFileName: _panCardFileName,
           professionalLicenseFileName: _professionalLicenseFileName,
-          additionalDocumentFile: _additionalDocumentFile,
-          additionalDocumentFileName: _additionalDocumentFileName,
+
+          // Dynamic Additional Documents parameters
+          additionalDocuments: _additionalDocuments,
+          onAddDocument: _addAdditionalDocument,
+          onRemoveDocument: _removeAdditionalDocument,
+          onDocumentFileSelected: _onAdditionalDocumentFileSelected,
+
           panCardNumberController: _panCardNumberController,
           gstCertificateNumberController: _gstCertificateNumberController,
           businessRegistrationNumberController:
               _businessRegistrationNumberController,
           professionalLicenseNumberController:
               _professionalLicenseNumberController,
-          additionalDocumentNameController: _additionalDocumentNameController,
+
+          panCardExpiryDateController: _panCardExpiryDateController,
+          gstExpiryDateController: _gstExpiryDateController,
+          businessRegistrationExpiryDateController:
+              _businessRegistrationExpiryDateController,
+          professionalLicenseExpiryDateController:
+              _professionalLicenseExpiryDateController,
+
           enabled: enabled,
           onFileSelected: _onFileSelected,
           onValidationChanged: (isValid) {
@@ -1106,10 +1478,34 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
       case 4:
         return PhotosSection(
           frontStoreImages: _frontStoreImages,
+          frontStoreImageUrls: _frontStoreImageUrls,
+          storeLogo: _storeLogo,
+          storeLogoUrl: _storeLogoUrl,
+          profileBanner: _profileBanner,
+          profileBannerUrl: _profileBannerUrl,
           enabled: enabled,
-          onFrontStoreImagesChanged: (images) =>
-              setState(() => _frontStoreImages = images),
+          onFrontStoreImagesChanged: (images) {
+            setState(() {
+              _frontStoreImages = images;
+            });
+          },
+          onFrontStoreImageUrlsChanged: (urls) {
+            setState(() {
+              _frontStoreImageUrls = urls;
+            });
+          },
+          onStoreLogoChanged: (file) {
+            setState(() {
+              _storeLogo = file;
+            });
+          },
+          onProfileBannerChanged: (file) {
+            setState(() {
+              _profileBanner = file;
+            });
+          },
           onValidationChanged: (isValid) {
+            // Store Photos Validation
             context.read<VendorStepperBloc>().add(
               VendorStepperSectionValidated(4, isValid),
             );
@@ -1120,6 +1516,7 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
           signatureController: _signatureController,
           signerNameController: _signerNameController,
           signatureBytes: _signatureBytes,
+          signatureImageUrl: _signatureImageUrl,
           acceptedTerms: _acceptedTerms,
           enabled: enabled,
           onSignatureSaved: (bytes) => setState(() => _signatureBytes = bytes),
@@ -1129,6 +1526,14 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
               VendorStepperSectionValidated(5, isValid),
             );
           },
+          onConsentChanged: (value) => setState(() => _consentAccepted = value),
+          onPricingAgreementChanged: (value) =>
+              setState(() => _pricingAgreementAccepted = value),
+          onSlvAgreementChanged: (value) =>
+              setState(() => _slvAgreementAccepted = value),
+          consentAccepted: _consentAccepted,
+          pricingAgreementAccepted: _pricingAgreementAccepted,
+          slvAgreementAccepted: _slvAgreementAccepted,
         );
       default:
         return const SizedBox();
@@ -1192,8 +1597,8 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
                           ),
                         ),
                         const SizedBox(height: 12),
-                        const Text(
-                          'Vendor created successfully',
+                        Text(
+                          state.message, // Use dynamic message from state
                           textAlign: TextAlign.center,
                           style: TextStyle(fontSize: 16, color: Colors.black54),
                         ),

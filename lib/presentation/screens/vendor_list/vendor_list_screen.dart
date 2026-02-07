@@ -1,19 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+
+import '../../../core/constants/vendor_filter_type.dart';
 import '../../../core/di/injection_container.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../domain/entities/user_entity.dart';
-import '../../../domain/entities/vendor_list_item_entity.dart';
 import '../../../data/models/vendor_model.dart';
+import '../../../domain/entities/user_entity.dart';
+import '../../../domain/entities/vendor_entity.dart';
+import '../../../domain/entities/vendor_list_item_entity.dart';
+import '../../blocs/draft/draft_bloc.dart';
+import '../../blocs/vendor_form/vendor_form_bloc.dart';
 import '../../blocs/vendor_list/vendor_list_bloc.dart';
 import '../../blocs/vendor_list/vendor_list_event.dart';
 import '../../blocs/vendor_list/vendor_list_state.dart';
-import '../../blocs/vendor_form/vendor_form_bloc.dart';
 import '../../blocs/vendor_stepper/vendor_stepper_bloc.dart';
-import '../../blocs/draft/draft_bloc.dart';
-import '../../../core/constants/vendor_filter_type.dart';
 import '../vendor_profile/vendor_edit_screen.dart';
-import '../vendor_profile/vendor_profile_screen.dart';
 
 class VendorListScreen extends StatefulWidget {
   final UserEntity user;
@@ -228,37 +229,82 @@ class _VendorListScreenState extends State<VendorListScreen> {
                                 return _VendorCard(
                                   vendor: vendor,
                                   onTap: () {
-                                    // Convert vendor list data to VendorEntity
-                                    final vendorEntity = vendor.rawData != null
-                                        ? VendorModel.fromVendorListJson(
-                                            vendor.rawData!,
-                                          )
-                                        : null;
+                                    // 4️⃣ Add Defensive Logging (Temporary)
+                                    print('\n🔍 VENDOR TAP DETECTED');
+                                    print('   Vendor Name: ${vendor.fullName}');
+                                    print('   Vendor _id: ${vendor.id}');
+                                    print(
+                                      '   Vendor vendorsId: ${vendor.vendorsId}',
+                                    );
+
+                                    // 5️⃣ UI Safety Check
+                                    // The details API expects the MongoDB _id (vendor.id)
+                                    // The 'vendorsId' (e.g. VND-...) is a business ID and causes 404s on the ID-based endpoints
+                                    final idToPass = vendor.id;
+                                    print(
+                                      '   🆔 ID being sent to details API: $idToPass',
+                                    );
+
+                                    if (idToPass.trim().isEmpty) {
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                            'Unable to open vendor details. Invalid ID.',
+                                          ),
+                                          backgroundColor: AppColors.error,
+                                        ),
+                                      );
+                                      return;
+                                    }
+
+                                    // Try to parse rawData for preloading
+                                    VendorEntity? preloadedVendor;
+                                    if (vendor.rawData != null) {
+                                      try {
+                                        print(
+                                          '🔍 Preloading vendor data from list...',
+                                        );
+                                        preloadedVendor =
+                                            VendorModel.fromVendorListJson(
+                                              vendor.rawData!,
+                                            );
+                                        print(
+                                          '✅ Vendor data preloaded successfully!',
+                                        );
+                                      } catch (e) {
+                                        print(
+                                          '❌ Error preloading vendor data: $e',
+                                        );
+                                      }
+                                    } else {
+                                      print(
+                                        '⚠️ No rawData available for preloading.',
+                                      );
+                                    }
 
                                     Navigator.of(context).push(
                                       MaterialPageRoute(
                                         builder: (_) => MultiBlocProvider(
                                           providers: [
                                             BlocProvider<VendorFormBloc>(
-                                              create: (_) => sl<VendorFormBloc>(),
+                                              create: (_) =>
+                                                  sl<VendorFormBloc>(),
                                             ),
                                             BlocProvider<VendorStepperBloc>(
-                                              create: (_) => sl<VendorStepperBloc>(),
+                                              create: (_) =>
+                                                  sl<VendorStepperBloc>(),
                                             ),
                                             BlocProvider<DraftBloc>(
                                               create: (_) => sl<DraftBloc>(),
                                             ),
                                           ],
-                                          child: vendorEntity != null
-                                              ? VendorProfileScreen(
-                                                  user: widget.user,
-                                                  vendorDetails: vendorEntity,
-                                                  isEditMode: true,
-                                                )
-                                              : VendorEditScreen(
-                                                  vendorId: vendor.id,
-                                                  user: widget.user,
-                                                ),
+                                          child: VendorEditScreen(
+                                            vendorId: idToPass,
+                                            user: widget.user,
+                                            preloadedVendor: preloadedVendor,
+                                          ),
                                         ),
                                       ),
                                     );
@@ -285,16 +331,21 @@ class _VendorListScreenState extends State<VendorListScreen> {
     // First filter by status
     List<VendorListItemEntity> statusFiltered = vendors;
     if (widget.filterType != VendorFilterType.all) {
-      final statusMap = {
-        VendorFilterType.approved: 'approved',
-        VendorFilterType.pending: 'pending',
-        VendorFilterType.rejected: 'rejected',
-      };
-
-      final targetStatus = statusMap[widget.filterType]?.toLowerCase();
       statusFiltered = vendors.where((vendor) {
-        final vendorStatus = vendor.verifyStatus?.toLowerCase();
-        return vendorStatus == targetStatus;
+        final status = vendor.verifyStatus?.toLowerCase().trim() ?? '';
+
+        switch (widget.filterType) {
+          case VendorFilterType.approved:
+            return status == 'approved';
+          case VendorFilterType.rejected:
+            return status == 'rejected';
+          case VendorFilterType.pending:
+            // Match dashboard stats logic: Any non-approved/non-rejected status is Pending
+            // This includes 'pending', 'processing', and others
+            return status != 'approved' && status != 'rejected';
+          case VendorFilterType.all:
+            return true;
+        }
       }).toList();
     }
 
@@ -354,6 +405,8 @@ class _VendorCard extends StatelessWidget {
         return 'Pending';
       case 'rejected':
         return 'Rejected';
+      case 'processing':
+        return 'Processing';
       default:
         return 'Unknown';
     }
@@ -398,134 +451,134 @@ class _VendorCard extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
       child: Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: statusColor.withOpacity(0.3), width: 1),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            // Header Row with Status Badge
-            Row(
-              children: [
-                // Avatar
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.business,
-                    color: AppColors.primary,
-                    size: 24,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                // Name and Business
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SizedBox(height: 6),
-                      Text(
-                        vendor.fullName,
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.bold),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      // const SizedBox(height: 4),
-                      Text(
-                        vendor.businessName ?? '',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: AppColors.textSecondary,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                ),
-                // Status Badge
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: statusColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: statusColor.withOpacity(0.3),
-                      width: 1,
+        margin: const EdgeInsets.only(bottom: 12),
+        elevation: 2,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: statusColor.withOpacity(0.3), width: 1),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // Header Row with Status Badge
+              Row(
+                children: [
+                  // Avatar
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.business,
+                      color: AppColors.primary,
+                      size: 24,
                     ),
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(statusIcon, size: 14, color: statusColor),
-                      const SizedBox(width: 4),
-                      Text(
-                        statusLabel,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: statusColor,
-                          fontWeight: FontWeight.w600,
+                  const SizedBox(width: 12),
+                  // Name and Business
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 6),
+                        Text(
+                          vendor.fullName,
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.bold),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                      ),
-                    ],
+                        // const SizedBox(height: 4),
+                        Text(
+                          vendor.businessName ?? '',
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(color: AppColors.textSecondary),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
                   ),
+                  // Status Badge
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: statusColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: statusColor.withOpacity(0.3),
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(statusIcon, size: 14, color: statusColor),
+                        const SizedBox(width: 4),
+                        Text(
+                          statusLabel,
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: statusColor,
+                                fontWeight: FontWeight.w600,
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              // const Divider(height: 1),
+              // const SizedBox(height: 12),
+              // Contact Information
+              _InfoRow(
+                icon: Icons.email_outlined,
+                label: 'Email',
+                value: vendor.email,
+              ),
+              const SizedBox(height: 8),
+              _InfoRow(
+                icon: Icons.phone_outlined,
+                label: 'Mobile',
+                value: vendor.mobile,
+              ),
+              if (vendor.vendorsId != null && vendor.vendorsId!.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                _InfoRow(
+                  icon: Icons.badge_outlined,
+                  label: 'Vendor ID',
+                  value: vendor.vendorsId!,
                 ),
               ],
-            ),
-            const SizedBox(height: 12),
-            // const Divider(height: 1),
-            // const SizedBox(height: 12),
-            // Contact Information
-            _InfoRow(
-              icon: Icons.email_outlined,
-              label: 'Email',
-              value: vendor.email,
-            ),
-            const SizedBox(height: 8),
-            _InfoRow(
-              icon: Icons.phone_outlined,
-              label: 'Mobile',
-              value: vendor.mobile,
-            ),
-            if (vendor.vendorsId != null && vendor.vendorsId!.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              _InfoRow(
-                icon: Icons.badge_outlined,
-                label: 'Vendor ID',
-                value: vendor.vendorsId!,
-              ),
+              if (vendor.businessEmail != null &&
+                  vendor.businessEmail!.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                _InfoRow(
+                  icon: Icons.business_outlined,
+                  label: 'Business Email',
+                  value: vendor.businessEmail!,
+                ),
+              ],
+              if (vendor.createdAt != null) ...[
+                const SizedBox(height: 8),
+                _InfoRow(
+                  icon: Icons.calendar_today_outlined,
+                  label: 'Created',
+                  value: _formatDate(vendor.createdAt),
+                ),
+              ],
             ],
-            if (vendor.businessEmail != null &&
-                vendor.businessEmail!.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              _InfoRow(
-                icon: Icons.business_outlined,
-                label: 'Business Email',
-                value: vendor.businessEmail!,
-              ),
-            ],
-            if (vendor.createdAt != null) ...[
-              const SizedBox(height: 8),
-              _InfoRow(
-                icon: Icons.calendar_today_outlined,
-                label: 'Created',
-                value: _formatDate(vendor.createdAt),
-              ),
-            ],
-          ],
+          ),
         ),
-      ),
       ),
     );
   }

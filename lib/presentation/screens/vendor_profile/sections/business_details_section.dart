@@ -1,7 +1,10 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:geolocator/geolocator.dart';
-import 'package:geocoding/geocoding.dart';
+import 'package:http/http.dart' as http;
+
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/validators.dart';
 import '../../../../data/models/category_model.dart';
@@ -21,6 +24,9 @@ class BusinessDetailsSection extends StatefulWidget {
   final bool enabled;
   final Function(List<String>) onCategoriesChanged;
   final Function(bool isValid) onValidationChanged;
+  final Function(double? lat, double? lng)? onLocationSelected;
+  final double? initialLatitude;
+  final double? initialLongitude;
 
   const BusinessDetailsSection({
     super.key,
@@ -36,6 +42,9 @@ class BusinessDetailsSection extends StatefulWidget {
     required this.enabled,
     required this.onCategoriesChanged,
     required this.onValidationChanged,
+    this.onLocationSelected,
+    this.initialLatitude,
+    this.initialLongitude,
   });
 
   @override
@@ -51,12 +60,42 @@ class _BusinessDetailsSectionState extends State<BusinessDetailsSection> {
   String? _businessCategoryError;
   String? _businessAddressError;
   bool _showErrors = false;
-  bool _isFetchingLocation = false;
+
+  // Google Places State
+  Timer? _debounce;
+  double? _latitude;
+  double? _longitude;
+  static const String _googleApiKey = 'AIzaSyBAgjZGzhUBDznc-wI5eGRHyjVTfENnLSs';
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(BusinessDetailsSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.selectedCategories != widget.selectedCategories ||
+        oldWidget.initialLatitude != widget.initialLatitude ||
+        oldWidget.initialLongitude != widget.initialLongitude) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _validate();
+      });
+    }
+  }
 
   @override
   void initState() {
     super.initState();
+    _latitude = widget.initialLatitude;
+    _longitude = widget.initialLongitude;
     _addListeners();
+
+    // Auto-validate prefilled data in edit/resume mode
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _validate();
+    });
   }
 
   void _addListeners() {
@@ -123,140 +162,81 @@ class _BusinessDetailsSectionState extends State<BusinessDetailsSection> {
     }
   }
 
-  Future<void> _fetchCurrentLocation() async {
-    if (_isFetchingLocation) return;
+  Future<List<PlaceSuggestion>> _getPlaceSuggestions(String query) async {
+    if (query.isEmpty) return [];
 
-    setState(() => _isFetchingLocation = true);
+    final uri = Uri.https(
+      'maps.googleapis.com',
+      '/maps/api/place/autocomplete/json',
+      {
+        'input': query,
+        'key': _googleApiKey,
+        // 'components': 'country:in', // Optional: Restrict to India
+      },
+    );
 
     try {
-      // Check if location services are enabled
-      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
-        _showLocationError(
-          'Location services are disabled. Please enable them in settings.',
-        );
-        return;
-      }
-
-      // Check permission
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied) {
-          _showLocationError(
-            'Location permission denied. Please grant permission to fetch address.',
-          );
-          return;
-        }
-      }
-
-      if (permission == LocationPermission.deniedForever) {
-        _showLocationError(
-          'Location permission permanently denied. Please enable it from app settings.',
-          showSettingsButton: true,
-        );
-        return;
-      }
-
-      // Get current position
-      final position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 15),
-        ),
-      );
-
-      // Get address from coordinates
-      final placemarks = await placemarkFromCoordinates(
-        position.latitude,
-        position.longitude,
-      );
-
-      if (placemarks.isNotEmpty) {
-        final place = placemarks.first;
-        final address = _formatAddress(place);
-        widget.businessAddressController.text = address;
-        if (!_showErrors) setState(() => _showErrors = true);
-        _validate();
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Row(
-                children: [
-                  Icon(Icons.check_circle, color: Colors.white, size: 18),
-                  const SizedBox(width: 8),
-                  const Expanded(child: Text('Address fetched successfully')),
-                ],
-              ),
-              backgroundColor: AppColors.success,
-              duration: const Duration(seconds: 2),
-            ),
-          );
+      final response = await http.get(uri);
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['status'] == 'OK') {
+          return (data['predictions'] as List)
+              .map((p) => PlaceSuggestion.fromJson(p))
+              .toList();
         }
       }
     } catch (e) {
-      _showLocationError(
-        'Failed to fetch location. Please try again or enter manually.',
-      );
-    } finally {
-      if (mounted) {
-        setState(() => _isFetchingLocation = false);
+      debugPrint('Error fetching suggestions: $e');
+    }
+    return [];
+  }
+
+  Future<void> _getPlaceDetails(String placeId) async {
+    final uri =
+        Uri.https('maps.googleapis.com', '/maps/api/place/details/json', {
+          'place_id': placeId,
+          'key': _googleApiKey,
+          'fields': 'formatted_address,geometry',
+        });
+
+    try {
+      final response = await http.get(uri);
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['status'] == 'OK') {
+          final result = data['result'];
+          final formattedAddress = result['formatted_address'] as String?;
+          final geometry = result['geometry'];
+          final location = geometry?['location'];
+
+          if (formattedAddress != null) {
+            widget.businessAddressController.text = formattedAddress;
+            // Trigger validtion logic
+            if (!_showErrors) setState(() => _showErrors = true);
+            _validate();
+          }
+
+          if (location != null) {
+            setState(() {
+              _latitude = location['lat'];
+              _longitude = location['lng'];
+            });
+
+            // Note: Since backend submission logic is handled by parent/bloc,
+            // valid coordinates are currently stored in local state.
+            // If the backend requires them, they can be exposed via a new callback
+            // or by updating an entity passed to this widget.
+            debugPrint('Selected Location: $_latitude, $_longitude');
+            widget.onLocationSelected?.call(_latitude, _longitude);
+          }
+        }
       }
+    } catch (e) {
+      debugPrint('Error fetching place details: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to fetch place details')),
+      );
     }
-  }
-
-  String _formatAddress(Placemark place) {
-    final parts = <String>[];
-
-    if (place.street != null && place.street!.isNotEmpty) {
-      parts.add(place.street!);
-    }
-    if (place.subLocality != null && place.subLocality!.isNotEmpty) {
-      parts.add(place.subLocality!);
-    }
-    if (place.locality != null && place.locality!.isNotEmpty) {
-      parts.add(place.locality!);
-    }
-    if (place.administrativeArea != null &&
-        place.administrativeArea!.isNotEmpty) {
-      parts.add(place.administrativeArea!);
-    }
-    if (place.postalCode != null && place.postalCode!.isNotEmpty) {
-      parts.add(place.postalCode!);
-    }
-    if (place.country != null && place.country!.isNotEmpty) {
-      parts.add(place.country!);
-    }
-
-    return parts.join(', ');
-  }
-
-  void _showLocationError(String message, {bool showSettingsButton = false}) {
-    if (!mounted) return;
-
-    setState(() => _isFetchingLocation = false);
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            Icon(Icons.location_off, color: Colors.white, size: 18),
-            const SizedBox(width: 8),
-            Expanded(child: Text(message)),
-          ],
-        ),
-        backgroundColor: AppColors.error,
-        duration: const Duration(seconds: 4),
-        action: showSettingsButton
-            ? SnackBarAction(
-                label: 'Settings',
-                textColor: Colors.white,
-                onPressed: () => Geolocator.openAppSettings(),
-              )
-            : null,
-      ),
-    );
   }
 
   @override
@@ -385,6 +365,12 @@ class _BusinessDetailsSectionState extends State<BusinessDetailsSection> {
           onChanged: (values) {
             widget.onCategoriesChanged(values);
             if (!_showErrors) setState(() => _showErrors = true);
+            // Immediately update error state when categories change
+            setState(() {
+              _businessCategoryError = values.isEmpty
+                  ? 'Please select at least one business category'
+                  : null;
+            });
             _validate();
           },
         ),
@@ -399,7 +385,9 @@ class _BusinessDetailsSectionState extends State<BusinessDetailsSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
+        // Field 1: Google Places Search
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               'Business Address *',
@@ -409,130 +397,232 @@ class _BusinessDetailsSectionState extends State<BusinessDetailsSection> {
                 color: AppColors.textPrimary,
               ),
             ),
-            const Spacer(),
-            // Location fetch button
-            InkWell(
-              onTap: widget.enabled && !_isFetchingLocation
-                  ? _fetchCurrentLocation
-                  : null,
-              borderRadius: BorderRadius.circular(8),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppColors.primary.withOpacity(0.3)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (_isFetchingLocation)
-                      SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: AppColors.primary,
-                        ),
-                      )
-                    else
-                      Icon(
-                        Icons.my_location,
-                        size: 14,
-                        color: AppColors.primary,
-                      ),
-                    const SizedBox(width: 6),
-                    Text(
-                      _isFetchingLocation ? 'Fetching...' : 'Use Current',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+            const SizedBox(height: 8),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                return Autocomplete<PlaceSuggestion>(
+                  initialValue: TextEditingValue(
+                    text: widget.businessAddressController.text,
+                  ),
+                  optionsBuilder: (TextEditingValue textEditingValue) async {
+                    if (textEditingValue.text.isEmpty) {
+                      return const Iterable<PlaceSuggestion>.empty();
+                    }
+                    return await _getPlaceSuggestions(textEditingValue.text);
+                  },
+                  displayStringForOption: (PlaceSuggestion option) =>
+                      option.description,
+                  onSelected: (PlaceSuggestion selection) {
+                    _getPlaceDetails(selection.placeId);
+                  },
+                  fieldViewBuilder:
+                      (
+                        BuildContext context,
+                        TextEditingController fieldTextEditingController,
+                        FocusNode fieldFocusNode,
+                        VoidCallback onFieldSubmitted,
+                      ) {
+                        return TextFormField(
+                          controller: fieldTextEditingController,
+                          focusNode: fieldFocusNode,
+                          decoration: InputDecoration(
+                            hintText: 'Search address with Google Maps…',
+                            hintStyle: TextStyle(
+                              color: AppColors.textHint,
+                              fontSize: 14,
+                            ),
+                            filled: true,
+                            fillColor: widget.enabled
+                                ? Colors.white
+                                : AppColors.background,
+                            contentPadding: const EdgeInsets.all(16),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(color: AppColors.border),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(color: AppColors.border),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(
+                                color: AppColors.primary,
+                                width: 1.5,
+                              ),
+                            ),
+                            suffixIcon: Icon(
+                              Icons.search,
+                              color: AppColors.textHint,
+                            ),
+                          ),
+                          enabled: widget.enabled,
+                        );
+                      },
+                  optionsViewBuilder:
+                      (
+                        BuildContext context,
+                        AutocompleteOnSelected<PlaceSuggestion> onSelected,
+                        Iterable<PlaceSuggestion> options,
+                      ) {
+                        return Align(
+                          alignment: Alignment.topLeft,
+                          child: Material(
+                            elevation: 4.0,
+                            borderRadius: BorderRadius.circular(12),
+                            child: Container(
+                              width: constraints.maxWidth,
+                              constraints: const BoxConstraints(maxHeight: 200),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: ListView.builder(
+                                padding: EdgeInsets.zero,
+                                shrinkWrap: true,
+                                itemCount: options.length,
+                                itemBuilder: (BuildContext context, int index) {
+                                  final PlaceSuggestion option = options
+                                      .elementAt(index);
+                                  return ListTile(
+                                    leading: const Icon(
+                                      Icons.location_on,
+                                      size: 20,
+                                      color: AppColors.textSecondary,
+                                    ),
+                                    title: Text(
+                                      option.description,
+                                      style: const TextStyle(fontSize: 13),
+                                    ),
+                                    onTap: () {
+                                      onSelected(option);
+                                    },
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                );
+              },
             ),
           ],
         ),
-        const SizedBox(height: 8),
-        TextFormField(
-          controller: widget.businessAddressController,
-          enabled: widget.enabled,
-          maxLines: 3,
-          decoration: InputDecoration(
-            hintText: 'e.g., 123, Main Block, City, Dist, Country',
-            hintStyle: TextStyle(color: AppColors.textHint, fontSize: 14),
-            errorText: _businessAddressError,
-            filled: true,
-            fillColor: widget.enabled ? Colors.white : AppColors.background,
-            contentPadding: const EdgeInsets.all(16),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: AppColors.border),
+
+        const SizedBox(height: 24),
+
+        // Field 2: Editable Address
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Text(
+                  'Business Address (Editable) *',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ],
             ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: AppColors.border),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: AppColors.primary, width: 1.5),
-            ),
-            errorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: AppColors.error),
-            ),
-            focusedErrorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: AppColors.error, width: 1.5),
-            ),
-            suffixIcon: Padding(
-              padding: const EdgeInsets.only(right: 8, top: 8),
-              child: Align(
-                alignment: Alignment.topRight,
-                widthFactor: 1,
-                heightFactor: 1,
-                child: IconButton(
-                  onPressed: widget.enabled && !_isFetchingLocation
-                      ? _fetchCurrentLocation
-                      : null,
-                  icon: _isFetchingLocation
-                      ? SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: AppColors.primary,
-                          ),
-                        )
-                      : Icon(
-                          Icons.location_on_outlined,
-                          color: AppColors.primary,
-                        ),
-                  tooltip: 'Fetch current location',
+            const SizedBox(height: 8),
+            TextFormField(
+              controller: widget.businessAddressController,
+              enabled: widget.enabled,
+              maxLines: 3,
+              decoration: InputDecoration(
+                hintText:
+                    'Address will be auto-filled from Google Maps or enter manually',
+                hintStyle: TextStyle(color: AppColors.textHint, fontSize: 14),
+                errorText: _businessAddressError,
+                filled: true,
+                fillColor: widget.enabled ? Colors.white : AppColors.background,
+                contentPadding: const EdgeInsets.all(16),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: AppColors.border),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: AppColors.border),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: AppColors.primary, width: 1.5),
+                ),
+                errorBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: AppColors.error),
+                ),
+                focusedErrorBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: AppColors.error, width: 1.5),
                 ),
               ),
+              onChanged: (_) {
+                if (!_showErrors) setState(() => _showErrors = true);
+              },
             ),
-          ),
-          onChanged: (_) {
-            if (!_showErrors) setState(() => _showErrors = true);
-          },
-        ),
-        const SizedBox(height: 6),
-        Text(
-          'Tap the location icon to auto-fill your current address',
-          style: TextStyle(fontSize: 11, color: AppColors.textHint),
+            const SizedBox(height: 6),
+            Text(
+              'You can edit it as needed.',
+              style: TextStyle(fontSize: 11, color: AppColors.textHint),
+            ),
+            if (_latitude != null && _longitude != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.success.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: AppColors.success.withOpacity(0.2),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Google Maps Coordinates:',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.success,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Lat: $_latitude, Lng: $_longitude',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+          ],
         ),
       ],
     );
   }
 }
 
+class PlaceSuggestion {
+  final String placeId;
+  final String description;
 
+  PlaceSuggestion({required this.placeId, required this.description});
 
-
+  factory PlaceSuggestion.fromJson(Map<String, dynamic> json) {
+    return PlaceSuggestion(
+      placeId: json['place_id'] as String,
+      description: json['description'] as String,
+    );
+  }
+}

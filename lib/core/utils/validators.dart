@@ -180,15 +180,63 @@ class Validators {
       return 'Aadhaar number is required';
     }
     final trimmedValue = value.trim();
-    if (!RegExp(r'^[0-9]+$').hasMatch(trimmedValue)) {
-      return 'Aadhaar number must contain only digits';
-    }
-    if (trimmedValue.length != 12) {
+    if (!RegExp(r'^\d{12}$').hasMatch(trimmedValue)) {
       return 'Aadhaar number must be exactly 12 digits';
     }
-    // Reject all same digits
-    if (RegExp(r'^(\d)\1+$').hasMatch(trimmedValue)) {
-      return 'Please enter a valid Aadhaar number';
+    // Reject all same digits (optional but good practice kept from before if desired, but user asked for strictly regex)
+    // The user requirement said: Must contain exactly 12 digits, Only numeric values allowed
+    // Regex: ^\d{12}$ - this is satisfied.
+    return null;
+  }
+
+  static String? validatePassportNumber(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'Passport number is required';
+    }
+    final trimmedValue = value.trim();
+    // Regex: ^[A-Za-z]{1}\d{7}$
+    // Must contain 1 alphabet followed by 7 digits
+    if (!RegExp(r'^[A-Za-z]{1}\d{7}$').hasMatch(trimmedValue)) {
+      return 'Passport number must be 1 letter followed by 7 digits';
+    }
+    return null;
+  }
+
+  static String? validatePanCardNumber(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'PAN number is required';
+    }
+    final trimmedValue = value.trim();
+    // Regex: ^[A-Z]{5}\d{4}[A-Z]{1}$
+    // Must contain: 5 uppercase letters, 4 digits, 1 uppercase letter
+    if (!RegExp(r'^[A-Z]{5}\d{4}[A-Z]{1}$').hasMatch(trimmedValue)) {
+      return 'PAN number format should be ABCDE1234F';
+    }
+    return null;
+  }
+
+  static String? validateDrivingLicenseNumber(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'Driving license number is required';
+    }
+    final trimmedValue = value.trim();
+    // Regex: ^[A-Za-z0-9]{10,16}$
+    // Allow alphanumeric, Length between 10 to 16 characters, No special characters
+    if (!RegExp(r'^[A-Za-z0-9]{10,16}$').hasMatch(trimmedValue)) {
+      return 'Driving license must be 10-16 alphanumeric characters';
+    }
+    return null;
+  }
+
+  static String? validateVoterIdNumber(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'Voter ID number is required';
+    }
+    final trimmedValue = value.trim();
+    // Regex: ^[A-Za-z]{3}\d{7}$
+    // Must contain 3 alphabets followed by 7 digits
+    if (!RegExp(r'^[A-Za-z]{3}\d{7}$').hasMatch(trimmedValue)) {
+      return 'Voter ID must be 3 letters followed by 7 digits';
     }
     return null;
   }

@@ -1,4 +1,5 @@
 import 'package:hive_flutter/hive_flutter.dart';
+
 import '../../../domain/entities/draft_vendor_entity.dart';
 import '../../models/draft_vendor_model.dart';
 
@@ -88,6 +89,55 @@ class DraftLocalStorage {
     return _box!.length;
   }
 
+  /// Find existing draft by unique vendor key (business name + mobile)
+  /// This prevents duplicate drafts for the same vendor
+  Future<DraftVendorEntity?> findDraftByVendorKey({
+    required String businessName,
+    required String mobile,
+  }) async {
+    await _ensureInitialized();
+
+    // Normalize the key for comparison (lowercase, trim)
+    final normalizedBusinessName = businessName.trim().toLowerCase();
+    final normalizedMobile = mobile.trim();
+
+    if (normalizedBusinessName.isEmpty && normalizedMobile.isEmpty) {
+      return null;
+    }
+
+    for (var key in _box!.keys) {
+      try {
+        final map = _box!.get(key) as Map<dynamic, dynamic>;
+        final stringMap = Map<String, dynamic>.from(
+          map.map((k, v) => MapEntry(k.toString(), v)),
+        );
+        final model = DraftVendorModel.fromMap(stringMap);
+
+        // Compare normalized business name and mobile
+        final draftBusinessName = model.businessName.trim().toLowerCase();
+        final draftMobile = model.mobile.trim();
+
+        // Match if both business name and mobile match
+        if (normalizedBusinessName.isNotEmpty && normalizedMobile.isNotEmpty) {
+          if (draftBusinessName == normalizedBusinessName &&
+              draftMobile == normalizedMobile) {
+            return model;
+          }
+        }
+        // Fallback: match by mobile only if business name is empty
+        else if (normalizedMobile.isNotEmpty &&
+            draftMobile == normalizedMobile) {
+          return model;
+        }
+      } catch (e) {
+        print('Error parsing draft with key $key: $e');
+        continue;
+      }
+    }
+
+    return null;
+  }
+
   /// Close the box (optional, for cleanup)
   Future<void> close() async {
     if (_box != null && _box!.isOpen) {
@@ -95,9 +145,3 @@ class DraftLocalStorage {
     }
   }
 }
-
-
-
-
-
-

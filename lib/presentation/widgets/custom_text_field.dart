@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
 import '../../core/theme/app_colors.dart';
 
 class CustomTextField extends StatefulWidget {
@@ -15,11 +16,13 @@ class CustomTextField extends StatefulWidget {
   final int? maxLength;
   final Widget? suffixIcon;
   final bool enabled;
+  final FocusNode? focusNode;
   final int maxLines;
 
   const CustomTextField({
     super.key,
     this.controller,
+    this.focusNode,
     required this.label,
     this.hint,
     this.errorText,
@@ -62,6 +65,7 @@ class _CustomTextFieldState extends State<CustomTextField> {
         const SizedBox(height: 8),
         TextField(
           controller: widget.controller,
+          focusNode: widget.focusNode,
           obscureText: widget.isPassword ? _obscure : widget.obscureText,
           keyboardType: widget.keyboardType,
           inputFormatters: widget.inputFormatters,

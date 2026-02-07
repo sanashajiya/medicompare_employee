@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../../../core/theme/app_colors.dart';
 import '../../../widgets/custom_button.dart';
 import '../../../widgets/otp_input_field.dart';
@@ -49,9 +50,34 @@ class _VendorOtpDialogState extends State<VendorOtpDialog> {
         });
       }
     } catch (e) {
+      // Extract clean error message
+      String errorMsg = e.toString();
+
+      // Remove "Exception: " prefix
+      errorMsg = errorMsg.replaceAll('Exception: ', '');
+
+      // Try to extract message from API error JSON
+      if (errorMsg.contains('"message"')) {
+        try {
+          final match = RegExp(r'"message":"([^"]+)"').firstMatch(errorMsg);
+          if (match != null) {
+            errorMsg = match.group(1) ?? errorMsg;
+          }
+        } catch (_) {}
+      }
+
+      // Clean up technical error prefixes
+      errorMsg = errorMsg.replaceAll(RegExp(r'API Error:\s*\d+\s*-\s*'), '');
+      errorMsg = errorMsg.replaceAll('Network error: ', '');
+
+      // Fallback to generic message if error is too technical or contains JSON
+      if (errorMsg.contains('{') || errorMsg.contains('FormatException')) {
+        errorMsg = 'Invalid OTP. Please try again.';
+      }
+
       setState(() {
         _isVerifying = false;
-        _errorMessage = e.toString().replaceAll('Exception: ', '');
+        _errorMessage = errorMsg;
       });
     }
   }
@@ -232,6 +258,3 @@ class _VendorOtpDialogState extends State<VendorOtpDialog> {
     );
   }
 }
-
-
-
