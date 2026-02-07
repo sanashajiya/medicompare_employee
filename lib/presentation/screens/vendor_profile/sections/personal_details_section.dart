@@ -90,7 +90,8 @@ class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
     if (oldWidget.aadhaarFrontImage != widget.aadhaarFrontImage ||
         oldWidget.aadhaarBackImage != widget.aadhaarBackImage ||
         oldWidget.aadhaarFrontImageUrl != widget.aadhaarFrontImageUrl ||
-        oldWidget.aadhaarBackImageUrl != widget.aadhaarBackImageUrl) {
+        oldWidget.aadhaarBackImageUrl != widget.aadhaarBackImageUrl ||
+        oldWidget.selectedIdProofType != widget.selectedIdProofType) {
       _validate();
     }
   }

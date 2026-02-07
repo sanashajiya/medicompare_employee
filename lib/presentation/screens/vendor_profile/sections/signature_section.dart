@@ -804,7 +804,7 @@ class _SignatureSectionState extends State<SignatureSection> {
                             recognizer: TapGestureRecognizer()
                               ..onTap = () {
                                 _openUrl(
-                                  'https://medicompares.com/policies/terms-and-conditions',
+                                  'https://vendor.medicompares.digitalraiz.co.in/terms-and-conditions',
                                 );
                               },
                           ),
@@ -821,7 +821,7 @@ class _SignatureSectionState extends State<SignatureSection> {
                             recognizer: TapGestureRecognizer()
                               ..onTap = () {
                                 _openUrl(
-                                  'https://medicompares.com/policies/privacy-policy',
+                                  'https://vendor.medicompares.digitalraiz.co.in/terms-and-conditions',
                                 );
                               },
                           ),
@@ -863,8 +863,31 @@ class _SignatureSectionState extends State<SignatureSection> {
         // Pricing Agreement
         _buildRadioSection(
           title: 'Pricing Agreement *',
-          question:
-              'Do you agree to the platform’s pricing terms, including commission rates and payment conditions?',
+          question: RichText(
+            text: TextSpan(
+              style: TextStyle(fontSize: 13, color: AppColors.textPrimary),
+              children: [
+                const TextSpan(text: 'Do you agree to the platform’s '),
+                TextSpan(
+                  text: 'pricing terms',
+                  style: const TextStyle(
+                    color: AppColors.primary,
+                    decoration: TextDecoration.underline,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  recognizer: TapGestureRecognizer()
+                    ..onTap = () {
+                      _openUrl(
+                        'https://vendor.medicompares.digitalraiz.co.in/terms-and-conditions',
+                      );
+                    },
+                ),
+                const TextSpan(
+                  text: ', including commission rates and payment conditions?',
+                ),
+              ],
+            ),
+          ),
           value: widget.pricingAgreementAccepted,
           onChanged: widget.onPricingAgreementChanged,
           errorText: _showErrors ? _pricingError : null,
@@ -877,8 +900,31 @@ class _SignatureSectionState extends State<SignatureSection> {
         // SLV Agreement
         _buildRadioSection(
           title: 'Service Level Agreement (SLV) *',
-          question:
-              'Do you commit to adhering to the Service Level Agreement (SLV), ensuring timely and quality service delivery?',
+          question: RichText(
+            text: TextSpan(
+              style: TextStyle(fontSize: 13, color: AppColors.textPrimary),
+              children: [
+                const TextSpan(text: 'Do you commit to adhering to the '),
+                TextSpan(
+                  text: 'Service Level Agreement (SLV)',
+                  style: const TextStyle(
+                    color: AppColors.primary,
+                    decoration: TextDecoration.underline,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  recognizer: TapGestureRecognizer()
+                    ..onTap = () {
+                      _openUrl(
+                        'https://vendor.medicompares.digitalraiz.co.in/terms-and-conditions',
+                      );
+                    },
+                ),
+                const TextSpan(
+                  text: ', ensuring timely and quality service delivery?',
+                ),
+              ],
+            ),
+          ),
           value: widget.slvAgreementAccepted,
           onChanged: widget.onSlvAgreementChanged,
           errorText: _showErrors ? _slvError : null,
@@ -967,7 +1013,7 @@ class _SignatureSectionState extends State<SignatureSection> {
 
   Widget _buildRadioSection({
     required String title,
-    required String question,
+    required Widget question,
     required bool value,
     required Function(bool) onChanged,
     String? errorText,
@@ -1000,10 +1046,7 @@ class _SignatureSectionState extends State<SignatureSection> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                question,
-                style: TextStyle(fontSize: 13, color: AppColors.textPrimary),
-              ),
+              question,
               const SizedBox(height: 12),
               Row(
                 children: [

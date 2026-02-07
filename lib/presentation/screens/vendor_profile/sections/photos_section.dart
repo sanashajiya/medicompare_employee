@@ -86,14 +86,8 @@ class _PhotosSectionState extends State<PhotosSection> {
       storeLogoError = 'Store Logo is required';
     }
 
+    // Profile Banner is optional
     String? profileBannerError;
-    final hasProfileBanner =
-        widget.profileBanner != null ||
-        (widget.profileBannerUrl != null &&
-            widget.profileBannerUrl!.isNotEmpty);
-    if (!hasProfileBanner) {
-      profileBannerError = 'Profile Banner is required';
-    }
 
     String? frontStoreImagesError;
     final hasStoreImages =
@@ -103,7 +97,7 @@ class _PhotosSectionState extends State<PhotosSection> {
       frontStoreImagesError = 'Please upload at least one store image';
     }
 
-    final isValid = hasStoreLogo && hasProfileBanner && hasStoreImages;
+    final isValid = hasStoreLogo && hasStoreImages;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
@@ -385,7 +379,7 @@ class _PhotosSectionState extends State<PhotosSection> {
         // 2. Profile Banner
         _buildUploadSection(
           title: 'Profile Banner',
-          isRequired: true,
+          isRequired: false,
           errorText: _showErrors ? _profileBannerError : null,
           content: _buildSingleUploadCard(
             file: widget.profileBanner,

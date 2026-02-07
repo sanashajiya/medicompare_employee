@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../../../../domain/entities/draft_vendor_entity.dart';
 import '../../../../presentation/blocs/vendor_stepper/vendor_stepper_state.dart';
+import '../models/additional_document_model.dart';
 
 class DraftHelper {
   /// Helper function to safely copy file with proper handling
@@ -193,6 +194,36 @@ class DraftHelper {
         );
       }
 
+      // Save additional documents list
+      List<Map<String, String>> additionalDocuments = [];
+      if (formData['additionalDocuments'] != null &&
+          formData['additionalDocuments'] is List) {
+        final docs = formData['additionalDocuments'] as List;
+        for (int i = 0; i < docs.length; i++) {
+          // Check if it's our model
+          if (docs[i] is AdditionalDocumentModel) {
+            final doc = docs[i] as AdditionalDocumentModel;
+            String? savedPath =
+                doc.fileUrl; // Keep existing path if not new file
+
+            if (doc.file != null) {
+              final extension = doc.file!.path.split('.').last;
+              savedPath = await _copySafeFile(
+                doc.file!,
+                '${draftDir.path}/additional_doc_${i}_${DateTime.now().millisecondsSinceEpoch}.$extension',
+              );
+            }
+
+            additionalDocuments.add({
+              'name': doc.nameController.text,
+              'number': doc.numberController.text,
+              'expiryDate': doc.expiryDateController.text,
+              'filePath': savedPath ?? '',
+            });
+          }
+        }
+      }
+
       // Save front store images
       List<String> frontStoreImagePaths = [];
       if (formData['frontStoreImages'] != null &&
@@ -314,6 +345,7 @@ class DraftHelper {
         additionalDocumentFilePath: additionalDocumentFilePath,
         additionalDocumentExpiryDate:
             formData['additionalDocumentExpiryDate'] ?? '',
+        additionalDocuments: additionalDocuments,
         frontStoreImagePaths: frontStoreImagePaths,
         storeLogoPath: storeLogoPath,
         profileBannerPath: profileBannerPath,
@@ -351,6 +383,7 @@ class DraftHelper {
     File? businessRegistrationFile,
     File? professionalLicenseFile,
     File? additionalDocumentFile,
+    List<AdditionalDocumentModel>? additionalDocuments,
     List<File>? frontStoreImages,
     File? storeLogo,
     File? profileBanner,
@@ -407,6 +440,7 @@ class DraftHelper {
       'additionalDocumentFile': additionalDocumentFile,
       'additionalDocumentExpiryDate':
           controllers['additionalDocumentExpiryDate']?.text ?? '',
+      'additionalDocuments': additionalDocuments ?? [],
       'frontStoreImages': frontStoreImages ?? [],
       'storeLogo': storeLogo,
       'profileBanner': profileBanner,

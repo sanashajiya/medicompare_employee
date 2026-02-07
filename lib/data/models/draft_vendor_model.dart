@@ -43,6 +43,7 @@ class DraftVendorModel extends DraftVendorEntity {
     super.additionalDocumentName,
     super.additionalDocumentFilePath,
     super.additionalDocumentExpiryDate,
+    super.additionalDocuments,
     super.frontStoreImagePaths,
     super.storeLogoPath,
     super.profileBannerPath,
@@ -98,6 +99,7 @@ class DraftVendorModel extends DraftVendorEntity {
       additionalDocumentName: entity.additionalDocumentName,
       additionalDocumentFilePath: entity.additionalDocumentFilePath,
       additionalDocumentExpiryDate: entity.additionalDocumentExpiryDate,
+      additionalDocuments: entity.additionalDocuments,
       frontStoreImagePaths: entity.frontStoreImagePaths,
       storeLogoPath: entity.storeLogoPath,
       profileBannerPath: entity.profileBannerPath,
@@ -154,6 +156,7 @@ class DraftVendorModel extends DraftVendorEntity {
       'additionalDocumentName': additionalDocumentName,
       'additionalDocumentFilePath': additionalDocumentFilePath,
       'additionalDocumentExpiryDate': additionalDocumentExpiryDate,
+      'additionalDocuments': additionalDocuments,
       'frontStoreImagePaths': frontStoreImagePaths,
       'storeLogoPath': storeLogoPath,
       'profileBannerPath': profileBannerPath,
@@ -224,6 +227,11 @@ class DraftVendorModel extends DraftVendorEntity {
       additionalDocumentFilePath: map['additionalDocumentFilePath'] as String?,
       additionalDocumentExpiryDate:
           map['additionalDocumentExpiryDate'] as String?,
+      additionalDocuments:
+          (map['additionalDocuments'] as List<dynamic>?)
+              ?.map((e) => Map<String, String>.from(e as Map))
+              .toList() ??
+          [],
       frontStoreImagePaths:
           (map['frontStoreImagePaths'] as List<dynamic>?)
               ?.map((e) => e.toString())

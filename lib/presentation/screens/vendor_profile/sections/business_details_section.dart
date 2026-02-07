@@ -76,8 +76,7 @@ class _BusinessDetailsSectionState extends State<BusinessDetailsSection> {
   @override
   void didUpdateWidget(BusinessDetailsSection oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.selectedCategories.length !=
-            widget.selectedCategories.length ||
+    if (oldWidget.selectedCategories != widget.selectedCategories ||
         oldWidget.initialLatitude != widget.initialLatitude ||
         oldWidget.initialLongitude != widget.initialLongitude) {
       WidgetsBinding.instance.addPostFrameCallback((_) {

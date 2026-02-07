@@ -25,6 +25,7 @@ import '../../blocs/vendor_stepper/vendor_stepper_bloc.dart';
 import '../../blocs/vendor_stepper/vendor_stepper_event.dart';
 import '../../blocs/vendor_stepper/vendor_stepper_state.dart';
 import '../../widgets/custom_button.dart';
+import 'models/additional_document_model.dart';
 import 'sections/banking_details_section.dart';
 import 'sections/business_details_section.dart';
 import 'sections/documents_section.dart';
@@ -93,18 +94,27 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
   final _bankNameController = TextEditingController();
   final _bankBranchController = TextEditingController();
 
-  // Controllers - Documents
-  final _panCardNumberController = TextEditingController();
-  final _gstCertificateNumberController = TextEditingController();
-  final _businessRegistrationNumberController = TextEditingController();
-  final _professionalLicenseNumberController = TextEditingController();
-  final _additionalDocumentNameController = TextEditingController();
-  // Expiry Date Controllers
-  final _panCardExpiryDateController = TextEditingController();
-  final _gstExpiryDateController = TextEditingController();
-  final _businessRegistrationExpiryDateController = TextEditingController();
-  final _professionalLicenseExpiryDateController = TextEditingController();
-  final _additionalDocumentExpiryDateController = TextEditingController();
+  // Controllers  // Documents
+  final TextEditingController _panCardNumberController =
+      TextEditingController();
+  final TextEditingController _gstCertificateNumberController =
+      TextEditingController();
+  final TextEditingController _businessRegistrationNumberController =
+      TextEditingController();
+  final TextEditingController _professionalLicenseNumberController =
+      TextEditingController();
+
+  // Dynamic Additional Documents
+  List<AdditionalDocumentModel> _additionalDocuments = [];
+
+  final TextEditingController _panCardExpiryDateController =
+      TextEditingController();
+  final TextEditingController _gstExpiryDateController =
+      TextEditingController();
+  final TextEditingController _businessRegistrationExpiryDateController =
+      TextEditingController();
+  final TextEditingController _professionalLicenseExpiryDateController =
+      TextEditingController();
 
   // Signature
   final SignatureController _signatureController = SignatureController(
@@ -126,21 +136,22 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
   File? _gstCertificateFile;
   File? _panCardFile;
   File? _professionalLicenseFile;
-  File? _additionalDocumentFile;
-  File? _storeLogo;
-  File? _profileBanner;
   String? _businessRegistrationFileName;
   String? _gstCertificateFileName;
   String? _panCardFileName;
   String? _professionalLicenseFileName;
-  String? _additionalDocumentFileName;
 
   // URL Variables for Edit Mode
   String? _businessRegistrationUrl;
   String? _gstCertificateUrl;
   String? _panCardUrl;
   String? _professionalLicenseUrl;
-  String? _additionalDocumentUrl;
+
+  // Additional documents files are managed inside _additionalDocuments list
+
+  File? _storeLogo;
+  File? _profileBanner;
+
   String? _storeLogoUrl;
   String? _profileBannerUrl;
 
@@ -213,12 +224,13 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
     String? restoredBusinessRegistrationFileName;
     File? restoredProfessionalLicenseFile;
     String? restoredProfessionalLicenseFileName;
-    File? restoredAdditionalDocumentFile;
-    String? restoredAdditionalDocumentFileName;
     List<File> restoredFrontStoreImages = [];
     File? restoredStoreLogo;
     File? restoredProfileBanner;
     Uint8List? restoredSignatureBytes;
+
+    // Declare here to be visible in setState later
+    List<AdditionalDocumentModel> restoredAdditionalDocuments = [];
 
     // Helper function to restore files
     Future<void> restoreFile(
@@ -314,10 +326,35 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
         restoredProfessionalLicenseFileName = fileName;
       });
 
-      await restoreFile(draft.additionalDocumentFilePath, (file, fileName) {
-        restoredAdditionalDocumentFile = file;
-        restoredAdditionalDocumentFileName = fileName;
-      });
+      // Restore additional documents
+      restoredAdditionalDocuments = [];
+      for (final doc in draft.additionalDocuments) {
+        File? docFile;
+        final docPath = doc['filePath'];
+        if (docPath != null && docPath.isNotEmpty) {
+          try {
+            final file = File(docPath);
+            if (await file.exists()) {
+              final fileSize = await file.length();
+              if (fileSize > 0) {
+                docFile = file;
+              }
+            }
+          } catch (e) {
+            print('❌ Error restoring additional document file: $e');
+          }
+        }
+        restoredAdditionalDocuments.add(
+          AdditionalDocumentModel(
+            name: doc['name'] ?? '',
+            number: doc['number'] ?? '',
+            expiryDate: doc['expiryDate'] ?? '',
+            file: docFile,
+            fileName: docFile?.path.split('/').last,
+            fileUrl: docPath, // Use filePath as URL equivalent for draft
+          ),
+        );
+      }
 
       // Restore front store images
       for (final imagePath in draft.frontStoreImagePaths) {
@@ -417,15 +454,15 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
             draft.businessRegistrationNumber;
         _professionalLicenseNumberController.text =
             draft.professionalLicenseNumber;
-        _additionalDocumentNameController.text = draft.additionalDocumentName;
         _panCardExpiryDateController.text = draft.panCardExpiryDate ?? '';
         _gstExpiryDateController.text = draft.gstExpiryDate ?? '';
         _businessRegistrationExpiryDateController.text =
             draft.businessRegistrationExpiryDate ?? '';
         _professionalLicenseExpiryDateController.text =
             draft.professionalLicenseExpiryDate ?? '';
-        _additionalDocumentExpiryDateController.text =
-            draft.additionalDocumentExpiryDate ?? '';
+
+        // Additional Documents
+        _additionalDocuments = restoredAdditionalDocuments;
 
         // Images and Files
         _aadhaarFrontImage = restoredAadhaarFrontImage;
@@ -438,8 +475,6 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
         _businessRegistrationFileName = restoredBusinessRegistrationFileName;
         _professionalLicenseFile = restoredProfessionalLicenseFile;
         _professionalLicenseFileName = restoredProfessionalLicenseFileName;
-        _additionalDocumentFile = restoredAdditionalDocumentFile;
-        _additionalDocumentFileName = restoredAdditionalDocumentFileName;
         _frontStoreImages = restoredFrontStoreImages;
         _storeLogo = restoredStoreLogo;
         _profileBanner = restoredProfileBanner;
@@ -596,17 +631,38 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
                 vendor.expiryDates[plIndex];
         }
 
-        // Find Additional Document
-        final usedIndices = {panIndex, gstIndex, brIndex, plIndex};
+        // Populate Additional Documents
+        // Filter out mandatory documents to find additional ones
+        final mandatoryDocNames = [
+          'PAN Card',
+          'GST Certificate',
+          'Business Registration',
+          'Professional License',
+        ];
+
+        _additionalDocuments = [];
+        // docNames is non-nullable list
         for (int i = 0; i < vendor.docNames.length; i++) {
-          if (!usedIndices.contains(i)) {
-            _additionalDocumentNameController.text = vendor.docNames[i];
-            if (i < vendor.docUrls.length)
-              _additionalDocumentUrl = vendor.docUrls[i];
-            if (i < vendor.expiryDates.length)
-              _additionalDocumentExpiryDateController.text =
-                  vendor.expiryDates[i];
-            break; // Only support one additional doc
+          final docName = vendor.docNames[i];
+          // Check if this document name is not one of the mandatory ones
+          if (!mandatoryDocNames.any(
+            (mName) => docName.toLowerCase().contains(mName.toLowerCase()),
+          )) {
+            // This is an additional document
+            final doc = AdditionalDocumentModel(
+              name: docName,
+              number: (i < vendor.documentNumbers.length)
+                  ? vendor.documentNumbers[i]
+                  : '',
+              expiryDate: (i < vendor.expiryDates.length)
+                  ? vendor.expiryDates[i]
+                  : '',
+            );
+            // Try to find file/url if available
+            if (i < vendor.docUrls.length) {
+              doc.fileUrl = vendor.docUrls[i];
+            }
+            _additionalDocuments.add(doc);
           }
         }
       }
@@ -626,8 +682,31 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
     });
 
     // Update categories mapping after prefilling
+    // Update categories mapping after prefilling
     if (_categoriesLoaded) {
       _updateCategoryMappings();
+    }
+
+    // Initialize Stepper State for Edit Mode
+    // Since this is an existing vendor, we assume all sections are initially valid and completed.
+    if (mounted) {
+      final stepperBloc = context.read<VendorStepperBloc>();
+
+      // All 6 sections valid & completed
+      final allValid = List<bool>.generate(6, (_) => true);
+      final allCompleted = List<bool>.generate(6, (_) => true);
+
+      // Start at first section
+      final newExpanded = List<bool>.generate(6, (index) => index == 0);
+
+      stepperBloc.add(
+        VendorStepperRestoreState(
+          currentSection: 0,
+          sectionValidations: allValid,
+          sectionCompleted: allCompleted,
+          sectionExpanded: newExpanded,
+        ),
+      );
     }
   }
 
@@ -678,60 +757,56 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
       final draftBloc = context.read<DraftBloc>();
 
       // Extract form data
-      final formData = DraftHelper.extractFormData(
-        controllers: {
-          'firstName': _firstNameController,
-          'lastName': _lastNameController,
-          'email': _emailController,
-          'mobile': _phoneController,
-          'aadhaarNumber': _aadhaarNumberController,
-          'residentialAddress': _residentialAddressController,
-          'businessName': _businessNameController,
-          'businessLegalName': _businessLegalNameController,
-          'businessEmail': _businessEmailController,
-          'businessMobile': _businessMobileController,
-          'altBusinessMobile': _altBusinessMobileController,
-          'businessAddress': _businessAddressController,
-          'accountNumber': _accountNumberController,
-          'accountHolderName': _accountHolderNameController,
-          'ifscCode': _ifscCodeController,
-          'bankName': _bankNameController,
-          'bankBranch': _bankBranchController,
-          'panCardNumber': _panCardNumberController,
-          'gstCertificateNumber': _gstCertificateNumberController,
-          'businessRegistrationNumber': _businessRegistrationNumberController,
-          'professionalLicenseNumber': _professionalLicenseNumberController,
-          'additionalDocumentName': _additionalDocumentNameController,
-          'panCardExpiryDate': _panCardExpiryDateController,
-          'gstExpiryDate': _gstExpiryDateController,
-          'businessRegistrationExpiryDate':
-              _businessRegistrationExpiryDateController,
-          'professionalLicenseExpiryDate':
-              _professionalLicenseExpiryDateController,
-          'additionalDocumentExpiryDate':
-              _additionalDocumentExpiryDateController,
-        },
-        aadhaarFrontImage: _aadhaarFrontImage,
-        aadhaarBackImage: _aadhaarBackImage,
-        panCardFile: _panCardFile,
-        gstCertificateFile: _gstCertificateFile,
-        businessRegistrationFile: _businessRegistrationFile,
-        professionalLicenseFile: _professionalLicenseFile,
-        additionalDocumentFile: _additionalDocumentFile,
-        frontStoreImages: _frontStoreImages,
-        storeLogo: _storeLogo,
-        profileBanner: _profileBanner,
-        signatureBytes: _signatureBytes,
-        categories: _selectedBusinessCategories,
-        signerName: _signerNameController.text,
-        acceptedTerms: _acceptedTerms,
-        consentAccepted: _consentAccepted,
-        pricingAgreementAccepted: _pricingAgreementAccepted,
-        slvAgreementAccepted: _slvAgreementAccepted,
-        idProofType: _selectedIdProofType,
-        latitude: _businessLatitude,
-        longitude: _businessLongitude,
-      );
+      final formData = {
+        'firstName': _firstNameController.text,
+        'lastName': _lastNameController.text,
+        'mobile': _phoneController.text, // Mobile from Personal Details
+        'email': _emailController.text,
+        'businessName': _businessNameController.text,
+        'businessLegalName': _businessLegalNameController.text,
+        'businessEmail': _businessEmailController.text,
+        'businessMobile': _businessMobileController.text,
+        'altBusinessMobile': _altBusinessMobileController.text,
+        'businessAddress': _businessAddressController.text,
+        'accountNumber': _accountNumberController.text,
+        'accountHolderName': _accountHolderNameController.text,
+        'ifscCode': _ifscCodeController.text,
+        'bankName': _bankNameController.text,
+        'bankBranch': _bankBranchController.text,
+        'panCardNumber': _panCardNumberController.text,
+        'gstCertificateNumber': _gstCertificateNumberController.text,
+        'businessRegistrationNumber':
+            _businessRegistrationNumberController.text,
+        'professionalLicenseNumber': _professionalLicenseNumberController.text,
+        'panCardExpiryDate': _panCardExpiryDateController.text,
+        'gstExpiryDate': _gstExpiryDateController.text,
+        'businessRegistrationExpiryDate':
+            _businessRegistrationExpiryDateController.text,
+        'professionalLicenseExpiryDate':
+            _professionalLicenseExpiryDateController.text,
+        'additionalDocuments': _additionalDocuments, // Pass the list model
+        'businessRegistrationFile': _businessRegistrationFile,
+        'gstCertificateFile': _gstCertificateFile,
+        'panCardFile': _panCardFile,
+        'professionalLicenseFile': _professionalLicenseFile,
+        'frontStoreImages': _frontStoreImages,
+        'storeLogo': _storeLogo,
+        'profileBanner': _profileBanner,
+        'signatureBytes': _signatureBytes,
+        'categories': _selectedBusinessCategories,
+        'latitude': _businessLatitude,
+        'longitude': _businessLongitude,
+        'aadhaarCardNumber': _aadhaarNumberController.text,
+        'residentialAddress': _residentialAddressController.text,
+        'aadhaarFrontImage': _aadhaarFrontImage,
+        'aadhaarBackImage': _aadhaarBackImage,
+        'signName': _signerNameController.text,
+        'idProofType': _selectedIdProofType,
+        'acceptedTerms': _acceptedTerms,
+        'consentAccepted': _consentAccepted,
+        'pricingAgreementAccepted': _pricingAgreementAccepted,
+        'slvAgreementAccepted': _slvAgreementAccepted,
+      };
 
       // Check if a draft already exists for this vendor (by business name + mobile)
       // This prevents duplicate drafts for the same vendor
@@ -811,12 +886,16 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
     _gstCertificateNumberController.dispose();
     _businessRegistrationNumberController.dispose();
     _professionalLicenseNumberController.dispose();
-    _additionalDocumentNameController.dispose();
+
+    // Dispose dynamic documents
+    for (var doc in _additionalDocuments) {
+      doc.dispose();
+    }
+
     _panCardExpiryDateController.dispose();
     _gstExpiryDateController.dispose();
     _businessRegistrationExpiryDateController.dispose();
     _professionalLicenseExpiryDateController.dispose();
-    _additionalDocumentExpiryDateController.dispose();
     _signatureController.dispose();
     _signerNameController.dispose();
     super.dispose();
@@ -859,11 +938,31 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
           _professionalLicenseFile = file;
           _professionalLicenseFileName = fileName;
           break;
-        case 'additional_document':
-          _additionalDocumentFile = file;
-          _additionalDocumentFileName = fileName;
-          break;
       }
+    });
+  }
+
+  void _addAdditionalDocument() {
+    setState(() {
+      _additionalDocuments.add(AdditionalDocumentModel());
+    });
+  }
+
+  void _removeAdditionalDocument(int index) {
+    setState(() {
+      _additionalDocuments[index].dispose();
+      _additionalDocuments.removeAt(index);
+    });
+  }
+
+  void _onAdditionalDocumentFileSelected(
+    int index,
+    File? file,
+    String? fileName,
+  ) {
+    setState(() {
+      _additionalDocuments[index].file = file;
+      _additionalDocuments[index].fileName = fileName;
     });
   }
 
@@ -1052,8 +1151,8 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
         'GST Certificate',
         'Business Registration',
         'Professional License',
-        if (_additionalDocumentNameController.text.isNotEmpty)
-          _additionalDocumentNameController.text,
+        // Add names from dynamic additional documents
+        ..._additionalDocuments.map((doc) => doc.nameController.text),
       ],
       docIds: [
         _panCardNumberController.text.isNotEmpty
@@ -1068,31 +1167,32 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
         _professionalLicenseNumberController.text.isNotEmpty
             ? _professionalLicenseNumberController.text
             : 'PL',
-        if (_additionalDocumentNameController.text.isNotEmpty)
-          'ADDITIONAL', // ID for additional doc
+        // Add IDs for additional docs (using number as ID placeholder or 'ADDITIONAL')
+        ..._additionalDocuments.map((doc) => 'ADDITIONAL'),
       ],
       documentNumbers: [
         _panCardNumberController.text,
         _gstCertificateNumberController.text,
         _businessRegistrationNumberController.text,
         _professionalLicenseNumberController.text,
-        if (_additionalDocumentNameController.text.isNotEmpty) '',
+        // Add numbers from additional documents
+        ..._additionalDocuments.map((doc) => doc.numberController.text),
       ],
       expiryDates: [
         _panCardExpiryDateController.text,
         _gstExpiryDateController.text,
         _businessRegistrationExpiryDateController.text,
         _professionalLicenseExpiryDateController.text,
-        if (_additionalDocumentNameController.text.isNotEmpty)
-          _additionalDocumentExpiryDateController.text,
+        // Add expiry dates from additional documents
+        ..._additionalDocuments.map((doc) => doc.expiryDateController.text),
       ],
       files: [
         _panCardFile,
         _gstCertificateFile,
         _businessRegistrationFile,
         _professionalLicenseFile,
-        if (_additionalDocumentNameController.text.isNotEmpty)
-          _additionalDocumentFile,
+        // Add files from additional documents
+        ..._additionalDocuments.map((doc) => doc.file),
       ],
       frontimages: _frontStoreImages,
       backimages: [],
@@ -1172,25 +1272,25 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
       _bankBranchController.clear();
       _panCardNumberController.clear();
       _gstCertificateNumberController.clear();
-      _businessRegistrationNumberController.clear();
       _professionalLicenseNumberController.clear();
-      _additionalDocumentNameController.clear();
+      _additionalDocuments.forEach((doc) => doc.dispose());
+      _additionalDocuments.clear();
       _selectedBusinessCategories = [];
       _businessRegistrationFile = null;
       _gstCertificateFile = null;
       _panCardFile = null;
       _professionalLicenseFile = null;
-      _additionalDocumentFile = null;
+      // additional docs cleared above
       _businessRegistrationFileName = null;
       _gstCertificateFileName = null;
       _panCardFileName = null;
       _professionalLicenseFileName = null;
-      _additionalDocumentFileName = null;
+      // additional docs cleared above
       _businessRegistrationUrl = null;
       _gstCertificateUrl = null;
       _panCardUrl = null;
       _professionalLicenseUrl = null;
-      _additionalDocumentUrl = null;
+      // additional docs cleared above
       _frontStoreImages = [];
       _frontStoreImageUrls = [];
       _storeLogo = null;
@@ -1296,24 +1396,27 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
           gstCertificateFileName: _gstCertificateFileName,
           panCardFileName: _panCardFileName,
           professionalLicenseFileName: _professionalLicenseFileName,
-          additionalDocumentFile: _additionalDocumentFile,
-          additionalDocumentUrl: _additionalDocumentUrl,
-          additionalDocumentFileName: _additionalDocumentFileName,
+
+          // Dynamic Additional Documents parameters
+          additionalDocuments: _additionalDocuments,
+          onAddDocument: _addAdditionalDocument,
+          onRemoveDocument: _removeAdditionalDocument,
+          onDocumentFileSelected: _onAdditionalDocumentFileSelected,
+
           panCardNumberController: _panCardNumberController,
           gstCertificateNumberController: _gstCertificateNumberController,
           businessRegistrationNumberController:
               _businessRegistrationNumberController,
           professionalLicenseNumberController:
               _professionalLicenseNumberController,
-          additionalDocumentNameController: _additionalDocumentNameController,
+
           panCardExpiryDateController: _panCardExpiryDateController,
           gstExpiryDateController: _gstExpiryDateController,
           businessRegistrationExpiryDateController:
               _businessRegistrationExpiryDateController,
           professionalLicenseExpiryDateController:
               _professionalLicenseExpiryDateController,
-          additionalDocumentExpiryDateController:
-              _additionalDocumentExpiryDateController,
+
           enabled: enabled,
           onFileSelected: _onFileSelected,
           onValidationChanged: (isValid) {

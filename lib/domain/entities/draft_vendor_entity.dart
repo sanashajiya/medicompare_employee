@@ -59,7 +59,16 @@ class DraftVendorEntity extends Equatable {
   final String? storeLogoPath;
   final String? profileBannerPath;
 
-  // Signature
+  // Additional Documents (Dynamic List)
+  // Each item is a Map: {
+  //   'name': 'Doc Name',
+  //   'number': 'Doc Number', // Added as per requirement
+  //   'expiryDate': 'yyyy-mm-dd',
+  //   'filePath': '/path/to/file'
+  // }
+  final List<Map<String, String>> additionalDocuments;
+
+  // Signer Name
   final String? signatureImagePath;
   final String? signerName;
   final bool acceptedTerms;
@@ -111,9 +120,11 @@ class DraftVendorEntity extends Equatable {
     this.professionalLicenseNumber = '',
     this.professionalLicenseFilePath,
     this.professionalLicenseExpiryDate,
+    // Deprecated single fields kept for migration
     this.additionalDocumentName = '',
     this.additionalDocumentFilePath,
     this.additionalDocumentExpiryDate,
+    this.additionalDocuments = const [],
     this.frontStoreImagePaths = const [],
     this.storeLogoPath,
     this.profileBannerPath,
@@ -209,6 +220,7 @@ class DraftVendorEntity extends Equatable {
     String? additionalDocumentName,
     String? additionalDocumentFilePath,
     String? additionalDocumentExpiryDate,
+    List<Map<String, String>>? additionalDocuments,
     List<String>? frontStoreImagePaths,
     String? storeLogoPath,
     String? profileBannerPath,
@@ -275,6 +287,7 @@ class DraftVendorEntity extends Equatable {
           additionalDocumentFilePath ?? this.additionalDocumentFilePath,
       additionalDocumentExpiryDate:
           additionalDocumentExpiryDate ?? this.additionalDocumentExpiryDate,
+      additionalDocuments: additionalDocuments ?? this.additionalDocuments,
       frontStoreImagePaths: frontStoreImagePaths ?? this.frontStoreImagePaths,
       storeLogoPath: storeLogoPath ?? this.storeLogoPath,
       profileBannerPath: profileBannerPath ?? this.profileBannerPath,
@@ -334,6 +347,7 @@ class DraftVendorEntity extends Equatable {
     additionalDocumentName,
     additionalDocumentFilePath,
     additionalDocumentExpiryDate,
+    additionalDocuments,
     frontStoreImagePaths,
     storeLogoPath,
     profileBannerPath,
