@@ -351,30 +351,44 @@ class _VendorListScreenState extends State<VendorListScreen> {
 
     // Then filter by search query
     final searchQuery = _searchController.text.toLowerCase().trim();
+    List<VendorListItemEntity> searchFiltered;
     if (searchQuery.isEmpty) {
-      return statusFiltered;
+      searchFiltered = statusFiltered;
+    } else {
+      searchFiltered = statusFiltered.where((vendor) {
+        // Search in multiple fields
+        final fullName = vendor.fullName.toLowerCase();
+        final firstName = vendor.firstName.toLowerCase();
+        final lastName = vendor.lastName.toLowerCase();
+        final email = vendor.email.toLowerCase();
+        final mobile = vendor.mobile.toLowerCase();
+        final vendorId = vendor.vendorsId?.toLowerCase() ?? '';
+        final businessName = vendor.businessName?.toLowerCase() ?? '';
+        final businessEmail = vendor.businessEmail?.toLowerCase() ?? '';
+
+        return fullName.contains(searchQuery) ||
+            firstName.contains(searchQuery) ||
+            lastName.contains(searchQuery) ||
+            email.contains(searchQuery) ||
+            mobile.contains(searchQuery) ||
+            vendorId.contains(searchQuery) ||
+            businessName.contains(searchQuery) ||
+            businessEmail.contains(searchQuery);
+      }).toList();
     }
 
-    return statusFiltered.where((vendor) {
-      // Search in multiple fields
-      final fullName = vendor.fullName.toLowerCase();
-      final firstName = vendor.firstName.toLowerCase();
-      final lastName = vendor.lastName.toLowerCase();
-      final email = vendor.email.toLowerCase();
-      final mobile = vendor.mobile.toLowerCase();
-      final vendorId = vendor.vendorsId?.toLowerCase() ?? '';
-      final businessName = vendor.businessName?.toLowerCase() ?? '';
-      final businessEmail = vendor.businessEmail?.toLowerCase() ?? '';
+    // Finally, sort by createdAt in descending order (newest first)
+    searchFiltered.sort((a, b) {
+      // Handle null createdAt values - place them at the end
+      if (a.createdAt == null && b.createdAt == null) return 0;
+      if (a.createdAt == null) return 1;
+      if (b.createdAt == null) return -1;
 
-      return fullName.contains(searchQuery) ||
-          firstName.contains(searchQuery) ||
-          lastName.contains(searchQuery) ||
-          email.contains(searchQuery) ||
-          mobile.contains(searchQuery) ||
-          vendorId.contains(searchQuery) ||
-          businessName.contains(searchQuery) ||
-          businessEmail.contains(searchQuery);
-    }).toList();
+      // Sort in descending order (newest first)
+      return b.createdAt!.compareTo(a.createdAt!);
+    });
+
+    return searchFiltered;
   }
 }
 
