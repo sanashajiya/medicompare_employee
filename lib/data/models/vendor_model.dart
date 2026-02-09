@@ -57,6 +57,11 @@ class VendorModel extends VendorEntity {
     super.slvAgreementAccepted,
     super.success,
     super.message,
+    super.verifyStatus,
+    super.adhaarfrontimagestatus,
+    super.adhaarbackimagestatus,
+    super.signatureStatus,
+    super.documentStatuses,
   });
 
   // Helper to ensure full URL with prefix
@@ -89,6 +94,24 @@ class VendorModel extends VendorEntity {
       parsedDocUrls = List<String>.from(
         json['doc_path'],
       ).map((e) => _getFullUrl(e) ?? '').toList();
+    }
+
+    // Parse document verification statuses
+    List<Map<String, dynamic>>? documentStatuses;
+    if (json['documents'] != null &&
+        json['documents']['documentsDetails'] is List) {
+      final docDetails = json['documents']['documentsDetails'] as List;
+      documentStatuses = docDetails
+          .map((doc) {
+            return {
+              'docId': doc['doc_id'] ?? doc['name'] ?? '',
+              'name': doc['name'] ?? '',
+              'isVerified': doc['isVerified'],
+              'rejectionReason': doc['rejectionReason'],
+            };
+          })
+          .toList()
+          .cast<Map<String, dynamic>>();
     }
 
     return VendorModel(
@@ -167,6 +190,15 @@ class VendorModel extends VendorEntity {
           json['slvagreement'] ?? json['slvAgreementAccepted'] ?? false,
       success: json['success'],
       message: json['message'],
+      verifyStatus: json['verifyStatus'] as String?,
+      adhaarfrontimagestatus: json['adhaarfrontimagestatus'] as String?,
+      adhaarbackimagestatus: json['adhaarbackimagestatus'] as String?,
+      signatureStatus:
+          (json['documents'] != null &&
+              json['documents']['signatureStatus'] != null)
+          ? json['documents']['signatureStatus'] as String?
+          : json['signatureStatus'] as String?, // Fallback to root level
+      documentStatuses: documentStatuses,
       aadhaarFrontImageUrl: getFirstPath('adhaarfrontimage'),
       aadhaarBackImageUrl: getFirstPath('adhaarbackimage'),
     );
@@ -214,6 +246,25 @@ class VendorModel extends VendorEntity {
         );
         docUrls.add(_getFullUrl(doc['path']?.toString()) ?? '');
       }
+    }
+
+    // Parse document verification statuses
+    List<Map<String, dynamic>>? documentStatuses;
+    if (documentsDetails.isNotEmpty) {
+      documentStatuses = documentsDetails
+          .map((doc) {
+            if (doc is Map<String, dynamic>) {
+              return {
+                'docId': doc['doc_id'] ?? doc['name'] ?? '',
+                'name': doc['name'] ?? '',
+                'isVerified': doc['isVerified'],
+                'rejectionReason': doc['rejectionReason'],
+              };
+            }
+            return <String, dynamic>{};
+          })
+          .toList()
+          .cast<Map<String, dynamic>>();
     }
 
     // Front Images
@@ -349,6 +400,15 @@ class VendorModel extends VendorEntity {
       // Status fields
       success: true,
       message: 'Parsed from list',
+      verifyStatus: json['verifyStatus'] as String?,
+      adhaarfrontimagestatus: json['adhaarfrontimagestatus'] as String?,
+      adhaarbackimagestatus: json['adhaarbackimagestatus'] as String?,
+      signatureStatus:
+          (json['documents'] != null &&
+              json['documents']['signatureStatus'] != null)
+          ? json['documents']['signatureStatus'] as String?
+          : json['signatureStatus'] as String?, // Fallback to root level
+      documentStatuses: documentStatuses,
     );
   }
 
@@ -405,6 +465,11 @@ class VendorModel extends VendorEntity {
       slvAgreementAccepted: entity.slvAgreementAccepted,
       success: entity.success,
       message: entity.message,
+      verifyStatus: entity.verifyStatus,
+      adhaarfrontimagestatus: entity.adhaarfrontimagestatus,
+      adhaarbackimagestatus: entity.adhaarbackimagestatus,
+      signatureStatus: entity.signatureStatus,
+      documentStatuses: entity.documentStatuses,
     );
   }
 

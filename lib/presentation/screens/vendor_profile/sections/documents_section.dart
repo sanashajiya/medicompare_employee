@@ -7,8 +7,10 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/validators.dart';
+import '../../../../domain/entities/vendor_entity.dart';
 import '../../../widgets/custom_text_field.dart';
 import '../../../widgets/file_upload_field.dart';
+import '../../../widgets/rejection_banner.dart';
 import '../models/additional_document_model.dart'; // New import
 
 class DocumentsSection extends StatefulWidget {
@@ -46,6 +48,9 @@ class DocumentsSection extends StatefulWidget {
   final Function(String fieldName, File? file, String? fileName) onFileSelected;
   final Function(bool isValid) onValidationChanged;
   final bool showErrors; // New field
+  final VendorEntity? vendorDetails; // For rejection highlighting
+  final Map<String, bool> reuploadedDocuments;
+  final Function(String)? onDocumentReuploaded;
 
   const DocumentsSection({
     super.key,
@@ -77,6 +82,9 @@ class DocumentsSection extends StatefulWidget {
     required this.onFileSelected,
     required this.onValidationChanged,
     this.showErrors = false, // New
+    this.vendorDetails, // For rejection highlighting
+    this.reuploadedDocuments = const {},
+    this.onDocumentReuploaded,
   });
 
   @override
@@ -447,6 +455,9 @@ class _DocumentsSectionState extends State<DocumentsSection> {
       if (!await _validateFileAsync(file, fileName, fieldName)) return;
 
       widget.onFileSelected(fieldName, file, fileName);
+      widget.onDocumentReuploaded?.call(
+        fieldName,
+      ); // Notify parent about re-upload
       if (!_showErrors) setState(() => _showErrors = true);
       _validate();
     } catch (e) {
@@ -471,6 +482,9 @@ class _DocumentsSectionState extends State<DocumentsSection> {
       if (!await _validateFileAsync(file, fileName, fieldName)) return;
 
       widget.onFileSelected(fieldName, file, fileName);
+      widget.onDocumentReuploaded?.call(
+        fieldName,
+      ); // Notify parent about re-upload
       if (!_showErrors) setState(() => _showErrors = true);
       _validate();
     } catch (e) {
@@ -497,6 +511,9 @@ class _DocumentsSectionState extends State<DocumentsSection> {
       if (!await _validateFileAsync(file, fileName, fieldName)) return;
 
       widget.onFileSelected(fieldName, file, fileName);
+      widget.onDocumentReuploaded?.call(
+        fieldName,
+      ); // Notify parent about re-upload
       if (!_showErrors) setState(() => _showErrors = true);
       _validate();
     } catch (e) {
@@ -657,6 +674,28 @@ class _DocumentsSectionState extends State<DocumentsSection> {
     _validate();
   }
 
+  /// Helper method to get document verification status
+  Map<String, dynamic>? _getDocumentStatus(String docId) {
+    if (widget.vendorDetails?.documentStatuses == null) return null;
+
+    try {
+      return widget.vendorDetails!.documentStatuses!.firstWhere((status) {
+        final statusDocId = status['docId']?.toString().toLowerCase() ?? '';
+        final statusName = status['name']?.toString().toLowerCase() ?? '';
+        final searchId = docId.toLowerCase().replaceAll('_', ' ');
+
+        // Match by name field (e.g., "PAN Card" matches "pan_card")
+        // or by doc_id if it contains the search term
+        return statusName.contains(searchId) ||
+            searchId.contains(statusName) ||
+            statusDocId == docId.toLowerCase() ||
+            statusName.replaceAll(' ', '_') == docId.toLowerCase();
+      });
+    } catch (e) {
+      return null;
+    }
+  }
+
   Widget _buildDocumentCard({
     required String title,
     required TextEditingController numberController,
@@ -671,13 +710,56 @@ class _DocumentsSectionState extends State<DocumentsSection> {
     List<TextInputFormatter>? inputFormatters,
     required FocusNode focusNode,
   }) {
+    // Check document verification status
+    final docStatus = _getDocumentStatus(fieldKey);
+    final isPendingVendor =
+        widget.vendorDetails?.verifyStatus?.toLowerCase() == 'pending';
+
+    // Determine if we are in Edit Mode
+    final isEditing = widget.vendorDetails != null;
+
+    // Check if reuploaded locally
+    final isReuploaded = widget.reuploadedDocuments[fieldKey] == true;
+
+    // API Status
+    final apiStatus = docStatus?['isVerified']?.toString().toLowerCase();
+
+    // Effective Status:
+    // If NOT editing -> null (no status)
+    // If editing:
+    //   If reuploaded -> 'pending'
+    //   Else -> API Status
+    final effectiveStatus = isEditing
+        ? (isReuploaded ? 'pending' : (apiStatus ?? 'pending'))
+        : null;
+
+    final isRejected = isPendingVendor && effectiveStatus == 'rejected';
+    final isApproved = effectiveStatus == 'approved';
+    final isPending = effectiveStatus == 'pending';
+    final rejectionReason = docStatus?['rejectionReason']?.toString();
+
+    // Show status UI only if editing
+    final showStatus = isEditing;
+
+    // Colors
+    final statusColor = showStatus
+        ? (isRejected
+              ? AppColors.error
+              : (isApproved ? AppColors.success : AppColors.warning))
+        : AppColors.border; // Neutral validation color or just border
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: showStatus ? statusColor.withOpacity(0.05) : Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(
+          color: showStatus
+              ? statusColor.withOpacity(isPending ? 1.0 : 0.5)
+              : AppColors.border.withOpacity(0.5),
+          width: showStatus && (isRejected || isPending) ? 2 : 1,
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
@@ -704,17 +786,72 @@ class _DocumentsSectionState extends State<DocumentsSection> {
             ],
           ),
           const SizedBox(height: 16),
+          // Document Info & Status - Only show if Editing
+          if (showStatus)
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: statusColor.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: statusColor.withOpacity(isPending ? 1.0 : 0.5),
+                  width: isRejected || isPending ? 2 : 1.5,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    isRejected
+                        ? Icons.error_outline
+                        : (isApproved
+                              ? Icons.check_circle
+                              : Icons.hourglass_empty),
+                    color: statusColor,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          isRejected
+                              ? 'Rejected – Action Required'
+                              : (isApproved ? 'Verified' : 'Pending Approval'),
+                          style: TextStyle(
+                            color: statusColor,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        if (rejectionReason != null && isRejected)
+                          Text(
+                            rejectionReason,
+                            style: TextStyle(color: statusColor, fontSize: 12),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+          const SizedBox(height: 16),
           CustomTextField(
             controller: numberController,
             focusNode: focusNode,
             label: 'Document Number',
             hint: numberHint,
-            enabled: widget.enabled,
+            enabled: widget.enabled && !isApproved, // Disable if approved
             inputFormatters: inputFormatters,
             onChanged: (_) => _validate(), // Added onChanged for validation
           ),
           const SizedBox(height: 16),
-          _buildExpiryDateField(expiryDateController, isMandatory),
+          _buildExpiryDateField(
+            expiryDateController,
+            isMandatory,
+            isApproved: isApproved,
+          ),
           const SizedBox(height: 16),
           FileUploadField(
             label: 'Upload $title',
@@ -723,10 +860,62 @@ class _DocumentsSectionState extends State<DocumentsSection> {
             fileUrl: url,
             errorText: errorText,
             required: isMandatory,
-            enabled: widget.enabled,
+            enabled:
+                widget.enabled && !isApproved, // Disable upload if approved
             onTap: () => _showUploadOptions(fieldKey),
-            onRemove: () => _removeFile(fieldKey),
+            onRemove: isApproved
+                ? null
+                : () => _removeFile(fieldKey), // Disable remove if approved
           ),
+          // Show rejection banner if rejected
+          if (isRejected &&
+              rejectionReason != null &&
+              rejectionReason.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 16),
+              child: RejectionBanner(
+                reason: rejectionReason,
+                title: 'Document Rejected',
+                onReupload: widget.enabled
+                    ? () {
+                        widget.onDocumentReuploaded?.call(fieldKey);
+                        _showUploadOptions(fieldKey);
+                      }
+                    : null,
+              ),
+            ),
+          // Show approved lock message
+          if (isApproved)
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppColors.success.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.success.withOpacity(0.2)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.lock_outline,
+                      size: 16,
+                      color: AppColors.success,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'This document has been approved and cannot be modified',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.success.withOpacity(0.9),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -734,16 +923,19 @@ class _DocumentsSectionState extends State<DocumentsSection> {
 
   Widget _buildExpiryDateField(
     TextEditingController controller,
-    bool isMandatory,
-  ) {
+    bool isMandatory, {
+    bool isApproved = false,
+  }) {
     return GestureDetector(
-      onTap: widget.enabled ? () => _selectDate(controller) : null,
+      onTap: (widget.enabled && !isApproved)
+          ? () => _selectDate(controller)
+          : null,
       child: AbsorbPointer(
         child: CustomTextField(
           controller: controller,
           label: isMandatory ? 'Expiry Date *' : 'Expiry Date',
           hint: 'yyyy-mm-dd',
-          enabled: widget.enabled,
+          enabled: widget.enabled && !isApproved,
           suffixIcon: const Icon(
             Icons.calendar_today_outlined,
             color: AppColors.textSecondary,

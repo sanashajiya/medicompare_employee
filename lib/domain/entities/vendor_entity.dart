@@ -63,6 +63,15 @@ class VendorEntity extends Equatable {
   final bool? success;
   final String? message;
 
+  // Verification Status Fields (for rejection highlighting)
+  final String?
+  verifyStatus; // Overall vendor status: "approved", "rejected", "pending", "processing"
+  final String? adhaarfrontimagestatus; // Aadhaar front image status
+  final String? adhaarbackimagestatus; // Aadhaar back image status
+  final String? signatureStatus; // Signature status
+  final List<Map<String, dynamic>>?
+  documentStatuses; // Per-document verification info
+
   // Image URLs (for Edit Mode)
   final String? aadhaarFrontImageUrl;
   final String? aadhaarBackImageUrl;
@@ -124,6 +133,11 @@ class VendorEntity extends Equatable {
     this.slvAgreementAccepted = false,
     this.success,
     this.message,
+    this.verifyStatus,
+    this.adhaarfrontimagestatus,
+    this.adhaarbackimagestatus,
+    this.signatureStatus,
+    this.documentStatuses,
   });
 
   VendorEntity copyWith({
@@ -177,6 +191,11 @@ class VendorEntity extends Equatable {
     bool? slvAgreementAccepted,
     bool? success,
     String? message,
+    String? verifyStatus,
+    String? adhaarfrontimagestatus,
+    String? adhaarbackimagestatus,
+    String? signatureStatus,
+    List<Map<String, dynamic>>? documentStatuses,
   }) {
     return VendorEntity(
       firstName: firstName ?? this.firstName,
@@ -230,6 +249,13 @@ class VendorEntity extends Equatable {
       slvAgreementAccepted: slvAgreementAccepted ?? this.slvAgreementAccepted,
       success: success ?? this.success,
       message: message ?? this.message,
+      verifyStatus: verifyStatus ?? this.verifyStatus,
+      adhaarfrontimagestatus:
+          adhaarfrontimagestatus ?? this.adhaarfrontimagestatus,
+      adhaarbackimagestatus:
+          adhaarbackimagestatus ?? this.adhaarbackimagestatus,
+      signatureStatus: signatureStatus ?? this.signatureStatus,
+      documentStatuses: documentStatuses ?? this.documentStatuses,
     );
   }
 
@@ -282,5 +308,10 @@ class VendorEntity extends Equatable {
     vendorId,
     success,
     message,
+    verifyStatus,
+    adhaarfrontimagestatus,
+    adhaarbackimagestatus,
+    signatureStatus,
+    documentStatuses,
   ];
 }

@@ -70,7 +70,17 @@ class _BusinessDetailsSectionState extends State<BusinessDetailsSection> {
   @override
   void dispose() {
     _debounce?.cancel();
+    _removeListeners();
     super.dispose();
+  }
+
+  void _removeListeners() {
+    widget.businessNameController.removeListener(_validate);
+    widget.businessLegalNameController.removeListener(_validate);
+    widget.businessEmailController.removeListener(_validate);
+    widget.businessMobileController.removeListener(_validate);
+    widget.altBusinessMobileController.removeListener(_validate);
+    widget.businessAddressController.removeListener(_validate);
   }
 
   @override
@@ -149,7 +159,7 @@ class _BusinessDetailsSectionState extends State<BusinessDetailsSection> {
 
     widget.onValidationChanged(isValid);
 
-    if (_showErrors) {
+    if (_showErrors && mounted) {
       setState(() {
         _businessNameError = businessNameError;
         _businessLegalNameError = businessLegalNameError;
@@ -201,6 +211,8 @@ class _BusinessDetailsSectionState extends State<BusinessDetailsSection> {
 
     try {
       final response = await http.get(uri);
+      if (!mounted) return;
+
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (data['status'] == 'OK') {

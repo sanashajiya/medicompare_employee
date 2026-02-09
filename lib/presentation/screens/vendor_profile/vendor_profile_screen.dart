@@ -160,6 +160,13 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
   List<File> _frontStoreImages = [];
   List<String> _frontStoreImageUrls = [];
 
+  // Re-upload status tracking (local state to change rejected -> pending)
+  bool _aadhaarFrontReuploaded = false;
+  bool _aadhaarBackReuploaded = false;
+  bool _signatureReuploaded = false;
+  Map<String, bool> _documentsReuploaded =
+      {}; // Track by document key (e.g., 'pan_card')
+
   // Terms
   bool _acceptedTerms = false;
   bool _consentAccepted = false;
@@ -542,6 +549,16 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
     }
   }
 
+  String _formatExpiryDate(String? dateStr) {
+    if (dateStr == null || dateStr.isEmpty) return '';
+    try {
+      final date = DateTime.parse(dateStr).toLocal();
+      return "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
+    } catch (e) {
+      return dateStr;
+    }
+  }
+
   Future<void> _prefillVendorDetails(VendorEntity vendor) async {
     if (!mounted) return;
 
@@ -629,7 +646,9 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
           if (panIndex < vendor.docUrls.length)
             _panCardUrl = vendor.docUrls[panIndex];
           if (panIndex < vendor.expiryDates.length)
-            _panCardExpiryDateController.text = vendor.expiryDates[panIndex];
+            _panCardExpiryDateController.text = _formatExpiryDate(
+              vendor.expiryDates[panIndex],
+            );
         }
 
         // Find GST Certificate
@@ -643,7 +662,9 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
           if (gstIndex < vendor.docUrls.length)
             _gstCertificateUrl = vendor.docUrls[gstIndex];
           if (gstIndex < vendor.expiryDates.length)
-            _gstExpiryDateController.text = vendor.expiryDates[gstIndex];
+            _gstExpiryDateController.text = _formatExpiryDate(
+              vendor.expiryDates[gstIndex],
+            );
         }
 
         // Find Business Registration
@@ -659,8 +680,9 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
           if (brIndex < vendor.docUrls.length)
             _businessRegistrationUrl = vendor.docUrls[brIndex];
           if (brIndex < vendor.expiryDates.length)
-            _businessRegistrationExpiryDateController.text =
-                vendor.expiryDates[brIndex];
+            _businessRegistrationExpiryDateController.text = _formatExpiryDate(
+              vendor.expiryDates[brIndex],
+            );
         }
 
         // Find Professional License
@@ -676,8 +698,9 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
           if (plIndex < vendor.docUrls.length)
             _professionalLicenseUrl = vendor.docUrls[plIndex];
           if (plIndex < vendor.expiryDates.length)
-            _professionalLicenseExpiryDateController.text =
-                vendor.expiryDates[plIndex];
+            _professionalLicenseExpiryDateController.text = _formatExpiryDate(
+              vendor.expiryDates[plIndex],
+            );
         }
 
         // Populate Additional Documents
@@ -704,7 +727,7 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
                   ? vendor.documentNumbers[i]
                   : '',
               expiryDate: (i < vendor.expiryDates.length)
-                  ? vendor.expiryDates[i]
+                  ? _formatExpiryDate(vendor.expiryDates[i])
                   : '',
             );
             // Try to find file/url if available
@@ -1387,6 +1410,20 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
           onIdProofTypeChanged: (value) {
             setState(() => _selectedIdProofType = value);
           },
+          vendorDetails: widget
+              .vendorDetails, // Pass vendor details for rejection highlighting
+          isAadhaarFrontReuploaded: _aadhaarFrontReuploaded,
+          isAadhaarBackReuploaded: _aadhaarBackReuploaded,
+          onAadhaarFrontReuploaded: () {
+            setState(() {
+              _aadhaarFrontReuploaded = true;
+            });
+          },
+          onAadhaarBackReuploaded: () {
+            setState(() {
+              _aadhaarBackReuploaded = true;
+            });
+          },
         );
       case 1:
         return BusinessDetailsSection(
@@ -1474,6 +1511,14 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
               VendorStepperSectionValidated(3, isValid),
             );
           },
+          vendorDetails: widget
+              .vendorDetails, // Pass vendor details for rejection highlighting
+          reuploadedDocuments: _documentsReuploaded,
+          onDocumentReuploaded: (key) {
+            setState(() {
+              _documentsReuploaded[key] = true;
+            });
+          },
         );
       case 4:
         return PhotosSection(
@@ -1519,7 +1564,13 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
           signatureImageUrl: _signatureImageUrl,
           acceptedTerms: _acceptedTerms,
           enabled: enabled,
-          onSignatureSaved: (bytes) => setState(() => _signatureBytes = bytes),
+          onSignatureSaved: (bytes) => setState(() {
+            _signatureBytes = bytes;
+            // Also clear the image URL when clearing signature for re-upload
+            if (bytes == null) {
+              _signatureImageUrl = null;
+            }
+          }),
           onTermsChanged: (value) => setState(() => _acceptedTerms = value),
           onValidationChanged: (isValid) {
             context.read<VendorStepperBloc>().add(
@@ -1534,6 +1585,14 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
           consentAccepted: _consentAccepted,
           pricingAgreementAccepted: _pricingAgreementAccepted,
           slvAgreementAccepted: _slvAgreementAccepted,
+          vendorDetails: widget
+              .vendorDetails, // Pass vendor details for rejection highlighting
+          isSignatureReuploaded: _signatureReuploaded,
+          onSignatureReuploaded: () {
+            setState(() {
+              _signatureReuploaded = true;
+            });
+          },
         );
       default:
         return const SizedBox();

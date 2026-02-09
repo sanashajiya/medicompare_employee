@@ -13,7 +13,9 @@ import 'package:signature/signature.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../domain/entities/vendor_entity.dart';
 import '../../../widgets/custom_text_field.dart';
+import '../../../widgets/rejection_banner.dart';
 
 class SignatureSection extends StatefulWidget {
   final SignatureController signatureController;
@@ -31,6 +33,9 @@ class SignatureSection extends StatefulWidget {
   final bool consentAccepted;
   final bool pricingAgreementAccepted;
   final bool slvAgreementAccepted;
+  final VendorEntity? vendorDetails; // For rejection highlighting
+  final bool isSignatureReuploaded;
+  final VoidCallback? onSignatureReuploaded;
 
   const SignatureSection({
     super.key,
@@ -49,6 +54,9 @@ class SignatureSection extends StatefulWidget {
     required this.consentAccepted,
     required this.pricingAgreementAccepted,
     required this.slvAgreementAccepted,
+    this.vendorDetails, // For rejection highlighting
+    this.isSignatureReuploaded = false,
+    this.onSignatureReuploaded,
   });
 
   @override
@@ -508,6 +516,7 @@ class _SignatureSectionState extends State<SignatureSection> {
     if (widget.signatureController.isNotEmpty) {
       final bytes = await widget.signatureController.toPngBytes();
       widget.onSignatureSaved(bytes);
+      widget.onSignatureReuploaded?.call(); // Mark as re-uploaded/newly signed
       if (!_showErrors) setState(() => _showErrors = true);
       _validate();
     }
@@ -521,6 +530,45 @@ class _SignatureSectionState extends State<SignatureSection> {
 
   @override
   Widget build(BuildContext context) {
+    // // Debug logging
+    // print('🔍 Signature Section Debug:');
+    // print('  verifyStatus: ${widget.vendorDetails?.verifyStatus}');
+    // print('  signatureStatus: ${widget.vendorDetails?.signatureStatus}');
+    // print(
+    //   '  Is Pending: ${widget.vendorDetails?.verifyStatus?.toLowerCase() == 'pending'}',
+    // );
+    // print(
+    //   '  Is Rejected: ${widget.vendorDetails?.signatureStatus?.toLowerCase() == 'rejected'}',
+    // );
+
+    // Status Logic
+    // Status Logic
+    // Determine if we are in Edit Mode
+    final isEditing = widget.vendorDetails != null;
+
+    final isPendingVendor =
+        widget.vendorDetails?.verifyStatus?.toLowerCase() == 'pending';
+    final apiStatus = widget.vendorDetails?.signatureStatus?.toLowerCase();
+
+    // If NOT editing -> null
+    // If editing:
+    //   If reuploaded -> 'pending'
+    //   Else -> API Status
+    final effectiveStatus = isEditing
+        ? (widget.isSignatureReuploaded ? 'pending' : (apiStatus ?? 'pending'))
+        : null;
+
+    final isRejected = isPendingVendor && effectiveStatus == 'rejected';
+    final isApproved = effectiveStatus == 'approved';
+    final isPending = effectiveStatus == 'pending';
+
+    // Colors
+    final statusColor = isRejected
+        ? AppColors.error
+        : (isApproved
+              ? AppColors.success
+              : (isPending ? AppColors.warning : AppColors.success));
+
     final hasSignature =
         widget.signatureBytes != null ||
         (widget.signatureImageUrl != null &&
@@ -562,11 +610,11 @@ class _SignatureSectionState extends State<SignatureSection> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: AppColors.success.withOpacity(0.1),
+              color: statusColor.withOpacity(0.05),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: AppColors.success.withOpacity(0.3),
-                width: 1.5,
+                color: statusColor.withOpacity(isPending ? 1.0 : 0.5),
+                width: isRejected || isPending ? 2 : 1.5,
               ),
             ),
             child: Column(
@@ -575,17 +623,31 @@ class _SignatureSectionState extends State<SignatureSection> {
                 Row(
                   children: [
                     Icon(
-                      Icons.check_circle,
-                      color: AppColors.success,
+                      isRejected
+                          ? Icons.error_outline
+                          : (isApproved
+                                ? Icons.check_circle
+                                : (isPending
+                                      ? Icons.hourglass_empty
+                                      : Icons.check_circle_outline)),
+                      color: statusColor,
                       size: 18,
                     ),
                     const SizedBox(width: 8),
-                    Text(
-                      'Saved Signature',
-                      style: TextStyle(
-                        color: AppColors.success,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
+                    Expanded(
+                      child: Text(
+                        isRejected
+                            ? 'Rejected – Please re-upload'
+                            : (isApproved
+                                  ? 'Saved Signature'
+                                  : (isPending
+                                        ? 'Pending Approval'
+                                        : 'Saved Signature')),
+                        style: TextStyle(
+                          color: statusColor,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ],
@@ -597,7 +659,8 @@ class _SignatureSectionState extends State<SignatureSection> {
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                      color: AppColors.border.withOpacity(0.5),
+                      color: statusColor.withOpacity(isPending ? 1.0 : 0.5),
+                      width: isRejected || isPending ? 2 : 1,
                     ),
                   ),
                   child: ClipRRect(
@@ -619,9 +682,15 @@ class _SignatureSectionState extends State<SignatureSection> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'You can clear and redraw if needed',
+                  isRejected
+                      ? 'Please clear and provide a new signature'
+                      : (isApproved
+                            ? 'Signature verified'
+                            : (isPending
+                                  ? 'Signature pending approval'
+                                  : 'Signature saved')),
                   style: TextStyle(
-                    color: AppColors.textSecondary,
+                    color: statusColor,
                     fontSize: 12,
                     fontStyle: FontStyle.italic,
                   ),
@@ -629,6 +698,21 @@ class _SignatureSectionState extends State<SignatureSection> {
               ],
             ),
           ),
+          // Show rejection banner if signature is rejected
+          if (isRejected)
+            Padding(
+              padding: const EdgeInsets.only(top: 16),
+              child: RejectionBanner(
+                reason: 'Please provide a clear and valid signature',
+                title: 'Signature Rejected',
+                onReupload: widget.enabled
+                    ? () {
+                        widget.onSignatureReuploaded?.call();
+                        _clearSignature();
+                      }
+                    : null,
+              ),
+            ),
         ],
 
         // Signature Pad - Only show if NO signature is saved
@@ -637,9 +721,12 @@ class _SignatureSectionState extends State<SignatureSection> {
             height: 150,
             decoration: BoxDecoration(
               border: Border.all(
-                color: _showErrors && _signatureError != null
-                    ? AppColors.error
-                    : AppColors.border,
+                color: statusColor.withOpacity(
+                  isPending
+                      ? 1.0
+                      : (_showErrors && _signatureError != null ? 1.0 : 0.5),
+                ),
+                width: isRejected || isPending ? 2 : 1,
               ),
               borderRadius: BorderRadius.circular(12),
             ),
@@ -688,6 +775,17 @@ class _SignatureSectionState extends State<SignatureSection> {
               ),
             ],
           ),
+          // Show rejection banner if signature is rejected (even if not uploaded yet)
+          if (isRejected)
+            Padding(
+              padding: const EdgeInsets.only(top: 16),
+              child: RejectionBanner(
+                reason:
+                    'Your previous signature was rejected. Please provide a clear and valid signature',
+                title: 'Signature Rejected',
+                onReupload: null, // No reupload button for empty pad
+              ),
+            ),
         ],
 
         // Edit Signature Button if saved

@@ -3,9 +3,11 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:medicompare_employee/presentation/widgets/rejection_banner.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/validators.dart';
+import '../../../../domain/entities/vendor_entity.dart';
 import '../../../widgets/custom_text_field.dart';
 
 class PersonalDetailsSection extends StatefulWidget {
@@ -25,6 +27,11 @@ class PersonalDetailsSection extends StatefulWidget {
   final Function(bool isValid) onValidationChanged;
   final String? selectedIdProofType;
   final Function(String?) onIdProofTypeChanged;
+  final VendorEntity? vendorDetails; // For rejection highlighting
+  final bool isAadhaarFrontReuploaded;
+  final bool isAadhaarBackReuploaded;
+  final VoidCallback? onAadhaarFrontReuploaded;
+  final VoidCallback? onAadhaarBackReuploaded;
 
   const PersonalDetailsSection({
     super.key,
@@ -44,6 +51,11 @@ class PersonalDetailsSection extends StatefulWidget {
     required this.onValidationChanged,
     required this.selectedIdProofType,
     required this.onIdProofTypeChanged,
+    this.vendorDetails,
+    this.isAadhaarFrontReuploaded = false,
+    this.isAadhaarBackReuploaded = false,
+    this.onAadhaarFrontReuploaded,
+    this.onAadhaarBackReuploaded,
   });
 
   @override
@@ -93,7 +105,9 @@ class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
         oldWidget.aadhaarBackImage != widget.aadhaarBackImage ||
         oldWidget.aadhaarFrontImageUrl != widget.aadhaarFrontImageUrl ||
         oldWidget.aadhaarBackImageUrl != widget.aadhaarBackImageUrl ||
-        oldWidget.selectedIdProofType != widget.selectedIdProofType) {
+        oldWidget.selectedIdProofType != widget.selectedIdProofType ||
+        oldWidget.isAadhaarFrontReuploaded != widget.isAadhaarFrontReuploaded ||
+        oldWidget.isAadhaarBackReuploaded != widget.isAadhaarBackReuploaded) {
       _validate();
     }
   }
@@ -246,8 +260,10 @@ class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
 
       if (isFront) {
         widget.onAadhaarFrontImageChanged(file);
+        widget.onAadhaarFrontReuploaded?.call();
       } else {
         widget.onAadhaarBackImageChanged(file);
+        widget.onAadhaarBackReuploaded?.call();
       }
       if (!_showErrors && mounted) setState(() => _showErrors = true);
       _validate();
@@ -555,6 +571,43 @@ class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
     final hasImage =
         imageFile != null || (imageUrl != null && imageUrl.isNotEmpty);
 
+    // Check if this image is rejected (only for pending vendors)
+    final isPendingVendor =
+        widget.vendorDetails?.verifyStatus?.toLowerCase() == 'pending';
+
+    // Determine the status locally
+    final isReuploaded = isFront
+        ? widget.isAadhaarFrontReuploaded
+        : widget.isAadhaarBackReuploaded;
+
+    // Determine if we are in Edit Mode
+    final isEditing = widget.vendorDetails != null;
+
+    // Status from API
+    final apiStatus = isFront
+        ? widget.vendorDetails?.adhaarfrontimagestatus?.toLowerCase()
+        : widget.vendorDetails?.adhaarbackimagestatus?.toLowerCase();
+
+    // Final logic:
+    // If NOT editing -> No status (just uploaded)
+    // If editing:
+    //   If reuploaded -> 'pending'
+    //   Else -> use API status (or default to 'pending' if API status is missing in edit mode)
+    final effectiveStatus = isEditing
+        ? (isReuploaded ? 'pending' : (apiStatus ?? 'pending'))
+        : null;
+
+    final isRejected = isPendingVendor && effectiveStatus == 'rejected';
+    final isApproved = effectiveStatus == 'approved';
+    final isPending = effectiveStatus == 'pending';
+
+    // Colors
+    final statusColor = isRejected
+        ? AppColors.error
+        : (isApproved
+              ? AppColors.success
+              : (isPending ? AppColors.warning : AppColors.success));
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -573,7 +626,12 @@ class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
             width: double.infinity,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.success.withOpacity(0.5)),
+              border: Border.all(
+                color: statusColor.withOpacity(
+                  isPending ? 1.0 : 0.5,
+                ), // Turn green/warning based on state
+                width: isRejected || isPending ? 2 : 1,
+              ),
             ),
             child: Column(
               children: [
@@ -602,7 +660,7 @@ class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: AppColors.success.withOpacity(0.05),
+                    color: statusColor.withOpacity(0.05),
                     borderRadius: const BorderRadius.vertical(
                       bottom: Radius.circular(11),
                     ),
@@ -610,41 +668,85 @@ class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
                   child: Row(
                     children: [
                       Icon(
-                        Icons.check_circle,
-                        color: AppColors.success,
+                        isRejected
+                            ? Icons.error_outline
+                            : (isApproved
+                                  ? Icons.check_circle
+                                  : (isPending
+                                        ? Icons.hourglass_empty
+                                        : Icons.check_circle_outline)),
+                        color: statusColor,
                         size: 18,
                       ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          '${isFront ? "Front" : "Back"} image uploaded',
+                          isRejected
+                              ? 'Rejected – Please re-upload'
+                              : (isApproved
+                                    ? '${isFront ? "Front" : "Back"} image approved'
+                                    : (isPending
+                                          ? 'Pending Approval'
+                                          : 'Image Selected')),
                           style: TextStyle(
-                            color: AppColors.success,
+                            color: statusColor,
                             fontSize: 13,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
                       ),
-                      TextButton.icon(
-                        onPressed: widget.enabled
-                            ? () => _showImagePickerBottomSheet(isFront)
-                            : null,
-                        icon: const Icon(Icons.refresh, size: 18),
-                        label: const Text('Replace'),
-                        style: TextButton.styleFrom(
-                          foregroundColor: AppColors.primary,
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                      if (isReuploaded && !isApproved && !isRejected)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.hourglass_empty,
+                                size: 14,
+                                color: AppColors.primary,
+                              ),
+                              SizedBox(width: 4),
+                              Text(
+                                'Pending',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.primary,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                      IconButton(
-                        onPressed: widget.enabled
-                            ? () => _removeAadhaarImage(isFront)
-                            : null,
-                        icon: const Icon(Icons.delete_outline, size: 20),
-                        color: AppColors.error,
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                      ),
+                      // TextButton.icon(
+                      //   onPressed: widget.enabled
+                      //       ? () => _showImagePickerBottomSheet(isFront)
+                      //       : null,
+                      //   icon: const Icon(Icons.refresh, size: 18),
+                      //   label: const Text('Replace'),
+                      //   style: TextButton.styleFrom(
+                      //     foregroundColor: isRejected
+                      //         ? AppColors.error
+                      //         : AppColors.primary,
+                      //     padding: const EdgeInsets.symmetric(horizontal: 12),
+                      //   ),
+                      // ),
+                      // IconButton(
+                      //   onPressed: widget.enabled
+                      //       ? () => _removeAadhaarImage(isFront)
+                      //       : null,
+                      //   icon: const Icon(Icons.delete_outline, size: 20),
+                      //   color: AppColors.error,
+                      //   padding: EdgeInsets.zero,
+                      //   constraints: const BoxConstraints(),
+                      // ),
                     ],
                   ),
                 ),
@@ -667,7 +769,8 @@ class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
                 border: Border.all(
                   color: _showErrors && error != null
                       ? AppColors.error
-                      : AppColors.border,
+                      : (isRejected ? AppColors.error : AppColors.border),
+                  width: isRejected ? 2 : 1,
                   style: BorderStyle.solid,
                 ),
               ),
@@ -676,12 +779,16 @@ class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: AppColors.primary.withOpacity(0.1),
+                      color: isRejected
+                          ? AppColors.error.withOpacity(0.1)
+                          : AppColors.primary.withOpacity(0.1),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
-                      Icons.add_a_photo_outlined,
-                      color: AppColors.primary,
+                      isRejected
+                          ? Icons.error_outline
+                          : Icons.add_a_photo_outlined,
+                      color: isRejected ? AppColors.error : AppColors.primary,
                       size: 28,
                     ),
                   ),
@@ -696,14 +803,30 @@ class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Take photo or choose from gallery',
+                    isRejected
+                        ? 'Image rejected - upload again'
+                        : 'Take photo or choose from gallery',
                     style: TextStyle(
-                      color: AppColors.textSecondary,
+                      color: isRejected
+                          ? AppColors.error
+                          : AppColors.textSecondary,
                       fontSize: 12,
                     ),
                   ),
                 ],
               ),
+            ),
+          ),
+        // Show rejection banner if rejected
+        if (isRejected && hasImage)
+          Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: RejectionBanner(
+              reason:
+                  'Please upload a clear image of ${isFront ? "Aadhaar front" : "Aadhaar back"}',
+              onReupload: widget.enabled
+                  ? () => _showImagePickerBottomSheet(isFront)
+                  : null,
             ),
           ),
         if (_showErrors && error != null)
