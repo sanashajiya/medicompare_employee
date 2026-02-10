@@ -332,7 +332,7 @@ class _VendorListScreenState extends State<VendorListScreen> {
     List<VendorListItemEntity> statusFiltered = vendors;
     if (widget.filterType != VendorFilterType.all) {
       statusFiltered = vendors.where((vendor) {
-        final status = vendor.verifyStatus?.toLowerCase().trim() ?? '';
+        final status = vendor.effectiveVerifyStatus;
 
         switch (widget.filterType) {
           case VendorFilterType.approved:
@@ -457,9 +457,9 @@ class _VendorCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final statusColor = _getStatusColor(vendor.verifyStatus);
-    final statusLabel = _getStatusLabel(vendor.verifyStatus);
-    final statusIcon = _getStatusIcon(vendor.verifyStatus);
+    final statusColor = _getStatusColor(vendor.effectiveVerifyStatus);
+    final statusLabel = _getStatusLabel(vendor.effectiveVerifyStatus);
+    final statusIcon = _getStatusIcon(vendor.effectiveVerifyStatus);
 
     return InkWell(
       onTap: onTap,
@@ -591,9 +591,8 @@ class _VendorCard extends StatelessWidget {
                 ),
               ],
               // Rejection Reason Section (only for rejected vendors)
-              if (vendor.verifyStatus?.toLowerCase() == 'rejected' &&
-                  vendor.rejectedReason != null &&
-                  vendor.rejectedReason!.isNotEmpty) ...[
+              if (vendor.effectiveVerifyStatus == 'rejected' &&
+                  vendor.effectiveRejectionReason != null) ...[
                 const SizedBox(height: 12),
                 const Divider(height: 1),
                 const SizedBox(height: 12),
@@ -630,7 +629,7 @@ class _VendorCard extends StatelessWidget {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              vendor.rejectedReason!,
+                              vendor.effectiveRejectionReason!,
                               style: Theme.of(context).textTheme.bodySmall
                                   ?.copyWith(
                                     color: AppColors.error.withOpacity(0.9),

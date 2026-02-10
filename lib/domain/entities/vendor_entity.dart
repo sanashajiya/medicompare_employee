@@ -259,6 +259,30 @@ class VendorEntity extends Equatable {
     );
   }
 
+  bool get isEffectiveRejected {
+    final status = verifyStatus?.toLowerCase().trim();
+    if (status == 'rejected') return true;
+    if (status == 'approved') return false;
+
+    // 2. Check individual document statuses (fields on entity)
+    if (adhaarfrontimagestatus?.toLowerCase().trim() == 'rejected') return true;
+    if (adhaarbackimagestatus?.toLowerCase().trim() == 'rejected') return true;
+    if (signatureStatus?.toLowerCase().trim() == 'rejected') return true;
+
+    // 3. Check documentStatuses list
+    if (documentStatuses != null) {
+      for (final doc in documentStatuses!) {
+        // doc is Map<String, dynamic>
+        // Check for 'isVerified' key based on VendorModel parsing
+        if (doc['isVerified']?.toString().toLowerCase().trim() == 'rejected') {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
   @override
   List<Object?> get props => [
     firstName,

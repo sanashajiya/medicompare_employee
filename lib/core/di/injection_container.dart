@@ -58,7 +58,7 @@ Future<void> initializeDependencies() async {
 
   // Repositories
   sl.registerLazySingleton<AuthRepository>(() => AuthRepositoryImpl(sl()));
-  sl.registerLazySingleton<OtpRepository>(() => OtpRepositoryImpl(sl()));
+  // sl.registerLazySingleton<OtpRepository>(() => OtpRepositoryImpl(sl()));
   sl.registerLazySingleton<VendorRepository>(() => VendorRepositoryImpl(sl()));
   sl.registerLazySingleton<DraftRepository>(() => DraftRepositoryImpl(sl()));
 

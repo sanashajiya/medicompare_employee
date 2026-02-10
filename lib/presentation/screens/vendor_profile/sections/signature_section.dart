@@ -547,7 +547,8 @@ class _SignatureSectionState extends State<SignatureSection> {
     final isEditing = widget.vendorDetails != null;
 
     final isPendingVendor =
-        widget.vendorDetails?.verifyStatus?.toLowerCase() == 'pending';
+        widget.vendorDetails?.verifyStatus?.toLowerCase() == 'pending' ||
+        widget.vendorDetails?.verifyStatus?.toLowerCase() == 'rejected';
     final apiStatus = widget.vendorDetails?.signatureStatus?.toLowerCase();
 
     // If NOT editing -> null

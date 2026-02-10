@@ -16,15 +16,16 @@ class GetDashboardStatsUseCase {
     int pendingCount = 0;
 
     for (final vendor in vendors) {
-      final status = vendor.verifyStatus?.toLowerCase().trim() ?? '';
-
-      if (status == 'approved') {
-        approvedCount++;
-      } else if (status == 'rejected') {
+      if (vendor.isEffectiveRejected) {
         rejectedCount++;
       } else {
-        // "processing", "pending", or unhandled status -> Pending Approval
-        pendingCount++;
+        final status = vendor.verifyStatus?.toLowerCase().trim() ?? '';
+        if (status == 'approved') {
+          approvedCount++;
+        } else {
+          // "processing", "pending", or unhandled status -> Pending Approval
+          pendingCount++;
+        }
       }
     }
 

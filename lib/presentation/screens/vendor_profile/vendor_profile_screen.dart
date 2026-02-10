@@ -1039,7 +1039,94 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
     });
   }
 
+  bool _validateRejectedDocuments() {
+    final vendor = widget.vendorDetails;
+    if (vendor == null) return true; // Not editing, so no rejections to check
+
+    bool isRejected(String? status) => status?.toLowerCase() == 'rejected';
+
+    // 1. Aadhaar
+    if (isRejected(vendor.adhaarfrontimagestatus) && !_aadhaarFrontReuploaded) {
+      _showError('Please re-upload rejected Aadhaar Front Image');
+      return false;
+    }
+    if (isRejected(vendor.adhaarbackimagestatus) && !_aadhaarBackReuploaded) {
+      _showError('Please re-upload rejected Aadhaar Back Image');
+      return false;
+    }
+
+    // 2. Signature
+    if (isRejected(vendor.signatureStatus) && !_signatureReuploaded) {
+      _showError('Please re-sign rejected Signature');
+      return false;
+    }
+
+    // 3. Documents
+    if (vendor.documentStatuses != null) {
+      for (final docStatus in vendor.documentStatuses!) {
+        if (isRejected(docStatus['isVerified']?.toString())) {
+          final docName =
+              docStatus['name']?.toString().toLowerCase().trim() ?? '';
+
+          bool reuploaded = false;
+
+          if (docName.contains('pan')) {
+            reuploaded = _documentsReuploaded['pan_card'] ?? false;
+          } else if (docName.contains('gst')) {
+            reuploaded = _documentsReuploaded['gst_certificate'] ?? false;
+          } else if (docName.contains('business') ||
+              docName.contains('registration')) {
+            reuploaded = _documentsReuploaded['business_registration'] ?? false;
+          } else if (docName.contains('professional') ||
+              docName.contains('license')) {
+            reuploaded = _documentsReuploaded['professional_license'] ?? false;
+          } else {
+            // Additional Document
+            // Check if it exists in current list and has a new file
+            final existing = _additionalDocuments.firstWhere(
+              (d) => d.nameController.text.toLowerCase().trim() == docName,
+              orElse: () => AdditionalDocumentModel(name: ''), // Dummy
+            );
+
+            if (existing.nameController.text.isNotEmpty) {
+              // Document still exists in the form
+              reuploaded = existing.file != null; // True if new file picked
+            } else {
+              // Document was removed by user
+              reuploaded = true; // Treated as resolved (removed)
+            }
+          }
+
+          if (!reuploaded) {
+            _showError(
+              'Please re-upload rejected document: ${docStatus['name']}',
+            );
+            return false;
+          }
+        }
+      }
+    }
+
+    return true;
+  }
+
+  void _showError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: AppColors.error,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   Future<void> _onSubmit() async {
+    // Validate rejected documents before proceeding
+    if (!_validateRejectedDocuments()) {
+      return;
+    }
+
     // Step 1: Send OTP to mobile number from Authorized Personal Details
     final mobileNumber = _phoneController.text.trim();
 
@@ -1052,6 +1139,12 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
           ),
         );
       }
+      return;
+    }
+
+    // If Edit Mode, skip OTP verification
+    if (widget.isEditMode) {
+      await _createVendor();
       return;
     }
 
@@ -1178,20 +1271,25 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
     var mobileForVendor = _mobileNumberForOtp ?? _phoneController.text.trim();
 
     print('\n═══════════════════════════════════════════════════════════════');
-    print('📱 STEP 2: Creating Vendor');
-    print('   Mobile (must match identifier from Step 1): $mobileForVendor');
-    print('   OTP: ${_verifiedOtp ?? "❌ NULL - THIS WILL CAUSE ERROR!"}');
+    print('📱 STEP 2: Creating/Updating Vendor');
+    print('   Mobile: $mobileForVendor');
+    if (!widget.isEditMode) {
+      print('   OTP: ${_verifiedOtp ?? "❌ NULL - CANNOT PROCEED!"}');
+    } else {
+      print('   OTP: Skipped (Edit Mode)');
+    }
     print('   Type: phone');
     print('   Usertype: app');
     print('═══════════════════════════════════════════════════════════════');
 
-    if (_verifiedOtp == null || _verifiedOtp!.isEmpty) {
+    // OTP Check only for non-edit mode (Creation)
+    if (!widget.isEditMode && (_verifiedOtp == null || _verifiedOtp!.isEmpty)) {
       throw Exception(
         'OTP is required for vendor creation. Please verify OTP first.',
       );
     }
 
-    if (mobileForVendor != _mobileNumberForOtp) {
+    if (!widget.isEditMode && mobileForVendor != _mobileNumberForOtp) {
       print('⚠️ WARNING: Mobile number mismatch!');
       print('   OTP was sent to: $_mobileNumberForOtp');
       print('   Vendor creation using: $mobileForVendor');
@@ -1267,11 +1365,26 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
         // Add files from additional documents
         ..._additionalDocuments.map((doc) => doc.file),
       ],
+      docUrls: [
+        _panCardFile != null ? '' : (_panCardUrl ?? ''),
+        _gstCertificateFile != null ? '' : (_gstCertificateUrl ?? ''),
+        _businessRegistrationFile != null
+            ? ''
+            : (_businessRegistrationUrl ?? ''),
+        _professionalLicenseFile != null ? '' : (_professionalLicenseUrl ?? ''),
+        // Add URLs from additional documents
+        ..._additionalDocuments.map(
+          (doc) => doc.file != null ? '' : (doc.fileUrl ?? ''),
+        ),
+      ],
       frontimages: _frontStoreImages,
+      frontImageUrls: _frontStoreImageUrls,
       backimages: [],
       signature: [],
       storeLogo: _storeLogo,
+      storeLogoUrl: _storeLogoUrl,
       profileBanner: _profileBanner,
+      profileBannerUrl: _profileBannerUrl,
       bankName: _bankNameController.text,
       accountName: _accountHolderNameController.text,
       accountNumber: _accountNumberController.text,

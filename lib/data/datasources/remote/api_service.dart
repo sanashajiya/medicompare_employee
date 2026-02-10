@@ -59,42 +59,33 @@ class ApiService {
       // Add files
       // Add files
       request.files.addAll(files);
-      print('\n═══════════════════════════════════════════════════════');
-      print('🛠️ MULTIPART REQUEST DEBUG LOG (For Postman)');
-      print('═══════════════════════════════════════════════════════');
+
+      // log("reiuiterjyyy file- ${request.files}");
+
       print('URL: $url');
       print('Method: POST');
       print('Headers: ${request.headers}');
       print('--- BODY FIELDS ---');
       request.fields.forEach((key, value) => print('$key: $value'));
 
-      print('\n--- FILES ---');
-      for (final file in request.files) {
-        if (file.filename != null) {
-          print(
-            'Key: ${file.field} | File: ${file.filename} | Size: ${file.length} bytes',
-          );
-        } else {
-          // For array fields that are finalized strings, we can't easily read them back
-          // without keeping a copy or checking the type carefully.
-          // Since this is just a debug log, we'll mark it as an array value.
-          print('Key: ${file.field} | (Array Value)');
-        }
-      }
-      print('═══════════════════════════════════════════════════════\n');
+      // print('\n--- FILES ---');
+      // for (final file in request.files) {
+      //   if (file.filename != null) {
+      //     print(
+      //       'Key: ${file.field} | File: ${file.filename} | Size: ${file.length} bytes',
+      //     );
+      //   } else {
+      //     // For array fields that are finalized strings, we can't easily read them back
+      //     // without keeping a copy or checking the type carefully.
+      //     // Since this is just a debug log, we'll mark it as an array value.
+      //     // print('Key: ${file.field} | (Array Value)');
+      //   }
+      // }
+      // print('═══════════════════════════════════════════════════════\n');
 
       // Send request
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
-      // log("sssssssssss${response.body}");
-      // print('');
-      // print('═══════════════════════════════════════════════════════');
-      // print('📡 API RESPONSE');
-      // print('═══════════════════════════════════════════════════════');
-      // print('📊 Status Code: ${response.statusCode}');
-      // print('📦 Response Body: ${response.body}');
-      // print('═══════════════════════════════════════════════════════');
-      // print('');
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
         final jsonResponse = jsonDecode(response.body) as Map<String, dynamic>;

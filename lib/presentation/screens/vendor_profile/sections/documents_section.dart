@@ -713,7 +713,8 @@ class _DocumentsSectionState extends State<DocumentsSection> {
     // Check document verification status
     final docStatus = _getDocumentStatus(fieldKey);
     final isPendingVendor =
-        widget.vendorDetails?.verifyStatus?.toLowerCase() == 'pending';
+        widget.vendorDetails?.verifyStatus?.toLowerCase() == 'pending' ||
+        widget.vendorDetails?.verifyStatus?.toLowerCase() == 'rejected';
 
     // Determine if we are in Edit Mode
     final isEditing = widget.vendorDetails != null;
@@ -1099,29 +1100,85 @@ class _DocumentsSectionState extends State<DocumentsSection> {
             final index = entry.key;
             final doc = entry.value;
 
+            // Status Logic for Additional Documents
+            Map<String, dynamic>? docStatus;
+            try {
+              if (widget.vendorDetails?.documentStatuses != null) {
+                // Try to find status by matching name or ID
+                docStatus = widget.vendorDetails!.documentStatuses!.firstWhere((
+                  status,
+                ) {
+                  final statusName =
+                      status['name']?.toString().toLowerCase().trim() ?? '';
+                  final currentName = doc.nameController.text
+                      .toLowerCase()
+                      .trim();
+                  // Match by name if available, or by doc_id if needed
+                  return statusName == currentName && currentName.isNotEmpty;
+                }, orElse: () => {});
+              }
+            } catch (e) {
+              docStatus = null;
+            }
+
+            // Determine if we are in Edit Mode
+            final isEditing = widget.vendorDetails != null;
+
+            final isPendingVendor =
+                widget.vendorDetails?.verifyStatus?.toLowerCase() ==
+                    'pending' ||
+                widget.vendorDetails?.verifyStatus?.toLowerCase() == 'rejected';
+
+            // Check if newly uploaded (file is not null implies a new selection)
+            final isNewUpload = doc.file != null;
+
+            final apiStatus = docStatus?['isVerified']
+                ?.toString()
+                .toLowerCase();
+
+            // Effective Status
+            final effectiveStatus = isEditing
+                ? (isNewUpload ? 'pending' : (apiStatus ?? 'pending'))
+                : null;
+
+            final isRejected = isPendingVendor && effectiveStatus == 'rejected';
+            final isApproved = effectiveStatus == 'approved';
+            final isPending = effectiveStatus == 'pending';
+            final rejectionReason = docStatus?['rejectionReason']?.toString();
+
+            // Show status UI only if editing and name is entered
+            final showStatus =
+                isEditing && doc.nameController.text.trim().isNotEmpty;
+
+            // Colors
+            final statusColor = showStatus
+                ? (isRejected
+                      ? AppColors.error
+                      : (isApproved ? AppColors.success : AppColors.warning))
+                : Colors.grey.shade300;
+
             // Validation logic for dynamic fields
             final bool nameError =
-                widget.showErrors &&
-                doc.nameController.text.isEmpty; // Changed to widget.showErrors
+                widget.showErrors && doc.nameController.text.isEmpty;
             final bool numberError =
-                widget.showErrors &&
-                doc
-                    .numberController
-                    .text
-                    .isEmpty; // Changed to widget.showErrors
-            // final bool expiryError = false; // Optional - removed as it's not used
+                widget.showErrors && doc.numberController.text.isEmpty;
             final bool fileError =
-                widget.showErrors &&
-                doc.file == null &&
-                doc.fileUrl == null; // Changed to widget.showErrors
+                widget.showErrors && doc.file == null && doc.fileUrl == null;
 
             return Container(
               margin: const EdgeInsets.only(bottom: 16),
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: showStatus
+                    ? statusColor.withOpacity(0.05)
+                    : Colors.white,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey.shade300),
+                border: Border.all(
+                  color: showStatus
+                      ? statusColor.withOpacity(isPending ? 1.0 : 0.5)
+                      : Colors.grey.shade300,
+                  width: showStatus && (isRejected || isPending) ? 2 : 1,
+                ),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withOpacity(0.05),
@@ -1138,12 +1195,12 @@ class _DocumentsSectionState extends State<DocumentsSection> {
                     children: [
                       Text(
                         'Document #${index + 1}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontWeight: FontWeight.bold,
                           color: AppColors.textSecondary,
                         ),
                       ),
-                      if (widget.enabled)
+                      if (widget.enabled && !isApproved)
                         IconButton(
                           icon: const Icon(
                             Icons.delete_outline,
@@ -1156,30 +1213,88 @@ class _DocumentsSectionState extends State<DocumentsSection> {
                         ),
                     ],
                   ),
-                  const Divider(height: 20),
+
+                  // Status Banner
+                  if (showStatus) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: statusColor.withOpacity(0.05),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: statusColor.withOpacity(isPending ? 1.0 : 0.5),
+                          width: isRejected || isPending ? 2 : 1.5,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            isRejected
+                                ? Icons.error_outline
+                                : (isApproved
+                                      ? Icons.check_circle
+                                      : Icons.hourglass_empty),
+                            color: statusColor,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  isRejected
+                                      ? 'Rejected – Action Required'
+                                      : (isApproved
+                                            ? 'Verified'
+                                            : 'Pending Approval'),
+                                  style: TextStyle(
+                                    color: statusColor,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                if (rejectionReason != null && isRejected)
+                                  Text(
+                                    rejectionReason,
+                                    style: TextStyle(
+                                      color: statusColor,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
+                  const SizedBox(height: 16),
+
                   CustomTextField(
                     controller: doc.nameController,
                     label: 'Document Name',
                     hint: 'e.g. ISO Certificate',
-                    enabled: widget.enabled,
+                    enabled: widget.enabled && !isApproved,
                     errorText: nameError ? 'Required' : null,
-                    onChanged: (_) =>
-                        _validate(), // Changed from _validateForm to _validate
+                    onChanged: (_) => _validate(),
                   ),
                   const SizedBox(height: 16),
                   CustomTextField(
                     controller: doc.numberController,
                     label: 'Document Number',
                     hint: 'Enter document number',
-                    enabled: widget.enabled,
+                    enabled: widget.enabled && !isApproved,
                     errorText: numberError ? 'Required' : null,
-                    onChanged: (_) =>
-                        _validate(), // Changed from _validateForm to _validate
+                    onChanged: (_) => _validate(),
                   ),
                   const SizedBox(height: 16),
                   _buildExpiryDateField(
                     doc.expiryDateController,
-                    false, // Expiry optional for additional docs? Let's keep it optional but validate non-empty if required
+                    false,
+                    isApproved: isApproved,
                   ),
                   const SizedBox(height: 16),
                   FileUploadField(
@@ -1189,11 +1304,32 @@ class _DocumentsSectionState extends State<DocumentsSection> {
                     fileUrl: doc.fileUrl,
                     errorText: fileError ? 'File required' : null,
                     required: true,
-                    enabled: widget.enabled,
+                    enabled: widget.enabled && !isApproved,
                     onTap: () => _showAdditionalDocUploadOptions(index),
-                    onRemove: () =>
-                        widget.onDocumentFileSelected(index, null, null),
+                    onRemove: isApproved
+                        ? null
+                        : () =>
+                              widget.onDocumentFileSelected(index, null, null),
                   ),
+
+                  // Show rejection banner if rejected
+                  if (isRejected &&
+                      (rejectionReason != null ||
+                          effectiveStatus == 'rejected'))
+                    Padding(
+                      padding: const EdgeInsets.only(top: 16),
+                      child: RejectionBanner(
+                        reason:
+                            rejectionReason ??
+                            "Reupload to continue verification.",
+                        title: 'Document Rejected',
+                        onReupload: widget.enabled
+                            ? () {
+                                _showAdditionalDocUploadOptions(index);
+                              }
+                            : null,
+                      ),
+                    ),
                 ],
               ),
             );

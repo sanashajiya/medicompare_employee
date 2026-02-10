@@ -40,15 +40,90 @@ class _BankingDetailsSectionState extends State<BankingDetailsSection> {
   String? _bankBranchError;
   bool _showErrors = false;
 
+  String? _selectedBank;
+  static const String _otherBankOption = 'Other (Please specify below)';
+
+  static const List<String> _bankOptions = [
+    'State Bank of India',
+    'Punjab National Bank',
+    'Bank of Baroda',
+    'Canara Bank',
+    'Union Bank of India',
+    'Bank of India',
+    'Indian Bank',
+    'Central Bank of India',
+    'Indian Overseas Bank',
+    'UCO Bank',
+    'Bank of Maharashtra',
+    'Punjab & Sind Bank',
+    'HDFC Bank',
+    'ICICI Bank',
+    'Axis Bank',
+    'Kotak Mahindra Bank',
+    'Yes Bank',
+    'IndusInd Bank',
+    'RBL Bank',
+    'Federal Bank',
+    'IDFC First Bank',
+    'Bandhan Bank',
+    'Karur Vysya Bank',
+    'South Indian Bank',
+    'DCB Bank',
+    'Dhanlaxmi Bank',
+    'Tamilnad Mercantile Bank',
+    'Karnataka Bank',
+    'Catholic Syrian Bank',
+    'AU Small Finance Bank',
+    'Jana Small Finance Bank',
+    'North East Small Finance Bank',
+    'Shivalik Small Finance Bank',
+    'Unity Small Finance Bank',
+    'Suryoday Small Finance Bank',
+    'Ujjivan Small Finance Bank',
+    'Equitas Small Finance Bank',
+    'ESAF Small Finance Bank',
+    'Fincare Small Finance Bank',
+    'Airtel Payments Bank',
+    'India Post Payments Bank',
+    'Fino Payments Bank',
+    'Jio Payments Bank',
+    'Paytm Payments Bank',
+    'NSDL Payments Bank',
+    'Aditya Birla Idea Payments Bank',
+    'Standard Chartered Bank',
+    'Citibank',
+    'HSBC Bank',
+    'Deutsche Bank',
+    'DBS Bank',
+    'BNP Paribas',
+    'Barclays Bank',
+    'Bank of America',
+    'MUFG Bank',
+    'ABN AMRO Bank',
+    _otherBankOption,
+  ];
+
   @override
   void initState() {
     super.initState();
+    _initializeSelectedBank();
     _addListeners();
 
     // Auto-validate prefilled data in edit/resume mode
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _validate();
     });
+  }
+
+  void _initializeSelectedBank() {
+    final currentBankName = widget.bankNameController.text.trim();
+    if (currentBankName.isNotEmpty) {
+      if (_bankOptions.contains(currentBankName)) {
+        _selectedBank = currentBankName;
+      } else {
+        _selectedBank = _otherBankOption;
+      }
+    }
   }
 
   void _addListeners() {
@@ -75,10 +150,28 @@ class _BankingDetailsSectionState extends State<BankingDetailsSection> {
     final ifscCodeError = Validators.validateIfscCode(
       widget.ifscCodeController.text,
     );
-    final bankNameError = Validators.validateAlphaOnly(
-      widget.bankNameController.text,
-      'Bank Name',
-    );
+
+    // Bank Name Validation
+    String? bankNameError;
+    if (_selectedBank == null) {
+      bankNameError = 'Bank Name is required';
+    } else if (_selectedBank == _otherBankOption) {
+      if (widget.bankNameController.text.trim().isEmpty) {
+        bankNameError = 'Please specify the bank name';
+      }
+    } else {
+      // If a standard bank is selected, we assume it's valid.
+      // Double check controller sync just in case
+      if (widget.bankNameController.text != _selectedBank) {
+        // Should ideally not happen if logic is correct, but safe to ignore or force sync
+      }
+    }
+
+    // Existing validator was validateAlphaOnly, which we removed for Dropdown logic
+    // But for Manual Input (Other), we might want to check for weird chars?
+    // User requirement: "Stored correctly... Sent as string".
+    // Let's assume emptiness check is sufficient for "Other" text field.
+
     final bankBranchError = Validators.validateAlphaOnly(
       widget.bankBranchController.text,
       'Bank Branch',
@@ -95,8 +188,10 @@ class _BankingDetailsSectionState extends State<BankingDetailsSection> {
         widget.confirmAccountNumberController.text.isNotEmpty &&
         widget.accountHolderNameController.text.isNotEmpty &&
         widget.ifscCodeController.text.isNotEmpty &&
-        widget.bankNameController.text.isNotEmpty &&
-        widget.bankBranchController.text.isNotEmpty;
+        widget.bankBranchController.text.isNotEmpty &&
+        (_selectedBank != null &&
+            (_selectedBank != _otherBankOption ||
+                widget.bankNameController.text.isNotEmpty));
 
     widget.onValidationChanged(isValid);
 
@@ -195,43 +290,90 @@ class _BankingDetailsSectionState extends State<BankingDetailsSection> {
         ),
         const SizedBox(height: 20),
 
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: CustomTextField(
-                controller: widget.bankNameController,
-                label: 'Bank Name *',
-                hint: 'e.g., State Bank of India',
-                errorText: _bankNameError,
-                enabled: widget.enabled,
-                inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z ]')),
-                ],
-                onChanged: (_) {
-                  if (!_showErrors && mounted)
-                    setState(() => _showErrors = true);
-                },
-              ),
+        // Bank Name Dropdown
+        DropdownButtonFormField<String>(
+          value: _selectedBank,
+          decoration: InputDecoration(
+            labelText: 'Bank Name *',
+            hintText: 'Select Bank',
+            errorText: _bankNameError,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: AppColors.border),
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: CustomTextField(
-                controller: widget.bankBranchController,
-                label: 'Bank Branch *',
-                hint: 'e.g., Delhi',
-                errorText: _bankBranchError,
-                enabled: widget.enabled,
-                inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z ]')),
-                ],
-                onChanged: (_) {
-                  if (!_showErrors && mounted)
-                    setState(() => _showErrors = true);
-                },
-              ),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 16,
             ),
+          ),
+          items: _bankOptions.map((bank) {
+            return DropdownMenuItem<String>(value: bank, child: Text(bank));
+          }).toList(),
+          onChanged: widget.enabled
+              ? (value) {
+                  setState(() {
+                    _selectedBank = value;
+                    if (value != _otherBankOption) {
+                      widget.bankNameController.text = value ?? '';
+                    } else {
+                      // Clear text if "Other" is selected to force user input
+                      // But if switching back to "Other" from a known bank, we want it empty.
+                      // If we already had a custom value, keeps it? No, simpler to clear or handle carefully.
+                      // User requirement: "If Other... Show additional text input field... This field becomes mandatory"
+                      // I'll clear it to ensure they type what they want.
+                      if (_bankOptions.contains(
+                        widget.bankNameController.text,
+                      )) {
+                        widget.bankNameController.clear();
+                      }
+                    }
+                    _showErrors = true;
+                  });
+                  _validate();
+                }
+              : null,
+          validator: (value) {
+            if (value == null || value.isEmpty) {
+              return 'Please select a bank';
+            }
+            return null;
+          },
+        ),
+
+        // Manual Bank Name Input (if "Other" is selected)
+        if (_selectedBank == _otherBankOption) ...[
+          const SizedBox(height: 20),
+          CustomTextField(
+            controller: widget.bankNameController,
+            label: 'Enter Bank Name *',
+            hint: 'e.g., My Local Co-op Bank',
+            errorText:
+                _bankNameError == 'Please specify the bank name' ||
+                    (_bankNameError != null &&
+                        _bankNameError!.contains('required'))
+                ? _bankNameError
+                : null,
+            enabled: widget.enabled,
+            onChanged: (_) {
+              if (!_showErrors && mounted) setState(() => _showErrors = true);
+            },
+          ),
+        ],
+
+        const SizedBox(height: 20),
+
+        CustomTextField(
+          controller: widget.bankBranchController,
+          label: 'Bank Branch *',
+          hint: 'e.g., Delhi',
+          errorText: _bankBranchError,
+          enabled: widget.enabled,
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z ]')),
           ],
+          onChanged: (_) {
+            if (!_showErrors && mounted) setState(() => _showErrors = true);
+          },
         ),
       ],
     );

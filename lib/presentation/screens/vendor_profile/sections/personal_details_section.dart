@@ -573,7 +573,8 @@ class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
 
     // Check if this image is rejected (only for pending vendors)
     final isPendingVendor =
-        widget.vendorDetails?.verifyStatus?.toLowerCase() == 'pending';
+        widget.vendorDetails?.verifyStatus?.toLowerCase() == 'pending' ||
+        widget.vendorDetails?.verifyStatus?.toLowerCase() == 'rejected';
 
     // Determine the status locally
     final isReuploaded = isFront
@@ -658,7 +659,7 @@ class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
                         ),
                 ),
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
                     color: statusColor.withOpacity(0.05),
                     borderRadius: const BorderRadius.vertical(
@@ -667,34 +668,34 @@ class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
                   ),
                   child: Row(
                     children: [
-                      Icon(
-                        isRejected
-                            ? Icons.error_outline
-                            : (isApproved
-                                  ? Icons.check_circle
-                                  : (isPending
-                                        ? Icons.hourglass_empty
-                                        : Icons.check_circle_outline)),
-                        color: statusColor,
-                        size: 18,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          isRejected
-                              ? 'Rejected – Please re-upload'
-                              : (isApproved
-                                    ? '${isFront ? "Front" : "Back"} image approved'
-                                    : (isPending
-                                          ? 'Pending Approval'
-                                          : 'Image Selected')),
-                          style: TextStyle(
-                            color: statusColor,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
+                      // Icon(
+                      //   isRejected
+                      //       ? Icons.error_outline
+                      //       : (isApproved
+                      //             ? Icons.check_circle
+                      //             : (isPending
+                      //                   ? Icons.hourglass_empty
+                      //                   : Icons.check_circle_outline)),
+                      //   color: statusColor,
+                      //   size: 18,
+                      // ),
+                      // const SizedBox(width: 8),
+                      // Expanded(
+                      //   child: Text(
+                      //     isRejected
+                      //         ? 'Rejected – Please re-upload'
+                      //         : (isApproved
+                      //               ? '${isFront ? "Front" : "Back"} image approved'
+                      //               : (isPending
+                      //                     ? 'Pending Approval'
+                      //                     : 'Image Selected')),
+                      //     style: TextStyle(
+                      //       color: statusColor,
+                      //       fontSize: 13,
+                      //       fontWeight: FontWeight.w500,
+                      //     ),
+                      //   ),
+                      // ),
                       if (isReuploaded && !isApproved && !isRejected)
                         Container(
                           padding: const EdgeInsets.symmetric(
@@ -823,7 +824,7 @@ class _PersonalDetailsSectionState extends State<PersonalDetailsSection> {
             padding: const EdgeInsets.only(top: 12),
             child: RejectionBanner(
               reason:
-                  'Please upload a clear image of ${isFront ? "Aadhaar front" : "Aadhaar back"}',
+                  'Please upload a clear image',
               onReupload: widget.enabled
                   ? () => _showImagePickerBottomSheet(isFront)
                   : null,

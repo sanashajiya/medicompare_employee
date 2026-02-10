@@ -12,7 +12,8 @@ class VendorRepositoryImpl implements VendorRepository {
   final ApiService apiService;
 
   VendorRepositoryImpl(this.apiService);
-
+ 
+ 
   @override
   Future<VendorEntity> createVendor(VendorEntity vendor, String token) async {
     try {
@@ -53,7 +54,6 @@ class VendorRepositoryImpl implements VendorRepository {
       final isUpdate =
           vendorModel.vendorId != null && vendorModel.vendorId!.isNotEmpty;
 
-      // UPDATE endpoint format: /api/v1/employeevendor/vendor/update/{id}
       final endpoint = isUpdate
           ? '${ApiEndpoints.updateVendor}/${vendorModel.vendorId}'
           : ApiEndpoints.createVendor;
@@ -66,10 +66,18 @@ class VendorRepositoryImpl implements VendorRepository {
       print('   Method: POST (Multipart)');
 
       // 🔍 DEBUG: Print all fields being sent
-      print('\n🔍 ALL MULTIPART FIELDS BEING SENT:');
-      fields.forEach((key, value) {
-        print('   $key: $value');
-      });
+      // print('\n🔍 ALL MULTIPART FIELDS BEING SENT:');
+      // fields.forEach((key, value) {
+      //   print('   $key: $value');
+      // });
+
+      // 🔍 DEBUG: Print all files being sent
+      print('\n ALL MULTIPART FILES BEING SENT:');
+      for (var file in files) {
+        print(
+          '   Key: ${file.field} | File: ${file.filename} | Size: ${file.length} bytes',
+        );
+      }
 
       final response = await apiService.postMultipart(
         endpoint,

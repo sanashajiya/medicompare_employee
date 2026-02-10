@@ -154,9 +154,29 @@ class VendorModel extends VendorEntity {
       files: const [],
       docUrls: parsedDocUrls,
       frontimages: const [],
-      frontImageUrls: const [],
+      frontImageUrls:
+          (json['documents'] != null && json['documents']['frontImage'] is List)
+          ? (json['documents']['frontImage'] as List)
+                .map((e) {
+                  if (e is String) return _getFullUrl(e) ?? '';
+                  if (e is Map) return _getFullUrl(e['path']?.toString()) ?? '';
+                  return '';
+                })
+                .where((s) => s.isNotEmpty)
+                .toList()
+          : const [],
       backimages: const [],
-      backImageUrls: const [],
+      backImageUrls:
+          (json['documents'] != null && json['documents']['backImage'] is List)
+          ? (json['documents']['backImage'] as List)
+                .map((e) {
+                  if (e is String) return _getFullUrl(e) ?? '';
+                  if (e is Map) return _getFullUrl(e['path']?.toString()) ?? '';
+                  return '';
+                })
+                .where((s) => s.isNotEmpty)
+                .toList()
+          : const [],
       signature: const [],
       signatureImageUrl: null,
       storeLogo: null,
@@ -272,6 +292,7 @@ class VendorModel extends VendorEntity {
     final frontImageUrls =
         frontImagesRaw
             ?.map((e) {
+              if (e is String) return _getFullUrl(e) ?? '';
               if (e is Map) return _getFullUrl(e['path']?.toString()) ?? '';
               return '';
             })
@@ -282,27 +303,33 @@ class VendorModel extends VendorEntity {
     // Signature
     final signatureRaw = documents?['signature'] as List<dynamic>?;
     String? signatureUrl;
-    if (signatureRaw != null &&
-        signatureRaw.isNotEmpty &&
-        signatureRaw[0] is Map) {
-      signatureUrl = _getFullUrl(signatureRaw[0]['path']?.toString());
+    if (signatureRaw != null && signatureRaw.isNotEmpty) {
+      if (signatureRaw[0] is String) {
+        signatureUrl = _getFullUrl(signatureRaw[0]);
+      } else if (signatureRaw[0] is Map) {
+        signatureUrl = _getFullUrl(signatureRaw[0]['path']?.toString());
+      }
     }
 
     // Aadhaar Images
     final aadhaarFrontRaw = json['adhaarfrontimage'] as List<dynamic>?;
     String? aadhaarFrontUrl;
-    if (aadhaarFrontRaw != null &&
-        aadhaarFrontRaw.isNotEmpty &&
-        aadhaarFrontRaw[0] is Map) {
-      aadhaarFrontUrl = _getFullUrl(aadhaarFrontRaw[0]['path']?.toString());
+    if (aadhaarFrontRaw != null && aadhaarFrontRaw.isNotEmpty) {
+      if (aadhaarFrontRaw[0] is String) {
+        aadhaarFrontUrl = _getFullUrl(aadhaarFrontRaw[0]);
+      } else if (aadhaarFrontRaw[0] is Map) {
+        aadhaarFrontUrl = _getFullUrl(aadhaarFrontRaw[0]['path']?.toString());
+      }
     }
 
     final aadhaarBackRaw = json['adhaarbackimage'] as List<dynamic>?;
     String? aadhaarBackUrl;
-    if (aadhaarBackRaw != null &&
-        aadhaarBackRaw.isNotEmpty &&
-        aadhaarBackRaw[0] is Map) {
-      aadhaarBackUrl = _getFullUrl(aadhaarBackRaw[0]['path']?.toString());
+    if (aadhaarBackRaw != null && aadhaarBackRaw.isNotEmpty) {
+      if (aadhaarBackRaw[0] is String) {
+        aadhaarBackUrl = _getFullUrl(aadhaarBackRaw[0]);
+      } else if (aadhaarBackRaw[0] is Map) {
+        aadhaarBackUrl = _getFullUrl(aadhaarBackRaw[0]['path']?.toString());
+      }
     }
 
     // Extract categories
@@ -700,11 +727,64 @@ class VendorModel extends VendorEntity {
       filteredExpiryDates.add(date);
     }
 
+    // Filter docUrls
+    final filteredDocUrls = <String>[];
+    const baseUrl = 'https://api.medicompares.com/';
+
+    for (int i in validIndices) {
+      if (i < docUrls.length) {
+        var url = docUrls[i];
+        // Strip base URL if present to send relative path
+        if (url.startsWith(baseUrl)) {
+          url = url.replaceFirst(baseUrl, '');
+        }
+        // Remove leading slash if present (though replaceFirst usually handles it if baseUrl has trailing slash)
+        if (url.startsWith('/')) {
+          url = url.substring(1);
+        }
+        filteredDocUrls.add(url);
+      } else {
+        filteredDocUrls.add('');
+      }
+    }
+
     addList('categories', categories); // Categories usually separate from docs
     addList('doc_name', filteredDocNames);
     addList('doc_id', filteredDocIds);
     addList('documentNumber', filteredDocumentNumbers);
     addList('expireDate', filteredExpiryDates);
+    addList('doc_path', filteredDocUrls);
+
+    // Filter and add frontImageUrls
+    final filteredFrontImageUrls = <String>[];
+    for (var url in frontImageUrls) {
+      if (url.startsWith(baseUrl)) {
+        url = url.replaceFirst(baseUrl, '');
+      }
+      if (url.startsWith('/')) {
+        url = url.substring(1);
+      }
+      if (url.isNotEmpty) {
+        filteredFrontImageUrls.add(url);
+      }
+    }
+    // Using 'frontimage' to match the file key, hoping backend merges body/files or checks both
+    addList('frontimage', filteredFrontImageUrls);
+
+    // Filter and add backImageUrls
+    final filteredBackImageUrls = <String>[];
+    for (var url in backImageUrls) {
+      if (url.startsWith(baseUrl)) {
+        url = url.replaceFirst(baseUrl, '');
+      }
+      if (url.startsWith('/')) {
+        url = url.substring(1);
+      }
+      if (url.isNotEmpty) {
+        filteredBackImageUrls.add(url);
+      }
+    }
+    addList('backimage', filteredBackImageUrls);
 
     print('🔍 DEBUG: Generated Flattened Array Fields (Filtered):');
     flattened.forEach((key, value) {
