@@ -78,13 +78,14 @@ class _PhotosSectionState extends State<PhotosSection> {
   }
 
   void _validate() {
-    String? storeLogoError;
-    final hasStoreLogo =
-        widget.storeLogo != null ||
-        (widget.storeLogoUrl != null && widget.storeLogoUrl!.isNotEmpty);
-    if (!hasStoreLogo) {
-      storeLogoError = 'Store Logo is required';
-    }
+    // Store Logo is optional now
+    // String? storeLogoError;
+    // final hasStoreLogo =
+    //     widget.storeLogo != null ||
+    //     (widget.storeLogoUrl != null && widget.storeLogoUrl!.isNotEmpty);
+    // if (!hasStoreLogo) {
+    //   storeLogoError = 'Store Logo is required';
+    // }
 
     // Profile Banner is optional
     String? profileBannerError;
@@ -97,7 +98,7 @@ class _PhotosSectionState extends State<PhotosSection> {
       frontStoreImagesError = 'Please upload at least one store image';
     }
 
-    final isValid = hasStoreLogo && hasStoreImages;
+    final isValid = hasStoreImages;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
@@ -107,7 +108,7 @@ class _PhotosSectionState extends State<PhotosSection> {
 
     if (_showErrors) {
       setState(() {
-        _storeLogoError = storeLogoError;
+        _storeLogoError = null; // storeLogoError;
         _profileBannerError = profileBannerError;
         _frontStoreImagesError = frontStoreImagesError;
       });
@@ -326,7 +327,7 @@ class _PhotosSectionState extends State<PhotosSection> {
         // 1. Store Logo
         _buildUploadSection(
           title: 'Store Logo',
-          isRequired: true,
+          isRequired: false,
           errorText: _showErrors ? _storeLogoError : null,
           content: _buildSingleUploadCard(
             file: widget.storeLogo,
