@@ -977,7 +977,7 @@ class _SignatureSectionState extends State<SignatureSection> {
                   recognizer: TapGestureRecognizer()
                     ..onTap = () {
                       _openUrl(
-                        'https://vendor.medicompares.digitalraiz.co.in/terms-and-conditions',
+                        'http://vendor.medicompares.com/PricingPolicy.html',
                       );
                     },
                 ),
@@ -1014,7 +1014,7 @@ class _SignatureSectionState extends State<SignatureSection> {
                   recognizer: TapGestureRecognizer()
                     ..onTap = () {
                       _openUrl(
-                        'https://vendor.medicompares.digitalraiz.co.in/terms-and-conditions',
+                        'https://vendor.medicompares.com/SlaTerms.html',
                       );
                     },
                 ),

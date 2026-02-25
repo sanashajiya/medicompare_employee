@@ -107,6 +107,9 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
   // Dynamic Additional Documents
   List<AdditionalDocumentModel> _additionalDocuments = [];
 
+  // GST Registration toggle
+  bool _isGstRegistered = true;
+
   final TextEditingController _panCardExpiryDateController =
       TextEditingController();
   final TextEditingController _gstExpiryDateController =
@@ -475,6 +478,10 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
             draft.professionalLicenseNumber;
         _panCardExpiryDateController.text = draft.panCardExpiryDate ?? '';
         _gstExpiryDateController.text = draft.gstExpiryDate ?? '';
+        _isGstRegistered =
+            draft.gstExpiryDate?.isNotEmpty == true ||
+            (draft.gstCertificateNumber.isNotEmpty) ||
+            (draft.gstCertificateFilePath?.isNotEmpty == true);
         _businessRegistrationExpiryDateController.text =
             draft.businessRegistrationExpiryDate ?? '';
         _professionalLicenseExpiryDateController.text =
@@ -636,6 +643,24 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
       // Assuming order: PAN Card, GST Certificate, Business Registration, Professional License
       // Note: vendor.docUrls aligns with vendor.docNames
       if (vendor.documentNumbers.isNotEmpty) {
+        // Helper to find path by keyword from verified statuses
+        String? getPath(String key) {
+          if (vendor.documentStatuses == null) return null;
+          try {
+            final d = vendor.documentStatuses!.firstWhere(
+              (d) => d['name'].toString().toLowerCase().contains(
+                key.toLowerCase(),
+              ),
+              orElse: () => {},
+            );
+            return (d['path'] != null && d['path'].toString().isNotEmpty)
+                ? d['path'].toString()
+                : null;
+          } catch (_) {
+            return null;
+          }
+        }
+
         // Find PAN Card
         final panIndex = vendor.docNames.indexWhere(
           (name) => name.toLowerCase().contains('pan'),
@@ -643,8 +668,13 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
         if (panIndex >= 0) {
           if (panIndex < vendor.documentNumbers.length)
             _panCardNumberController.text = vendor.documentNumbers[panIndex];
-          if (panIndex < vendor.docUrls.length)
-            _panCardUrl = vendor.docUrls[panIndex];
+
+          _panCardUrl =
+              getPath('pan') ??
+              (panIndex < vendor.docUrls.length
+                  ? vendor.docUrls[panIndex]
+                  : null);
+
           if (panIndex < vendor.expiryDates.length)
             _panCardExpiryDateController.text = _formatExpiryDate(
               vendor.expiryDates[panIndex],
@@ -659,12 +689,20 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
           if (gstIndex < vendor.documentNumbers.length)
             _gstCertificateNumberController.text =
                 vendor.documentNumbers[gstIndex];
-          if (gstIndex < vendor.docUrls.length)
-            _gstCertificateUrl = vendor.docUrls[gstIndex];
+
+          _gstCertificateUrl =
+              getPath('gst') ??
+              (gstIndex < vendor.docUrls.length
+                  ? vendor.docUrls[gstIndex]
+                  : null);
+
           if (gstIndex < vendor.expiryDates.length)
             _gstExpiryDateController.text = _formatExpiryDate(
               vendor.expiryDates[gstIndex],
             );
+
+          // If GST data exists, mark as registered
+          _isGstRegistered = true;
         }
 
         // Find Business Registration
@@ -677,8 +715,14 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
           if (brIndex < vendor.documentNumbers.length)
             _businessRegistrationNumberController.text =
                 vendor.documentNumbers[brIndex];
-          if (brIndex < vendor.docUrls.length)
-            _businessRegistrationUrl = vendor.docUrls[brIndex];
+
+          _businessRegistrationUrl =
+              getPath('business') ??
+              getPath('registration') ??
+              (brIndex < vendor.docUrls.length
+                  ? vendor.docUrls[brIndex]
+                  : null);
+
           if (brIndex < vendor.expiryDates.length)
             _businessRegistrationExpiryDateController.text = _formatExpiryDate(
               vendor.expiryDates[brIndex],
@@ -695,8 +739,14 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
           if (plIndex < vendor.documentNumbers.length)
             _professionalLicenseNumberController.text =
                 vendor.documentNumbers[plIndex];
-          if (plIndex < vendor.docUrls.length)
-            _professionalLicenseUrl = vendor.docUrls[plIndex];
+
+          _professionalLicenseUrl =
+              getPath('professional') ??
+              getPath('license') ??
+              (plIndex < vendor.docUrls.length
+                  ? vendor.docUrls[plIndex]
+                  : null);
+
           if (plIndex < vendor.expiryDates.length)
             _professionalLicenseExpiryDateController.text = _formatExpiryDate(
               vendor.expiryDates[plIndex],
@@ -845,19 +895,21 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
         'bankName': _bankNameController.text,
         'bankBranch': _bankBranchController.text,
         'panCardNumber': _panCardNumberController.text,
-        'gstCertificateNumber': _gstCertificateNumberController.text,
+        'gstCertificateNumber': _isGstRegistered
+            ? _gstCertificateNumberController.text
+            : '',
         'businessRegistrationNumber':
             _businessRegistrationNumberController.text,
         'professionalLicenseNumber': _professionalLicenseNumberController.text,
         'panCardExpiryDate': _panCardExpiryDateController.text,
-        'gstExpiryDate': _gstExpiryDateController.text,
+        'gstExpiryDate': _isGstRegistered ? _gstExpiryDateController.text : '',
         'businessRegistrationExpiryDate':
             _businessRegistrationExpiryDateController.text,
         'professionalLicenseExpiryDate':
             _professionalLicenseExpiryDateController.text,
         'additionalDocuments': _additionalDocuments, // Pass the list model
         'businessRegistrationFile': _businessRegistrationFile,
-        'gstCertificateFile': _gstCertificateFile,
+        'gstCertificateFile': _isGstRegistered ? _gstCertificateFile : null,
         'panCardFile': _panCardFile,
         'professionalLicenseFile': _professionalLicenseFile,
         'frontStoreImages': _frontStoreImages,
@@ -879,6 +931,7 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
         'consentAccepted': _consentAccepted,
         'pricingAgreementAccepted': _pricingAgreementAccepted,
         'slvAgreementAccepted': _slvAgreementAccepted,
+        'isGstRegistered': _isGstRegistered,
       };
 
       // Check if a draft already exists for this vendor (by business name + mobile)
@@ -1047,11 +1100,11 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
 
     // 1. Aadhaar
     if (isRejected(vendor.adhaarfrontimagestatus) && !_aadhaarFrontReuploaded) {
-      _showError('Please re-upload rejected Aadhaar Front Image');
+      _showError('Please re-upload rejected ID Front Image');
       return false;
     }
     if (isRejected(vendor.adhaarbackimagestatus) && !_aadhaarBackReuploaded) {
-      _showError('Please re-upload rejected Aadhaar Back Image');
+      _showError('Please re-upload rejected ID Back Image');
       return false;
     }
 
@@ -1319,7 +1372,7 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
       bussinesslegalname: _businessLegalNameController.text,
       docNames: [
         'PAN Card',
-        'GST Certificate',
+        if (_isGstRegistered) 'GST Certificate',
         'Business Registration',
         'Professional License',
         // Add names from dynamic additional documents
@@ -1329,9 +1382,10 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
         _panCardNumberController.text.isNotEmpty
             ? _panCardNumberController.text
             : 'PAN',
-        _gstCertificateNumberController.text.isNotEmpty
-            ? _gstCertificateNumberController.text
-            : 'GST',
+        if (_isGstRegistered)
+          _gstCertificateNumberController.text.isNotEmpty
+              ? _gstCertificateNumberController.text
+              : 'GST',
         _businessRegistrationNumberController.text.isNotEmpty
             ? _businessRegistrationNumberController.text
             : 'BR',
@@ -1343,7 +1397,7 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
       ],
       documentNumbers: [
         _panCardNumberController.text,
-        _gstCertificateNumberController.text,
+        if (_isGstRegistered) _gstCertificateNumberController.text,
         _businessRegistrationNumberController.text,
         _professionalLicenseNumberController.text,
         // Add numbers from additional documents
@@ -1351,7 +1405,7 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
       ],
       expiryDates: [
         _panCardExpiryDateController.text,
-        _gstExpiryDateController.text,
+        if (_isGstRegistered) _gstExpiryDateController.text,
         _businessRegistrationExpiryDateController.text,
         _professionalLicenseExpiryDateController.text,
         // Add expiry dates from additional documents
@@ -1359,7 +1413,7 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
       ],
       files: [
         _panCardFile,
-        _gstCertificateFile,
+        if (_isGstRegistered) _gstCertificateFile,
         _businessRegistrationFile,
         _professionalLicenseFile,
         // Add files from additional documents
@@ -1367,7 +1421,8 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
       ],
       docUrls: [
         _panCardFile != null ? '' : (_panCardUrl ?? ''),
-        _gstCertificateFile != null ? '' : (_gstCertificateUrl ?? ''),
+        if (_isGstRegistered)
+          _gstCertificateFile != null ? '' : (_gstCertificateUrl ?? ''),
         _businessRegistrationFile != null
             ? ''
             : (_businessRegistrationUrl ?? ''),
@@ -1393,7 +1448,12 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
       otp: _verifiedOtp, // Include verified OTP in vendor creation
       vendorId: widget.isEditMode && widget.vendorDetails != null
           ? widget.vendorDetails!.vendorId
-          : null, // Include vendorId when editing
+          : null,
+      verifyStatus: widget.vendorDetails?.verifyStatus,
+      documentStatuses: widget.vendorDetails?.documentStatuses,
+      signatureImageUrl: _signatureImageUrl,
+      aadhaarFrontImageUrl: _aadhaarFrontImageUrl,
+      aadhaarBackImageUrl: _aadhaarBackImageUrl,
       consentAccepted: _consentAccepted,
       pricingAgreementAccepted: _pricingAgreementAccepted,
       slvAgreementAccepted: _slvAgreementAccepted,
@@ -1464,6 +1524,7 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
       _selectedBusinessCategories = [];
       _businessRegistrationFile = null;
       _gstCertificateFile = null;
+      _isGstRegistered = true;
       _panCardFile = null;
       _professionalLicenseFile = null;
       // additional docs cleared above
@@ -1626,6 +1687,20 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
           },
           vendorDetails: widget
               .vendorDetails, // Pass vendor details for rejection highlighting
+          isGstRegistered: _isGstRegistered,
+          onGstRegisteredChanged: (value) {
+            setState(() {
+              _isGstRegistered = value;
+              if (!value) {
+                // Clear GST fields when toggled off
+                _gstCertificateNumberController.clear();
+                _gstExpiryDateController.clear();
+                _gstCertificateFile = null;
+                _gstCertificateFileName = null;
+                _gstCertificateUrl = null;
+              }
+            });
+          },
           reuploadedDocuments: _documentsReuploaded,
           onDocumentReuploaded: (key) {
             setState(() {

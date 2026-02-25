@@ -94,6 +94,16 @@ class VendorModel extends VendorEntity {
       parsedDocUrls = List<String>.from(
         json['doc_path'],
       ).map((e) => _getFullUrl(e) ?? '').toList();
+    } else if (json['documents'] != null &&
+        json['documents']['documentsDetails'] is List) {
+      // Fallback: Extract paths from documentsDetails
+      final details = json['documents']['documentsDetails'] as List;
+      parsedDocUrls = details.map((doc) {
+        if (doc is Map) {
+          return _getFullUrl(doc['path']?.toString()) ?? '';
+        }
+        return '';
+      }).toList();
     }
 
     // Parse document verification statuses
@@ -108,6 +118,7 @@ class VendorModel extends VendorEntity {
               'name': doc['name'] ?? '',
               'isVerified': doc['isVerified'],
               'rejectionReason': doc['rejectionReason'],
+              'path': _getFullUrl(doc['path']?.toString()) ?? '',
             };
           })
           .toList()
@@ -279,6 +290,7 @@ class VendorModel extends VendorEntity {
                 'name': doc['name'] ?? '',
                 'isVerified': doc['isVerified'],
                 'rejectionReason': doc['rejectionReason'],
+                'path': _getFullUrl(doc['path']?.toString()) ?? '',
               };
             }
             return <String, dynamic>{};
@@ -616,6 +628,15 @@ class VendorModel extends VendorEntity {
       'bussinesslegalname': bussinesslegalname,
     };
 
+    // Add existing image URLs to business map if available
+    if (storeLogoUrl != null && storeLogoUrl!.isNotEmpty) {
+      // Ensure specific format if needed, simplistic approach for now
+      businessMap['bussiness_image'] = {'url': storeLogoUrl};
+    }
+    if (profileBannerUrl != null && profileBannerUrl!.isNotEmpty) {
+      businessMap['bussiness_banner_image'] = {'url': profileBannerUrl};
+    }
+
     if (latitude != null && longitude != null) {
       businessMap['location'] = {'lat': latitude, 'lng': longitude};
       // Also send flattened location for completeness
@@ -626,9 +647,135 @@ class VendorModel extends VendorEntity {
       });
     }
 
-    // Encode business object to JSON string
-    fields['business'] = jsonEncode(businessMap);
-    print('✅ Added business JSON field: ${fields['business']}');
+    // Construct and add the 'documents' JSON object field
+    final Map<String, dynamic> documentsMap = {};
+    const baseUrl = 'https://api.medicompares.com/';
+
+    // 1. Front Images
+    final filteredFrontImageUrls = <String>[];
+    for (var url in frontImageUrls) {
+      if (url.startsWith(baseUrl)) {
+        url = url.replaceFirst(baseUrl, '');
+      }
+      if (url.startsWith('/')) {
+        url = url.substring(1);
+      }
+      if (url.isNotEmpty) {
+        filteredFrontImageUrls.add(url);
+      }
+    }
+    documentsMap['frontImage'] = filteredFrontImageUrls;
+
+    // 2. Back Images
+    final filteredBackImageUrls = <String>[];
+    for (var url in backImageUrls) {
+      if (url.startsWith(baseUrl)) {
+        url = url.replaceFirst(baseUrl, '');
+      }
+      if (url.startsWith('/')) {
+        url = url.substring(1);
+      }
+      if (url.isNotEmpty) {
+        filteredBackImageUrls.add(url);
+      }
+    }
+    documentsMap['backImage'] = filteredBackImageUrls;
+
+    // 3. Documents Details
+    final docsDetails = <Map<String, dynamic>>[];
+    for (int i = 0; i < docNames.length; i++) {
+      final hasName = docNames[i].trim().isNotEmpty;
+      final hasId = i < docIds.length && docIds[i].trim().isNotEmpty;
+      final hasNumber =
+          i < documentNumbers.length && documentNumbers[i].trim().isNotEmpty;
+      final hasDate =
+          i < expiryDates.length && expiryDates[i].trim().isNotEmpty;
+
+      // Only include if ALL required fields are present
+      if (hasName && hasId && hasNumber && hasDate) {
+        // Sanitize Date
+        String date = expiryDates[i];
+        if (RegExp(r'^\d{2}/\d{2}/\d{4}$').hasMatch(date)) {
+          try {
+            final parts = date.split('/');
+            date = '${parts[2]}-${parts[1]}-${parts[0]}';
+          } catch (e) {
+            print('⚠️ Date sanitization failed for $date: $e');
+          }
+        } else if (date.contains('T')) {
+          try {
+            date = date.split('T')[0];
+          } catch (e) {
+            print('⚠️ ISO Date sanitization failed for $date: $e');
+          }
+        }
+
+        // Sanitize URL/Path
+        String path = '';
+        if (i < docUrls.length) {
+          path = docUrls[i];
+          if (path.startsWith(baseUrl)) {
+            path = path.replaceFirst(baseUrl, '');
+          }
+          if (path.startsWith('/')) {
+            path = path.substring(1);
+          }
+        }
+
+        docsDetails.add({
+          'name': docNames[i],
+          'doc_id': i < docIds.length ? docIds[i] : '',
+          'documentNumber': documentNumbers[i],
+          'expireDate': date,
+          'path': path,
+        });
+      }
+    }
+    documentsMap['documentsDetails'] = docsDetails;
+
+    // 4. Signature
+    final filteredSignatureUrls = <String>[];
+    if (signatureImageUrl != null && signatureImageUrl!.isNotEmpty) {
+      var url = signatureImageUrl!;
+      if (url.startsWith(baseUrl)) {
+        url = url.replaceFirst(baseUrl, '');
+      }
+      if (url.startsWith('/')) {
+        url = url.substring(1);
+      }
+      filteredSignatureUrls.add(url);
+    }
+    documentsMap['signature'] = filteredSignatureUrls;
+    documentsMap['signname'] = signname;
+    // documentsMap['signatureStatus'] = signatureStatus; // Optional: Send status if needed
+
+    // Encode documents object to JSON string
+    fields['documents'] = jsonEncode(documentsMap);
+    print('✅ Added documents JSON field: ${fields['documents']}');
+
+    // Add Aadhaar Image URLs as root fields if available (for preservation)
+    // The backend might expect these as specific keys if files are missing
+    if (aadhaarFrontImageUrl != null && aadhaarFrontImageUrl!.isNotEmpty) {
+      // Trying both potential keys just in case
+      // fields['adhaarfrontimage'] = aadhaarFrontImageUrl!; // As simple string?
+      // Or as structure? The response has array of objects.
+      // Let's try sending as simple string URL first, many backends support this.
+      // But to be consistent with 'documents', maybe it expects JSON?
+      // Since 'adhaarfrontimage' is a file field, sending text might be tricky.
+      // BUT, let's try adding to 'documentsMap' as well? No, it's root.
+      // Let's trying adding to businessMap? No.
+      // Let's skip explicitly sending aadhaar text field for now unless user confirms it's lost too.
+      // User said "all docs, photos...". Documents and Photos (gallery).
+      // Did user say Aadhaar is lost?
+      // "pan and business registration are rejected".
+      // "documents, photos are disappearing".
+      // Usually "documents" refers to the list. "Photos" refers to gallery.
+      // Aadhaar is "Personal Details" or "ID Proof".
+      // If Aadhaar is lost, I should handle it.
+      // Step 439 shows Aadhaar images PRESENT in response.
+      // So maybe Aadhaar is fine?
+      // I will stick to `signature` inside `documents`.
+    }
 
     // Add vendorId if present (Required for Update API)
     if (vendorId != null && vendorId!.isNotEmpty) {
@@ -768,8 +915,8 @@ class VendorModel extends VendorEntity {
         filteredFrontImageUrls.add(url);
       }
     }
-    // Using 'frontimage' to match the file key, hoping backend merges body/files or checks both
-    addList('frontimage', filteredFrontImageUrls);
+    // Using 'frontImage' to match the backend key for existing URLs
+    addList('frontImage', filteredFrontImageUrls);
 
     // Filter and add backImageUrls
     final filteredBackImageUrls = <String>[];
@@ -784,11 +931,50 @@ class VendorModel extends VendorEntity {
         filteredBackImageUrls.add(url);
       }
     }
-    addList('backimage', filteredBackImageUrls);
+    // Match 'backImage' key
+    addList('backImage', filteredBackImageUrls);
+
+    // 🔹 Add explicit nested keys for documentsDetails to ensure deep merge works
+    // This handles: documents[documentsDetails][0][path] = "..."
+    for (int i = 0; i < validIndices.length; i++) {
+      final originalIndex = validIndices[i];
+      final prefix = 'documents[documentsDetails][$i]';
+
+      // Name
+      flattened['$prefix[name]'] = docNames[originalIndex];
+
+      // Doc ID
+      if (originalIndex < docIds.length) {
+        flattened['$prefix[doc_id]'] = docIds[originalIndex];
+      }
+
+      // Document Number
+      if (originalIndex < documentNumbers.length) {
+        flattened['$prefix[documentNumber]'] = documentNumbers[originalIndex];
+      }
+
+      // Expiry Date (Use sanitized version from filteredExpiryDates)
+      if (i < filteredExpiryDates.length) {
+        flattened['$prefix[expireDate]'] = filteredExpiryDates[i];
+        // Also try 'expiryDate' alias just in case
+        flattened['$prefix[expiryDate]'] = filteredExpiryDates[i];
+      }
+
+      // Path
+      if (i < filteredDocUrls.length) {
+        // filteredDocUrls already has the relative path logic applied
+        flattened['$prefix[path]'] = filteredDocUrls[i];
+      } else {
+        flattened['$prefix[path]'] = '';
+      }
+    }
 
     print('🔍 DEBUG: Generated Flattened Array Fields (Filtered):');
     flattened.forEach((key, value) {
-      if (key.startsWith('expireDate') || key.startsWith('doc_name')) {
+      if (key.startsWith('expireDate') ||
+          key.startsWith('doc_name') ||
+          key.startsWith('frontImage') ||
+          key.startsWith('documents[')) {
         print('   $key: $value');
       }
     });

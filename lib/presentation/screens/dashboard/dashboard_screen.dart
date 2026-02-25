@@ -122,19 +122,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   void _handlePrivacyPolicy() async {
     final Uri url = Uri.parse(
-      'https://medicompares.com/policies/privacy-policy',
+      'http://vendor.medicompares.com/PricingPolicy.html',
     );
 
     if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not open Privacy Policy')),
+        const SnackBar(content: Text('Could not open Pricing Policy')),
       );
     }
   }
 
   void _handleAboutUs() async {
     final Uri url = Uri.parse(
-      'https://medicompares.com/policies/terms-and-conditions',
+      'https://vendor.medicompares.digitalraiz.co.in/terms-and-conditions',
     );
 
     if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {

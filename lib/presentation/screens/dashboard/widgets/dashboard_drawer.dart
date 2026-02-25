@@ -136,7 +136,7 @@ class DashboardDrawer extends StatelessWidget {
                   children: [
                     _DrawerItem(
                       icon: Icons.privacy_tip_outlined,
-                      label: 'Privacy Policy',
+                      label: 'Pricing Policy',
                       onTap: () {
                         Navigator.pop(context);
                         onPrivacyPolicy();

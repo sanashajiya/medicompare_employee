@@ -48,6 +48,8 @@ class DocumentsSection extends StatefulWidget {
   final Function(String fieldName, File? file, String? fileName) onFileSelected;
   final Function(bool isValid) onValidationChanged;
   final bool showErrors; // New field
+  final bool isGstRegistered;
+  final ValueChanged<bool> onGstRegisteredChanged;
   final VendorEntity? vendorDetails; // For rejection highlighting
   final Map<String, bool> reuploadedDocuments;
   final Function(String)? onDocumentReuploaded;
@@ -82,6 +84,8 @@ class DocumentsSection extends StatefulWidget {
     required this.onFileSelected,
     required this.onValidationChanged,
     this.showErrors = false, // New
+    this.isGstRegistered = true,
+    required this.onGstRegisteredChanged,
     this.vendorDetails, // For rejection highlighting
     this.reuploadedDocuments = const {},
     this.onDocumentReuploaded,
@@ -218,11 +222,13 @@ class _DocumentsSectionState extends State<DocumentsSection> {
       widget.businessRegistrationUrl,
       'Business Registration Certificate',
     );
-    final gstCertificateError = validateDocRequest(
-      widget.gstCertificateFile,
-      widget.gstCertificateUrl,
-      'GST Registration Certificate',
-    );
+    final gstCertificateError = widget.isGstRegistered
+        ? validateDocRequest(
+            widget.gstCertificateFile,
+            widget.gstCertificateUrl,
+            'GST Registration Certificate',
+          )
+        : null;
     final panCardError = validateDocRequest(
       widget.panCardFile,
       widget.panCardUrl,
@@ -263,6 +269,7 @@ class _DocumentsSectionState extends State<DocumentsSection> {
         widget.businessRegistrationFile != null ||
         (widget.businessRegistrationUrl?.isNotEmpty ?? false);
     final bool hasGst =
+        !widget.isGstRegistered ||
         widget.gstCertificateFile != null ||
         (widget.gstCertificateUrl?.isNotEmpty ?? false);
     final bool hasPan =
@@ -282,11 +289,9 @@ class _DocumentsSectionState extends State<DocumentsSection> {
         hasPan &&
         hasProfLicense &&
         widget.businessRegistrationNumberController.text.isNotEmpty &&
-        widget.businessRegistrationExpiryDateController.text.isNotEmpty &&
-        widget.gstCertificateNumberController.text.isNotEmpty &&
-        widget.gstExpiryDateController.text.isNotEmpty &&
+        (!widget.isGstRegistered ||
+            widget.gstCertificateNumberController.text.isNotEmpty) &&
         widget.panCardNumberController.text.isNotEmpty &&
-        widget.panCardExpiryDateController.text.isNotEmpty &&
         widget.professionalLicenseNumberController.text.isNotEmpty &&
         widget.professionalLicenseExpiryDateController.text.isNotEmpty &&
         additionalDocumentsAreValid; // New validation for dynamic docs
@@ -707,6 +712,8 @@ class _DocumentsSectionState extends State<DocumentsSection> {
     required String fieldKey,
     required String? errorText,
     bool isMandatory = true,
+    bool showExpiryDate = true,
+    bool isExpiryMandatory = true,
     List<TextInputFormatter>? inputFormatters,
     required FocusNode focusNode,
   }) {
@@ -847,12 +854,14 @@ class _DocumentsSectionState extends State<DocumentsSection> {
             inputFormatters: inputFormatters,
             onChanged: (_) => _validate(), // Added onChanged for validation
           ),
-          const SizedBox(height: 16),
-          _buildExpiryDateField(
-            expiryDateController,
-            isMandatory,
-            isApproved: isApproved,
-          ),
+          if (showExpiryDate) ...[
+            const SizedBox(height: 16),
+            _buildExpiryDateField(
+              expiryDateController,
+              isExpiryMandatory,
+              isApproved: isApproved,
+            ),
+          ],
           const SizedBox(height: 16),
           FileUploadField(
             label: 'Upload $title',
@@ -869,13 +878,11 @@ class _DocumentsSectionState extends State<DocumentsSection> {
                 : () => _removeFile(fieldKey), // Disable remove if approved
           ),
           // Show rejection banner if rejected
-          if (isRejected &&
-              rejectionReason != null &&
-              rejectionReason.isNotEmpty)
+          if (isRejected)
             Padding(
               padding: const EdgeInsets.only(top: 16),
               child: RejectionBanner(
-                reason: rejectionReason,
+                reason: rejectionReason ?? 'Reupload to continue verification.',
                 title: 'Document Rejected',
                 onReupload: widget.enabled
                     ? () {
@@ -985,6 +992,10 @@ class _DocumentsSectionState extends State<DocumentsSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // ── GST Registered Toggle ──
+        _buildGstToggle(),
+        const SizedBox(height: 16),
+
         _buildDocumentCard(
           title: 'Business Registration Certificate',
           numberController: widget.businessRegistrationNumberController,
@@ -994,27 +1005,28 @@ class _DocumentsSectionState extends State<DocumentsSection> {
           url: widget.businessRegistrationUrl,
           fileName: widget.businessRegistrationFileName,
           fieldKey: 'business_registration',
-          errorText: widget.showErrors
-              ? _businessRegistrationError
-              : null, // Changed to widget.showErrors
+          errorText: widget.showErrors ? _businessRegistrationError : null,
           isMandatory: true,
+          isExpiryMandatory: false,
           focusNode: _businessRegistrationNumberFocus,
         ),
-        _buildDocumentCard(
-          title: 'GST Registration Certificate',
-          numberController: widget.gstCertificateNumberController,
-          expiryDateController: widget.gstExpiryDateController,
-          numberHint: 'Enter GST number',
-          file: widget.gstCertificateFile,
-          url: widget.gstCertificateUrl,
-          fileName: widget.gstCertificateFileName,
-          fieldKey: 'gst_certificate',
-          errorText: widget.showErrors
-              ? _gstCertificateError
-              : null, // Changed to widget.showErrors
-          isMandatory: true,
-          focusNode: _gstCertificateNumberFocus,
-        ),
+
+        // ── GST Certificate Card (conditional) ──
+        if (widget.isGstRegistered)
+          _buildDocumentCard(
+            title: 'GST Registration Certificate',
+            numberController: widget.gstCertificateNumberController,
+            expiryDateController: widget.gstExpiryDateController,
+            numberHint: 'Enter GST number',
+            file: widget.gstCertificateFile,
+            url: widget.gstCertificateUrl,
+            fileName: widget.gstCertificateFileName,
+            fieldKey: 'gst_certificate',
+            errorText: widget.showErrors ? _gstCertificateError : null,
+            isMandatory: true,
+            showExpiryDate: false,
+            focusNode: _gstCertificateNumberFocus,
+          ),
         _buildDocumentCard(
           title: 'PAN Card',
           numberController: widget.panCardNumberController,
@@ -1028,6 +1040,7 @@ class _DocumentsSectionState extends State<DocumentsSection> {
               ? _panCardError
               : null, // Changed to widget.showErrors
           isMandatory: true,
+          showExpiryDate: false,
           focusNode: _panCardNumberFocus,
           inputFormatters: [
             FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9]')),
@@ -1335,6 +1348,91 @@ class _DocumentsSectionState extends State<DocumentsSection> {
             );
           }),
       ],
+    );
+  }
+
+  /// Builds the "Is GST Registered?" toggle card
+  Widget _buildGstToggle() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: widget.isGstRegistered
+            ? AppColors.primary.withOpacity(0.05)
+            : Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: widget.isGstRegistered
+              ? AppColors.primary.withOpacity(0.3)
+              : Colors.grey.shade300,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: widget.isGstRegistered
+                  ? AppColors.primary.withOpacity(0.1)
+                  : Colors.grey.shade200,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              widget.isGstRegistered
+                  ? Icons.verified_outlined
+                  : Icons.cancel_outlined,
+              color: widget.isGstRegistered
+                  ? AppColors.primary
+                  : AppColors.textSecondary,
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Is GST Registered?',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  widget.isGstRegistered
+                      ? 'GST certificate is required'
+                      : 'GST certificate is not required',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Transform.scale(
+            scale: 0.9,
+            child: Switch.adaptive(
+              value: widget.isGstRegistered,
+              onChanged: widget.enabled
+                  ? (value) {
+                      widget.onGstRegisteredChanged(value);
+                      // Re-validate after toggle change
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (mounted) _validate();
+                      });
+                    }
+                  : null,
+              activeColor: AppColors.primary,
+              inactiveThumbColor: Colors.grey.shade400,
+              inactiveTrackColor: Colors.grey.shade200,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
