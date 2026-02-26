@@ -691,10 +691,10 @@ class VendorModel extends VendorEntity {
       final hasDate =
           i < expiryDates.length && expiryDates[i].trim().isNotEmpty;
 
-      // Only include if ALL required fields are present
-      if (hasName && hasId && hasNumber && hasDate) {
+      // Only include if name, id, and number are present (date is optional)
+      if (hasName && hasId && hasNumber) {
         // Sanitize Date
-        String date = expiryDates[i];
+        String date = (hasDate) ? expiryDates[i] : '';
         if (RegExp(r'^\d{2}/\d{2}/\d{4}$').hasMatch(date)) {
           try {
             final parts = date.split('/');
@@ -825,11 +825,9 @@ class VendorModel extends VendorEntity {
       final hasId = i < docIds.length && docIds[i].trim().isNotEmpty;
       final hasNumber =
           i < documentNumbers.length && documentNumbers[i].trim().isNotEmpty;
-      final hasDate =
-          i < expiryDates.length && expiryDates[i].trim().isNotEmpty;
 
-      // Only include if ALL required fields are present
-      if (hasName && hasId && hasNumber && hasDate) {
+      // Only include if name, id, and number are present (date is optional)
+      if (hasName && hasId && hasNumber) {
         validIndices.add(i);
       }
     }

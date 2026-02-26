@@ -903,7 +903,7 @@ class _SignatureSectionState extends State<SignatureSection> {
                             recognizer: TapGestureRecognizer()
                               ..onTap = () {
                                 _openUrl(
-                                  'https://vendor.medicompares.digitalraiz.co.in/terms-and-conditions',
+                                  'https://vendor.medicompares.com/terms-and-conditions',
                                 );
                               },
                           ),
